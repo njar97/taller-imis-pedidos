@@ -193,144 +193,7 @@ const {
   useEffect,
   useRef
 } = React;
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyam7Sk6hstowABIbcEsH7zEJ46eIWNKIRCrm-xmkYCqdC0QF1x0QdGo5qBYo8zU18/exec"; // legacy - mantenido para subida de imágenes a Drive
-const SB_URL = "https://kszdievqesveluzcnzsh.supabase.co";
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzemRpZXZxZXN2ZWx1emNuenNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MTgwMTgsImV4cCI6MjA5MDM5NDAxOH0.r28goEyUxZeKK9j0efu1BXC8ssU9lYxRK7dp3BGix1M";
-
-// ── Supabase fetch helper ──────────────────────────────
-async function sbFetch(path, opts={}) {
-  const res = await fetch(SB_URL + "/rest/v1/" + path, {
-    ...opts,
-    headers: {
-      "apikey": SB_KEY,
-      "Authorization": "Bearer " + SB_KEY,
-      "Content-Type": "application/json",
-      "Prefer": opts.prefer || "return=representation",
-      ...(opts.headers||{})
-    }
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error("Supabase error " + res.status + ": " + err);
-  }
-  const ct = res.headers.get("content-type")||"";
-  return ct.includes("json") ? res.json() : res.text();
-}
-
-// ── Mapeo pedido JS → columnas Supabase ────────────────
-function pedidoToRow(p) {
-  return {
-    id: p.id,
-    fecha: p.fecha||null,
-    cliente: p.cliente||null,
-    tipo_cliente: p.tipoCliente||null,
-    nombre_contacto: p.nombreContacto||null,
-    telefono: p.telefono||null,
-    tipo_prenda: p.tipoPrenda||null,
-    tela: p.tela||null,
-    color: p.color||null,
-    descripcion: p.descripcion||null,
-    estatus: p.estatus||"Tomado",
-    costurera: p.costurera||null,
-    vendedor: p.vendedor||null,
-    precio: p.precio||null,
-    anticipo: p.anticipo||null,
-    fecha_inicio: p.fechaInicio||null,
-    fecha_entrega: p.fechaEntrega||null,
-    notas: p.notas||null,
-    tipo_documento: p.tipoDocumento||null,
-    razon_social: p.razonSocial||null,
-    nit: p.nit||null,
-    nrc: p.nrc||null,
-    dir_fiscal: p.dirFiscal||null,
-    tiene_bordado: p.tieneBordado||false,
-    estatus_diseno: p.estatusDiseno||null,
-    tela_comprada: p.telaComprada||false,
-    modo_prenda: p.modoPrenda||null,
-    modo_tallas: p.modoTallas||null,
-    grupo_tallas: p.grupoTallas||null,
-    tallas_libre: p.tallasLibre||null,
-    tallas_qty: p.tallasQty||{},
-    tallas_items: p.tallasItems||[],
-    imagenes: (p.imagenes||[]).map(img=>{return {nombre:img.nombre,tipo:img.tipo,driveUrl:img.driveUrl||null,driveId:img.driveId||null}}),
-    abonos: p.abonos||[],
-    medidas: p.medidas||{},
-    personas: p.personas||[]
-  };
-}
-function rowToPedido(r) {
-  return {
-    id: r.id, fecha: r.fecha, cliente: r.cliente,
-    tipoCliente: r.tipo_cliente, nombreContacto: r.nombre_contacto,
-    telefono: r.telefono, tipoPrenda: r.tipo_prenda,
-    tela: r.tela, color: r.color, descripcion: r.descripcion,
-    estatus: r.estatus, costurera: r.costurera, vendedor: r.vendedor,
-    precio: r.precio, anticipo: r.anticipo,
-    fechaInicio: r.fecha_inicio, fechaEntrega: r.fecha_entrega,
-    notas: r.notas, tipoDocumento: r.tipo_documento,
-    razonSocial: r.razon_social, nit: r.nit, nrc: r.nrc,
-    dirFiscal: r.dir_fiscal, tieneBordado: r.tiene_bordado,
-    estatusDiseno: r.estatus_diseno, telaComprada: r.tela_comprada,
-    modoPrenda: r.modo_prenda, modoTallas: r.modo_tallas,
-    grupoTallas: r.grupo_tallas, tallasLibre: r.tallas_libre,
-    tallasQty: r.tallas_qty||{}, tallasItems: r.tallas_items||[],
-    imagenes: r.imagenes||[], abonos: r.abonos||[],
-    medidas: r.medidas||{}, personas: r.personas||[]
-  };
-}
-
-// ── Mapeo bordado JS → columnas Supabase ───────────────
-function bordadoToRow(b) {
-  return {
-    id: b.id, fecha: b.fecha||null, cliente: b.cliente||null,
-    telefono: b.telefono||null, conf_ref: b.confRef||null,
-    tipo_documento: b.tipoDocumento||null, razon_social: b.razonSocial||null,
-    nit: b.nit||null, soporte: b.soporte||null,
-    cantidad: b.cantidad||null, posicion: b.posicion||null,
-    pos_libre: b.posLibre||null, diseno: b.diseño||null,
-    estado_diseno: b.estadoDiseño||null, hilos: b.hilos||null,
-    num_colores: b.numColores||null, puntadas: b.puntadas||null,
-    ancho_mm: b.anchoMm||null, alto_mm: b.altoMm||null,
-    precio_u: b.precioU||null, precio_t: b.precioT||null,
-    anticipo: b.anticipo||null, fecha_entrega: b.fechaEntrega||null,
-    estatus: b.estatus||"Tomado", notas: b.notas||null,
-    link_drive: b.linkDrive||null,
-    link_emb_drive_url: b.linkEmbDriveUrl||null,
-    link_emb_drive_id: b.linkEmbDriveId||null,
-    link_emb_folder_id: b.linkEmbFolderId||null,
-    link_dst_url: b.linkDstUrl||null,
-    link_dst_id: b.linkDstId||null,
-    link_dst_folder_id: b.linkDstFolderId||null,
-    imagen_ref_url: b.imagenRefUrl||null,
-    imagen_ref_id: b.imagenRefId||null,
-    abonos: b.abonos||[]
-  };
-}
-function rowToBordado(r) {
-  return {
-    id: r.id, fecha: r.fecha, cliente: r.cliente,
-    telefono: r.telefono, confRef: r.conf_ref,
-    tipoDocumento: r.tipo_documento, razonSocial: r.razon_social,
-    nit: r.nit, soporte: r.soporte, cantidad: r.cantidad,
-    posicion: r.posicion, posLibre: r.pos_libre,
-    diseño: r.diseno, estadoDiseño: r.estado_diseno,
-    hilos: r.hilos, numColores: r.num_colores,
-    puntadas: r.puntadas, anchoMm: r.ancho_mm, altoMm: r.alto_mm,
-    precioU: r.precio_u, precioT: r.precio_t,
-    anticipo: r.anticipo, fechaEntrega: r.fecha_entrega,
-    estatus: r.estatus, notas: r.notas,
-    linkDrive: r.link_drive,
-    linkEmbDriveUrl: r.link_emb_drive_url,
-    linkEmbDriveId: r.link_emb_drive_id,
-    linkEmbFolderId: r.link_emb_folder_id,
-    linkDstUrl: r.link_dst_url,
-    linkDstId: r.link_dst_id,
-    linkDstFolderId: r.link_dst_folder_id,
-    imagenRefUrl: r.imagen_ref_url,
-    imagenRefId: r.imagen_ref_id,
-    abonos: r.abonos||[]
-  };
-}
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyam7Sk6hstowABIbcEsH7zEJ46eIWNKIRCrm-xmkYCqdC0QF1x0QdGo5qBYo8zU18/exec";
 const PIN_ADMIN = "1234";
 const ANTHROPIC_KEY = ""; // ← Pega aquí tu clave sk-ant-...
 const TALLER = "Taller IMIS";
@@ -640,131 +503,161 @@ async function idbBorrar(pedidoId) {
     req.onerror = () => res();
   });
 }
-// ═══════════════════════════════════════════
-// FUNCIONES SUPABASE — reemplazan Apps Script
-// ═══════════════════════════════════════════
-
-// ── PEDIDOS ──
 async function gsLeer() {
   try {
-    const rows = await sbFetch("pedidos?select=*&order=id.desc");
-    return rows.map(rowToPedido);
-  } catch(e) { console.error("gsLeer:", e); return []; }
+    const r = await fetch(SCRIPT_URL + "?action=getAll");
+    const d = await r.json();
+    if (d.error) console.error("gsLeer error:", d.error);
+    return d.pedidos || [];
+  } catch (e) {
+    console.error("gsLeer fetch error:", e);
+    return [];
+  }
 }
 async function gsGuardar(p) {
-  try {
-    const row = pedidoToRow(p);
-    // upsert: inserta o actualiza según el id
-    await sbFetch("pedidos?on_conflict=id", {
-      method: "POST",
-      headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(row)
-    });
-  } catch(e) { console.error("gsGuardar:", e); }
+  const pLimpio = {
+    ...p,
+    imagenes: (p.imagenes || []).map(img => ({
+      nombre: img.nombre,
+      tipo: img.tipo,
+      driveUrl: img.driveUrl || null,
+      driveId: img.driveId || null
+    }))
+  };
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain"
+    },
+    body: JSON.stringify({
+      action: "save",
+      data: pLimpio
+    })
+  });
 }
 async function gsBorrar(id) {
-  try {
-    await sbFetch("pedidos?id=eq." + id, { method: "DELETE", prefer: "return=minimal" });
-  } catch(e) { console.error("gsBorrar:", e); }
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain"
+    },
+    body: JSON.stringify({
+      action: "delete",
+      id
+    })
+  });
 }
-
-// ── BORDADOS ──
 async function gsBordLeer() {
   try {
-    const rows = await sbFetch("bordados?select=*&order=id.desc");
-    return rows.map(rowToBordado);
-  } catch(e) { console.error("gsBordLeer:", e); return []; }
+    const r = await fetch(SCRIPT_URL + "?action=getBordados");
+    const d = await r.json();
+    return d.bordados || [];
+  } catch {
+    return [];
+  }
 }
 async function gsBordGuardar(b) {
   try {
-    const row = bordadoToRow(b);
-    await sbFetch("bordados?on_conflict=id", {
+    await fetch(SCRIPT_URL, {
       method: "POST",
-      headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(row)
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify({
+        action: "saveBordado",
+        data: b
+      })
     });
-  } catch(e) { console.error("gsBordGuardar:", e); }
+  } catch {}
 }
 async function gsBordBorrar(id) {
   try {
-    await sbFetch("bordados?id=eq." + id, { method: "DELETE", prefer: "return=minimal" });
-  } catch(e) { console.error("gsBordBorrar:", e); }
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify({
+        action: "deleteBordado",
+        id
+      })
+    });
+  } catch {}
 }
-
-// ── CUELLOS ──
 async function gsCuelLeer() {
   try {
-    const rows = await sbFetch("cuellos?select=*&order=id.desc");
-    return rows.map(r => ({
-      id: r.id, fecha: r.fecha, cliente: r.cliente,
-      telefono: r.telefono, confRef: r.conf_ref,
-      material: r.material, calibre: r.calibre, color: r.color,
-      piezas: r.piezas||[], precioU: r.precio_u, precioT: r.precio_t,
-      anticipo: r.anticipo, fechaEntrega: r.fecha_entrega,
-      estatus: r.estatus, notas: r.notas, abonos: r.abonos||[]
-    }));
-  } catch(e) { console.error("gsCuelLeer:", e); return []; }
+    const r = await fetch(SCRIPT_URL + "?action=getCuellos");
+    const d = await r.json();
+    return d.cuellos || [];
+  } catch {
+    return [];
+  }
 }
-async function gsCuelGuardar(cu) {
+async function gsCuelGuardar(c) {
   try {
-    const row = {
-      id: cu.id, fecha: cu.fecha||null, cliente: cu.cliente||null,
-      telefono: cu.telefono||null, conf_ref: cu.confRef||null,
-      material: cu.material||null, calibre: cu.calibre||null, color: cu.color||null,
-      piezas: cu.piezas||[], precio_u: cu.precioU||null, precio_t: cu.precioT||null,
-      anticipo: cu.anticipo||null, fecha_entrega: cu.fechaEntrega||null,
-      estatus: cu.estatus||"Tomado", notas: cu.notas||null, abonos: cu.abonos||[]
-    };
-    await sbFetch("cuellos?on_conflict=id", {
+    await fetch(SCRIPT_URL, {
       method: "POST",
-      headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(row)
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify({
+        action: "saveCuello",
+        data: c
+      })
     });
-  } catch(e) { console.error("gsCuelGuardar:", e); }
+  } catch {}
 }
 async function gsCuelBorrar(id) {
   try {
-    await sbFetch("cuellos?id=eq." + id, { method: "DELETE", prefer: "return=minimal" });
-  } catch(e) { console.error("gsCuelBorrar:", e); }
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify({
+        action: "deleteCuello",
+        id
+      })
+    });
+  } catch {}
 }
-
-// ── CLIENTES ──
 async function gsClientesLeer() {
   try {
-    const rows = await sbFetch("clientes?select=*&order=nombre.asc");
-    return rows.map(r => ({
-      id: r.id, nombre: r.nombre, telefono: r.telefono,
-      tipo: r.tipo, tipoDocumento: r.tipo_documento,
-      razonSocial: r.razon_social, nit: r.nit, nrc: r.nrc,
-      dirFiscal: r.dir_fiscal, medidas: r.medidas||{}
-    }));
-  } catch(e) { console.error("gsClientesLeer:", e); return []; }
+    const r = await fetch(SCRIPT_URL + "?action=getClientes");
+    const d = await r.json();
+    return d.clientes || [];
+  } catch {
+    return [];
+  }
 }
 async function gsClientesGuardar(cli) {
   try {
-    const row = {
-      id: cli.id||undefined, nombre: cli.nombre||"",
-      telefono: cli.telefono||null, tipo: cli.tipo||null,
-      tipo_documento: cli.tipoDocumento||null,
-      razon_social: cli.razonSocial||null,
-      nit: cli.nit||null, nrc: cli.nrc||null,
-      dir_fiscal: cli.dirFiscal||null, medidas: cli.medidas||{}
-    };
-    if (!row.id) delete row.id; // let Supabase auto-assign
-    await sbFetch("clientes?on_conflict=id", {
+    await fetch(SCRIPT_URL, {
       method: "POST",
-      headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(row)
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify({
+        action: "saveCliente",
+        data: cli
+      })
     });
-  } catch(e) { console.error("gsClientesGuardar:", e); }
+  } catch {}
 }
 async function gsClientesBorrar(id) {
   try {
-    await sbFetch("clientes?id=eq." + id, { method: "DELETE", prefer: "return=minimal" });
-  } catch(e) { console.error("gsClientesBorrar:", e); }
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify({
+        action: "deleteCliente",
+        id
+      })
+    });
+  } catch {}
 }
-
-
 async function subirImagenADrive(img, modulo, cliente, clienteConf) {
   if (img.driveUrl) return {
     img,
@@ -11666,34 +11559,3819 @@ const CATALOGO_BASE = [{
 }];
 async function gsCatalogoLeer() {
   try {
-    const rows = await sbFetch("catalogo?select=*&activo=eq.true&order=id.asc");
-    return rows.map(r => ({
-      id: r.id, tipo: r.tipo, nombre: r.nombre,
-      descripcion: r.descripcion, precioBase: r.precio_base,
-      imagenUrl: r.imagen_url, activo: r.activo
-    }));
-  } catch(e) { console.error("gsCatalogoLeer:", e); return []; }
+    const r = await fetch(SCRIPT_URL + "?action=getCatalogo");
+    const d = await r.json();
+    return d.catalogo && d.catalogo.length > 0 ? d.catalogo : CATALOGO_BASE;
+  } catch {
+    return CATALOGO_BASE;
+  }
 }
-async function gsCatalogoGuardar(item) {
+async function gsCatalogoGuardar(lista) {
   try {
-    const row = {
-      id: item.id||undefined, tipo: item.tipo||null,
-      nombre: item.nombre||null, descripcion: item.descripcion||null,
-      precio_base: item.precioBase||null, imagen_url: item.imagenUrl||null,
-      activo: item.activo !== false
-    };
-    if (!row.id) delete row.id;
-    await sbFetch("catalogo?on_conflict=id", {
+    await fetch(SCRIPT_URL, {
       method: "POST",
-      headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(row)
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: JSON.stringify({
+        action: "saveCatalogo",
+        data: lista
+      })
     });
-  } catch(e) { console.error("gsCatalogoGuardar:", e); }
+  } catch {}
 }
-async function gsCatalogoBorrar(id) {
-  try {
-    await sbFetch("catalogo?id=eq." + id, { method: "DELETE", prefer: "return=minimal" });
-  } catch(e) {}
+function SeccionCatalogo({
+  catalogo,
+  setCatalogo,
+  esAdmin
+}) {
+  const [modal, setModal] = useState(null); // null | "nuevo" | producto
+  const [detalle, setDet] = useState(null);
+  function guardar(form) {
+    const isNuevo = modal === "nuevo";
+    const id = isNuevo ? catalogo.length ? Math.max(...catalogo.map(c => c.id || 0)) + 1 : 1 : modal.id;
+    const prod = {
+      ...form,
+      id
+    };
+    const nueva = isNuevo ? [...catalogo, prod] : catalogo.map(p => p.id === id ? prod : p);
+    setCatalogo(nueva);
+    gsCatalogoGuardar(nueva);
+    setModal(null);
+  }
+  function eliminar(id) {
+    if (!window.confirm("¿Eliminar este producto del catálogo?")) return;
+    const nueva = catalogo.filter(p => p.id !== id);
+    setCatalogo(nueva);
+    gsCatalogoGuardar(nueva);
+    setDet(null);
+  }
+  const fmtT = n => n ? `${n} día${n !== 1 ? "s" : ""}` : "-";
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      height: "100%",
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 16px",
+      background: "#fff",
+      borderBottom: "1px solid #eee",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: 0,
+      fontSize: 16,
+      color: "#2C1654",
+      fontWeight: 800,
+      fontFamily: "Georgia,serif"
+    }
+  }, "\uD83E\uDDF5 Cat\xE1logo de productos"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#aaa"
+    }
+  }, catalogo.length, " tipo", catalogo.length !== 1 ? "s" : "", " de prenda")), esAdmin && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setModal("nuevo"),
+    style: {
+      padding: "9px 14px",
+      borderRadius: 8,
+      border: "none",
+      background: "#2C1654",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 13
+    }
+  }, "+ Nuevo tipo")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflow: "auto",
+      padding: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))",
+      gap: 12
+    }
+  }, catalogo.map(prod => /*#__PURE__*/React.createElement("div", {
+    key: prod.id,
+    onClick: () => setDet(prod),
+    style: {
+      background: "#fff",
+      borderRadius: 14,
+      padding: 16,
+      border: "1.5px solid #f0f0f0",
+      cursor: "pointer",
+      transition: "box-shadow .15s"
+    },
+    onMouseEnter: e => e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.1)",
+    onMouseLeave: e => e.currentTarget.style.boxShadow = "none"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 10,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 32,
+      lineHeight: 1,
+      flexShrink: 0
+    }
+  }, prod.icono || "✂️"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 800,
+      color: "#2C1654"
+    }
+  }, prod.nombre), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      marginTop: 4,
+      flexWrap: "wrap"
+    }
+  }, prod.requiereMedidas && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      background: "#EBF5FB",
+      color: "#1A5276",
+      padding: "2px 7px",
+      borderRadius: 10,
+      fontWeight: 700
+    }
+  }, "\uD83D\uDCD0 A la medida"), prod.requiereCuello && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      background: "#F3E5F5",
+      color: "#6B2D8B",
+      padding: "2px 7px",
+      borderRadius: 10,
+      fontWeight: 700
+    }
+  }, "\uD83E\uDDF6 Con cuello"), prod.modoDefault === "lista" && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      background: "#FFF3E0",
+      color: "#E67E22",
+      padding: "2px 7px",
+      borderRadius: 10,
+      fontWeight: 700
+    }
+  }, "\uD83D\uDCCB Lista"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      background: "#f0f0f0",
+      color: "#888",
+      padding: "2px 7px",
+      borderRadius: 10,
+      fontWeight: 700
+    }
+  }, "\u23F1 ", fmtT(prod.tiempoEst))))), prod.telas && prod.telas.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#888",
+      marginBottom: 6
+    }
+  }, "\uD83E\uDDF5 ", prod.telas.slice(0, 3).join(", "), prod.telas.length > 3 ? "..." : ""), prod.precioBase && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 800,
+      color: "#27AE60"
+    }
+  }, "Desde $", prod.precioBase), prod.preciosPorTalla && Object.values(prod.preciosPorTalla).some(v => v) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 4,
+      flexWrap: "wrap",
+      marginTop: 4
+    }
+  }, Object.entries(prod.preciosPorTalla).filter(([, v]) => v).map(([t, p]) => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      fontSize: 9,
+      background: "#f0fff4",
+      color: "#155724",
+      padding: "2px 6px",
+      borderRadius: 8,
+      fontWeight: 700
+    }
+  }, t, ": $", p))), prod.notas && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#aaa",
+      marginTop: 6,
+      fontStyle: "italic",
+      lineHeight: 1.4
+    }
+  }, prod.notas))))), detalle && /*#__PURE__*/React.createElement(Modal, {
+    title: `${detalle.icono || "✂️"} ${detalle.nombre}`,
+    onClose: () => setDet(null)
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gap: 8,
+      marginBottom: 14
+    }
+  }, [["Modo de registro", detalle.modoDefault === "lista" ? "📋 Lista de prendas" : "📦 Por tallas"], ["Requiere medidas", detalle.requiereMedidas ? "✅ Sí" : "No"], ["Cuello tejido", detalle.requiereCuello ? "✅ Sí (coordinar con Cuellos)" : "No"], ["Tiempo estimado", fmtT(detalle.tiempoEst)], ["Telas sugeridas", (detalle.telas || []).join(", ") || "—"], ["Colores comunes", (detalle.colores || []).join(", ") || "—"], ["Precio base", detalle.precioBase ? `$${detalle.precioBase}` : "Sin precio base"], ["Notas", detalle.notas || "—"]].map(([k, v]) => /*#__PURE__*/React.createElement("div", {
+    key: k,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      padding: "7px 0",
+      borderBottom: "1px solid #f5f5f5",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: "#aaa",
+      fontWeight: 700,
+      whiteSpace: "nowrap"
+    }
+  }, k), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      color: "#333",
+      textAlign: "right"
+    }
+  }, v)))), detalle.preciosPorTalla && Object.values(detalle.preciosPorTalla).some(v => v) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: "#888",
+      textTransform: "uppercase",
+      marginBottom: 8
+    }
+  }, "Precios por talla"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, Object.entries(detalle.preciosPorTalla).filter(([, v]) => v).map(([t, p]) => /*#__PURE__*/React.createElement("div", {
+    key: t,
+    style: {
+      background: "#f0fff4",
+      border: "1px solid #a8d8a8",
+      borderRadius: 8,
+      padding: "6px 10px",
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 800,
+      color: "#2C1654"
+    }
+  }, t), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 900,
+      color: "#27AE60"
+    }
+  }, "$", p))))), esAdmin && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      justifyContent: "flex-end",
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => eliminar(detalle.id),
+    style: {
+      padding: "8px 12px",
+      borderRadius: 8,
+      border: "1.5px solid #fdd",
+      background: "#fff8f8",
+      color: "#DC3545",
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 12
+    }
+  }, "\uD83D\uDDD1\uFE0F Eliminar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setModal(detalle);
+      setDet(null);
+    },
+    style: {
+      padding: "8px 16px",
+      borderRadius: 8,
+      border: "none",
+      background: "#2C1654",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 13
+    }
+  }, "\u270F\uFE0F Editar"))), modal && /*#__PURE__*/React.createElement(ModalFormProducto, {
+    initial: modal !== "nuevo" ? modal : null,
+    onSave: guardar,
+    onCancel: () => setModal(null)
+  }));
 }
+function ModalFormProducto({
+  initial,
+  onSave,
+  onCancel
+}) {
+  const def = {
+    nombre: "",
+    icono: "✂️",
+    telas: [],
+    colores: [],
+    modoDefault: "tallas",
+    requiereMedidas: false,
+    requiereCuello: false,
+    camposExtra: [],
+    tiempoEst: "",
+    precioBase: "",
+    preciosPorTalla: {
+      XS: "",
+      S: "",
+      M: "",
+      L: "",
+      XL: "",
+      "2XL": "",
+      "3XL": ""
+    },
+    notas: ""
+  };
+  const [f, setF] = useState({
+    ...def,
+    ...(initial || {})
+  });
+  const set = (k, v) => setF(p => ({
+    ...p,
+    [k]: v
+  }));
+  const INPS = {
+    width: "100%",
+    padding: "8px 10px",
+    borderRadius: 8,
+    border: "1.5px solid #e0e0e0",
+    fontSize: 13,
+    fontFamily: "inherit",
+    outline: "none",
+    background: "#FAFAF8"
+  };
+  const LBL = {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#666",
+    marginBottom: 3,
+    display: "block",
+    textTransform: "uppercase",
+    letterSpacing: .3
+  };
+  const [newTela, setNT] = useState("");
+  const [newColor, setNC] = useState("");
+  const addTela = () => {
+    if (!newTela.trim()) return;
+    set("telas", [...(f.telas || []), newTela.trim()]);
+    setNT("");
+  };
+  const addColor = () => {
+    if (!newColor.trim()) return;
+    set("colores", [...(f.colores || []), newColor.trim()]);
+    setNC("");
+  };
+  const ICONOS = ["✂️", "👔", "👕", "👗", "👖", "🤵", "⚽", "🪡", "👚", "🧥"];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      zIndex: 200,
+      padding: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: "16px 16px 0 0",
+      padding: 16,
+      width: "100%",
+      maxWidth: 560,
+      maxHeight: "92vh",
+      overflowY: "auto",
+      boxShadow: "0 -8px 40px rgba(0,0,0,0.25)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: 0,
+      fontSize: 16,
+      color: "#2C1654",
+      fontFamily: "Georgia,serif"
+    }
+  }, initial ? "✏️ Editar producto" : "+ Nuevo tipo de prenda"), /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    style: {
+      background: "none",
+      border: "none",
+      fontSize: 22,
+      cursor: "pointer",
+      color: "#bbb"
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "\xCDcono"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, ICONOS.map(ic => /*#__PURE__*/React.createElement("button", {
+    key: ic,
+    onClick: () => set("icono", ic),
+    style: {
+      fontSize: 24,
+      padding: "6px",
+      borderRadius: 8,
+      border: "2px solid " + (f.icono === ic ? "#2C1654" : "#e0e0e0"),
+      background: f.icono === ic ? "#f0ebff" : "#fff",
+      cursor: "pointer"
+    }
+  }, ic)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 80px",
+      gap: 10,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Nombre *"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.nombre,
+    onChange: e => set("nombre", e.target.value),
+    placeholder: "Ej: Filipina, Camisa polo..."
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Tiempo (d\xEDas)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: INPS,
+    value: f.tiempoEst,
+    onChange: e => set("tiempoEst", parseInt(e.target.value) || ""),
+    placeholder: "3"
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Modo de registro por default"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, [["tallas", "📦 Por tallas"], ["lista", "📋 Lista de prendas"]].map(([v, l]) => /*#__PURE__*/React.createElement("button", {
+    key: v,
+    onClick: () => set("modoDefault", v),
+    style: {
+      flex: 1,
+      padding: "8px",
+      borderRadius: 8,
+      border: "1.5px solid " + (f.modoDefault === v ? "#E67E22" : "#e0e0e0"),
+      background: f.modoDefault === v ? "#FFF3E0" : "#fff",
+      color: f.modoDefault === v ? "#E67E22" : "#666",
+      cursor: "pointer",
+      fontSize: 12,
+      fontWeight: f.modoDefault === v ? 700 : 400
+    }
+  }, l)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 16,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      cursor: "pointer",
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: f.requiereMedidas,
+    onChange: e => set("requiereMedidas", e.target.checked),
+    style: {
+      accentColor: "#1A5276"
+    }
+  }), /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCD0 Requiere medidas")), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      cursor: "pointer",
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: f.requiereCuello,
+    onChange: e => set("requiereCuello", e.target.checked),
+    style: {
+      accentColor: "#9B59B6"
+    }
+  }), /*#__PURE__*/React.createElement("span", null, "\uD83E\uDDF6 Lleva cuello tejido"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Telas sugeridas"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 5,
+      marginBottom: 6
+    }
+  }, (f.telas || []).map((t, i) => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    style: {
+      background: "#f0f0f0",
+      borderRadius: 20,
+      padding: "3px 10px",
+      fontSize: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 5
+    }
+  }, t, /*#__PURE__*/React.createElement("button", {
+    onClick: () => set("telas", (f.telas || []).filter((_, j) => j !== i)),
+    style: {
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      color: "#aaa",
+      fontSize: 14,
+      padding: 0,
+      lineHeight: 1
+    }
+  }, "\xD7")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: newTela,
+    onChange: e => setNT(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addTela(),
+    placeholder: "Agregar tela...",
+    style: {
+      ...INPS,
+      flex: 1
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: addTela,
+    style: {
+      padding: "8px 12px",
+      borderRadius: 8,
+      border: "none",
+      background: "#2C1654",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 700
+    }
+  }, "+"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Colores comunes"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 5,
+      marginBottom: 6
+    }
+  }, (f.colores || []).map((col, i) => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    style: {
+      background: "#f0f0f0",
+      borderRadius: 20,
+      padding: "3px 10px",
+      fontSize: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 5
+    }
+  }, col, /*#__PURE__*/React.createElement("button", {
+    onClick: () => set("colores", (f.colores || []).filter((_, j) => j !== i)),
+    style: {
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      color: "#aaa",
+      fontSize: 14,
+      padding: 0,
+      lineHeight: 1
+    }
+  }, "\xD7")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: newColor,
+    onChange: e => setNC(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addColor(),
+    placeholder: "Agregar color...",
+    style: {
+      ...INPS,
+      flex: 1
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: addColor,
+    style: {
+      padding: "8px 12px",
+      borderRadius: 8,
+      border: "none",
+      background: "#2C1654",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 700
+    }
+  }, "+"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Precios por talla ($ \u2014 opcional)"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(4,1fr)",
+      gap: 6
+    }
+  }, Object.entries(f.preciosPorTalla || {}).map(([t, p]) => /*#__PURE__*/React.createElement("div", {
+    key: t
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      fontWeight: 700,
+      color: "#888",
+      textAlign: "center",
+      marginBottom: 2
+    }
+  }, t), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "0.25",
+    value: p || "",
+    onChange: e => set("preciosPorTalla", {
+      ...f.preciosPorTalla,
+      [t]: e.target.value
+    }),
+    placeholder: "\u2014",
+    style: {
+      ...INPS,
+      textAlign: "center",
+      padding: "5px 4px",
+      fontSize: 12,
+      color: "#27AE60",
+      fontWeight: 700
+    }
+  }))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Precio base ($ \u2014 para prendas sin talla fija)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    style: INPS,
+    value: f.precioBase || "",
+    onChange: e => set("precioBase", e.target.value),
+    placeholder: "0.00"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Notas / instrucciones"), /*#__PURE__*/React.createElement("textarea", {
+    style: {
+      ...INPS,
+      resize: "vertical",
+      minHeight: 50
+    },
+    value: f.notas || "",
+    onChange: e => set("notas", e.target.value),
+    placeholder: "Instrucciones especiales para este tipo de prenda..."
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    style: {
+      padding: "9px 18px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      background: "#fff",
+      cursor: "pointer",
+      fontWeight: 600,
+      color: "#666"
+    }
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (!f.nombre.trim()) {
+        alert("El nombre es obligatorio");
+        return;
+      }
+      onSave(f);
+    },
+    style: {
+      padding: "9px 22px",
+      borderRadius: 8,
+      border: "none",
+      background: "#2C1654",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 800,
+      fontSize: 14
+    }
+  }, "\uD83D\uDCBE Guardar"))));
+}
+function SeccionClientes({
+  clientes,
+  setClientes,
+  pedidos,
+  bordados,
+  cuellos,
+  esAdmin
+}) {
+  const [busq, setBusq] = useState("");
+  const [modal, setModal] = useState(null); // null | "nuevo" | cliente
+  const [confirm, setConf] = useState(null);
+  const lista = clientes.filter(cl => !busq || cl.nombre.toLowerCase().includes(busq.toLowerCase()) || (cl.telefono || "").includes(busq));
+  function statsCliente(cli) {
+    const nombre = cli.nombre.toLowerCase();
+    const todos = [...pedidos.filter(p => (p.cliente || "").toLowerCase() === nombre), ...bordados.filter(b => (b.cliente || "").toLowerCase() === nombre), ...cuellos.filter(c => (c.cliente || "").toLowerCase() === nombre)];
+    const activos = todos.filter(p => !["Entregado", "Cancelado"].includes(p.estatus)).length;
+    const fechas = todos.map(p => p.fecha || p.fechaEntrega || "").filter(Boolean).sort().reverse();
+    const monto = todos.reduce((s, p) => s + parseFloat(p.precio || p.precioT || 0), 0);
+    return {
+      total: todos.length,
+      activos,
+      ultimaFecha: fechas[0] || "—",
+      monto
+    };
+  }
+  function guardar(form) {
+    const isNuevo = modal === "nuevo";
+    const id = isNuevo ? clientes.length ? Math.max(...clientes.map(c => c.id || 0)) + 1 : 1 : modal.id;
+    const cli = {
+      ...form,
+      id,
+      fecha: isNuevo ? hoy() : modal.fecha || hoy()
+    };
+    if (isNuevo) setClientes(prev => [...prev, cli]);else setClientes(prev => prev.map(c => c.id === id ? cli : c));
+    gsClientesGuardar(cli);
+    setModal(null);
+  }
+  function eliminar(id) {
+    setClientes(prev => prev.filter(c => c.id !== id));
+    gsClientesBorrar(id);
+    setConf(null);
+  }
+  const totalConCF = clientes.filter(c => c.nit).length;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      height: "100%",
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 16px",
+      background: "#fff",
+      borderBottom: "1px solid #eee",
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: 0,
+      fontSize: 16,
+      color: "#2C1654",
+      fontWeight: 800,
+      fontFamily: "Georgia,serif"
+    }
+  }, "\uD83D\uDC65 Clientes"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#aaa"
+    }
+  }, clientes.length, " cliente(s)", totalConCF > 0 ? ` · ${totalConCF} con datos fiscales` : "")), /*#__PURE__*/React.createElement("input", {
+    value: busq,
+    onChange: e => setBusq(e.target.value),
+    placeholder: "\uD83D\uDD0D Buscar...",
+    style: {
+      padding: "7px 10px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      fontSize: 13,
+      outline: "none",
+      width: 160
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setModal("nuevo"),
+    style: {
+      padding: "9px 14px",
+      borderRadius: 8,
+      border: "none",
+      background: "#2C1654",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 13,
+      whiteSpace: "nowrap"
+    }
+  }, "+ Nuevo")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflow: "auto",
+      padding: 12
+    }
+  }, lista.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: 60,
+      color: "#ccc"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 44,
+      marginBottom: 10
+    }
+  }, "\uD83D\uDC65"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 600,
+      color: "#aaa"
+    }
+  }, clientes.length === 0 ? "Aún no hay clientes registrados" : "Sin resultados"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "#bbb",
+      marginTop: 4
+    }
+  }, clientes.length === 0 ? "Los clientes se guardan automáticamente al registrar pedidos" : "")) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, lista.map(cli => {
+    const st = statsCliente(cli);
+    return /*#__PURE__*/React.createElement("div", {
+      key: cli.id,
+      style: {
+        background: "#fff",
+        borderRadius: 12,
+        padding: "12px 16px",
+        border: "1.5px solid #f0f0f0",
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        flexWrap: "wrap"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 42,
+        height: 42,
+        borderRadius: "50%",
+        background: cli.tipo === "empresa" ? "#CCE5FF" : cli.tipo === "escuela" ? "#D4EDDA" : "#E8D5FF",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 20,
+        flexShrink: 0
+      }
+    }, cli.tipo === "empresa" ? "🏢" : cli.tipo === "escuela" ? "🏫" : "👤"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 150
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 800,
+        color: "#2C1654",
+        fontSize: 14
+      }
+    }, cli.nombre), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 10,
+        marginTop: 2,
+        flexWrap: "wrap"
+      }
+    }, cli.telefono && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: "#555"
+      }
+    }, "\uD83D\uDCF1 ", cli.telefono), cli.contacto && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: "#888"
+      }
+    }, "\uD83D\uDC64 ", cli.contacto), cli.nit && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: "#27AE60",
+        fontWeight: 700
+      }
+    }, "\uD83D\uDCCB CF")), cli.notas && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "#aaa",
+        marginTop: 2,
+        fontStyle: "italic"
+      }
+    }, cli.notas)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 12,
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 18,
+        fontWeight: 900,
+        color: "#9B59B6"
+      }
+    }, st.total), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: "#aaa",
+        fontWeight: 700,
+        textTransform: "uppercase"
+      }
+    }, "pedidos")), st.activos > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 18,
+        fontWeight: 900,
+        color: "#E67E22"
+      }
+    }, st.activos), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: "#aaa",
+        fontWeight: 700,
+        textTransform: "uppercase"
+      }
+    }, "activos")), st.monto > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 14,
+        fontWeight: 800,
+        color: "#27AE60"
+      }
+    }, "$", st.monto.toFixed(0)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: "#aaa",
+        fontWeight: 700,
+        textTransform: "uppercase"
+      }
+    }, "historial"))), st.ultimaFecha !== "—" && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "#aaa",
+        flexShrink: 0
+      }
+    }, "\xDAltimo pedido:", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("strong", {
+      style: {
+        color: "#555"
+      }
+    }, st.ultimaFecha)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 6,
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setModal(cli),
+      style: {
+        padding: "7px 14px",
+        borderRadius: 8,
+        border: "none",
+        background: "#9B59B6",
+        color: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
+        fontSize: 12
+      }
+    }, "\u270F\uFE0F Editar"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setConf(cli.id),
+      style: {
+        padding: "7px 10px",
+        borderRadius: 8,
+        border: "1.5px solid #fdd",
+        background: "#fff8f8",
+        cursor: "pointer",
+        fontSize: 12,
+        color: "#DC3545"
+      }
+    }, "\uD83D\uDDD1\uFE0F")));
+  }))), modal && /*#__PURE__*/React.createElement(ModalFormCliente, {
+    initial: modal !== "nuevo" ? modal : null,
+    onSave: guardar,
+    onCancel: () => setModal(null)
+  }), confirm && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 200,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: 14,
+      padding: 28,
+      maxWidth: 340,
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 36,
+      marginBottom: 8
+    }
+  }, "\uD83D\uDDD1\uFE0F"), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: "0 0 8px",
+      color: "#2C1654"
+    }
+  }, "\xBFEliminar cliente?"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#888",
+      fontSize: 13,
+      margin: "0 0 16px"
+    }
+  }, "Solo se borra de la cartera, no afecta los pedidos existentes."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConf(null),
+    style: {
+      padding: "9px 18px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      background: "#fff",
+      cursor: "pointer",
+      fontWeight: 600
+    }
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => eliminar(confirm),
+    style: {
+      padding: "9px 18px",
+      borderRadius: 8,
+      border: "none",
+      background: "#E63946",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 700
+    }
+  }, "S\xED, eliminar")))));
+}
+function ModalFormCliente({
+  initial,
+  onSave,
+  onCancel
+}) {
+  const def = {
+    nombre: "",
+    telefono: "",
+    tipo: "persona",
+    contacto: "",
+    nit: "",
+    nrc: "",
+    razonSocial: "",
+    dirFiscal: "",
+    notas: "",
+    medidas: {}
+  };
+  const [f, setF] = useState({
+    ...def,
+    ...(initial || {})
+  });
+  const set = (k, v) => setF(p => ({
+    ...p,
+    [k]: v
+  }));
+  const INPS = {
+    width: "100%",
+    padding: "8px 10px",
+    borderRadius: 8,
+    border: "1.5px solid #e0e0e0",
+    fontSize: 13,
+    fontFamily: "inherit",
+    outline: "none",
+    background: "#FAFAF8"
+  };
+  const LBL = {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#666",
+    marginBottom: 3,
+    display: "block",
+    textTransform: "uppercase",
+    letterSpacing: .3
+  };
+  const tieneDatosFiscales = f.nit || f.nrc || f.razonSocial;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      zIndex: 200,
+      padding: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: "16px 16px 0 0",
+      padding: 16,
+      width: "100%",
+      maxWidth: 520,
+      maxHeight: "92vh",
+      overflowY: "auto",
+      boxShadow: "0 -8px 40px rgba(0,0,0,0.25)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: 0,
+      fontSize: 16,
+      color: "#2C1654",
+      fontFamily: "Georgia,serif"
+    }
+  }, initial ? "✏️ Editar cliente" : "👥 Nuevo cliente"), /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    style: {
+      background: "none",
+      border: "none",
+      fontSize: 22,
+      cursor: "pointer",
+      color: "#bbb"
+    }
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 12
+    }
+  }, [["persona", "👤 Persona"], ["empresa", "🏢 Empresa"], ["escuela", "🏫 Escuela/Inst."]].map(([val, lbl]) => /*#__PURE__*/React.createElement("button", {
+    key: val,
+    onClick: () => set("tipo", val),
+    style: {
+      flex: 1,
+      padding: "7px 4px",
+      borderRadius: 8,
+      border: "1.5px solid " + (f.tipo === val ? "#9B59B6" : "#e0e0e0"),
+      background: f.tipo === val ? "#9B59B6" : "#fff",
+      color: f.tipo === val ? "#fff" : "#666",
+      cursor: "pointer",
+      fontSize: 12,
+      fontWeight: f.tipo === val ? 700 : 400
+    }
+  }, lbl))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 10,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Nombre *"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.nombre,
+    placeholder: "Nombre completo o raz\xF3n",
+    onChange: e => set("nombre", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Tel\xE9fono / WhatsApp"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.telefono,
+    placeholder: "Para avisar",
+    onChange: e => set("telefono", e.target.value)
+  }))), (f.tipo === "empresa" || f.tipo === "escuela") && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Nombre del contacto"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.contacto,
+    placeholder: f.tipo === "escuela" ? "Director / administrador" : "Persona de contacto",
+    onChange: e => set("contacto", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      border: "1.5px solid " + (tieneDatosFiscales ? "#a8d8a8" : "#f0f0f0"),
+      borderRadius: 10,
+      overflow: "hidden",
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "10px 14px",
+      background: tieneDatosFiscales ? "#f0fff4" : "#fafafa",
+      fontSize: 12,
+      fontWeight: 700,
+      color: tieneDatosFiscales ? "#155724" : "#aaa"
+    }
+  }, "\uD83E\uDDFE Datos fiscales ", tieneDatosFiscales ? "(registrados)" : "(opcional — para crédito fiscal)"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 14px",
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Raz\xF3n Social"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.razonSocial,
+    placeholder: "Nombre legal",
+    onChange: e => set("razonSocial", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "NIT"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.nit,
+    placeholder: "0000-000000-000-0",
+    onChange: e => set("nit", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "NRC"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.nrc,
+    placeholder: "000000-0",
+    onChange: e => set("nrc", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Direcci\xF3n fiscal"), /*#__PURE__*/React.createElement("input", {
+    style: INPS,
+    value: f.dirFiscal,
+    placeholder: "Para factura",
+    onChange: e => set("dirFiscal", e.target.value)
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      border: "1.5px solid #dce3ff",
+      borderRadius: 10,
+      overflow: "hidden",
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#f0f4ff",
+      padding: "9px 14px",
+      fontSize: 11,
+      fontWeight: 800,
+      color: "#1A5276",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCD0 Medidas del cliente (cm)"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: "#888",
+      fontWeight: 400
+    }
+  }, "Se autocompletar\xE1n en pedidos futuros")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "10px 14px",
+      display: "grid",
+      gridTemplateColumns: "repeat(3,1fr)",
+      gap: 8
+    }
+  }, MEDIDAS_DEF.map(m => /*#__PURE__*/React.createElement("div", {
+    key: m.k
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 9,
+      fontWeight: 700,
+      color: "#888",
+      marginBottom: 2,
+      display: "block",
+      textTransform: "uppercase"
+    }
+  }, m.l), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: (f.medidas || {})[m.k] || "",
+    onChange: e => set("medidas", {
+      ...(f.medidas || {}),
+      [m.k]: e.target.value
+    }),
+    placeholder: "\u2014",
+    style: {
+      ...INPS,
+      padding: "6px 8px",
+      textAlign: "center",
+      fontSize: 13
+    }
+  }))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: LBL
+  }, "Notas internas"), /*#__PURE__*/React.createElement("textarea", {
+    style: {
+      ...INPS,
+      resize: "vertical",
+      minHeight: 44
+    },
+    value: f.notas,
+    placeholder: "Preferencias, observaciones...",
+    onChange: e => set("notas", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onCancel,
+    style: {
+      padding: "9px 18px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      background: "#fff",
+      cursor: "pointer",
+      fontWeight: 600,
+      color: "#666"
+    }
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (!f.nombre.trim()) {
+        alert("El nombre es obligatorio");
+        return;
+      }
+      onSave(f);
+    },
+    style: {
+      padding: "9px 22px",
+      borderRadius: 8,
+      border: "none",
+      background: "#2C1654",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 800,
+      fontSize: 14
+    }
+  }, "\uD83D\uDCBE Guardar"))));
+}
+function App() {
+  const [rol, setRol] = useState(null);
+  const [seccion, setSec] = useState("pedidos");
+  const [pedidos, setPedidos] = useState([]);
+  const [nextId, setNextId] = useState(1);
+  const [inventario, setInventario] = useState([]);
+  const [asignaciones, setAsignaciones] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [detalle, setDet] = useState(null);
+  const [confirmar, setConf] = useState(null);
+  const [busqueda, setBusq] = useState("");
+  const [filtro, setFiltro] = useState("Todos");
+  const [sync, setSync] = useState("idle");
+  const [progreso, setProgreso] = useState(null);
+  const [errorFotos, setErrorFotos] = useState([]);
+  const [visor, setVisor] = useState(null); // {imgs:[], idx:0}
+  const [modalIA, setModalIA] = useState(false);
+  const [modalArchivar, setModalArchivar] = useState(null);
+  const [modalActMedidas, setModalActMedidas] = useState(null);
+  const [clientes, setClientes] = useState([]);
+  const [catalogo, setCatalogo] = useState(CATALOGO_BASE);
+  const [bordados, setBordados] = useState(() => {
+    try {
+      const d = localStorage.getItem("imis_bordados");
+      return d ? JSON.parse(d) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [nextBordId, setNextBordId] = useState(() => {
+    try {
+      const d = localStorage.getItem("imis_bordados");
+      const l = d ? JSON.parse(d) : [];
+      return l.length ? Math.max(...l.map(b => Number(b.id) || 0)) + 1 : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const [cuellos, setCuellos] = useState(() => {
+    try {
+      const d = localStorage.getItem("imis_cuellos");
+      return d ? JSON.parse(d) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [nextCuelId, setNextCuelId] = useState(() => {
+    try {
+      const d = localStorage.getItem("imis_cuellos");
+      const l = d ? JSON.parse(d) : [];
+      return l.length ? Math.max(...l.map(c => Number(c.id) || 0)) + 1 : 1;
+    } catch {
+      return 1;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("imis_bordados", JSON.stringify(bordados));
+    } catch {}
+  }, [bordados]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("imis_cuellos", JSON.stringify(cuellos));
+    } catch {}
+  }, [cuellos]);
+  const rolBase = (rol || "").startsWith("operario_") ? "operario" : rol;
+  const esAdmin = rolBase === "admin";
+  useEffect(() => {
+    if (!rolBase) return;
+    if (rol && rol.startsWith("operario_")) {
+      const mod = rol.replace("operario_", "");
+      if (["pedidos", "bordados", "cuellos"].includes(mod)) setSec(mod);
+    }
+    setSync("cargando");
+    Promise.all([gsLeer(), idbLeerTodas(), gsBordLeer(), gsCuelLeer(), gsClientesLeer(), gsCatalogoLeer()]).then(([sheetsData, idbData, bordSh, cuelSh, cliSh, catSh]) => {
+      console.log("Datos cargados — confección:", sheetsData.length, "bordados:", bordSh.length, "cuellos:", cuelSh.length, "clientes:", cliSh.length);
+      if (sheetsData.length > 0) {
+        const idbMap = Object.fromEntries(idbData.map(r => [String(r.pedidoId), r.imagenes || []]));
+        const normFecha = v => {
+          if (!v) return "";
+          const s = String(v).trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          try {
+            const d = new Date(s);
+            if (!isNaN(d.getTime())) {
+              const yr = d.getFullYear();
+              const mo = String(d.getMonth() + 1).padStart(2, "0");
+              const da = String(d.getDate()).padStart(2, "0");
+              return yr + "-" + mo + "-" + da;
+            }
+          } catch (e) {}
+          return s;
+        };
+        const parseCampo = v => {
+          if (Array.isArray(v) || typeof v === "object") return v;
+          if (typeof v === "string" && (v.startsWith("[") || v.startsWith("{"))) {
+            try {
+              return JSON.parse(v);
+            } catch {
+              return [];
+            }
+          }
+          return v;
+        };
+        const merged = sheetsData.map(p => {
+          const rawImgs = parseCampo(p.imagenes);
+          const sheetsImgs = Array.isArray(rawImgs) ? rawImgs : [];
+          const localImgs = idbMap[String(p.id)] || [];
+          const imgsMerged = sheetsImgs.map(sImg => {
+            const local = localImgs.find(l => l.nombre === sImg.nombre && (l.data || l.driveUrl));
+            return local ? {
+              ...sImg,
+              ...local,
+              driveUrl: sImg.driveUrl || local.driveUrl
+            } : sImg;
+          });
+          return {
+            ...p,
+            imagenes: imgsMerged,
+            tallasItems: parseCampo(p.tallasItems),
+            tallasQty: parseCampo(p.tallasQty),
+            medidas: parseCampo(p.medidas),
+            abonos: parseCampo(p.abonos) || [],
+            personas: parseCampo(p.personas) || [],
+            modoRegistro: p.modoRegistro || "tallas",
+            fecha: normFecha(p.fecha),
+            fechaEntrega: normFecha(p.fechaEntrega),
+            fechaInicio: normFecha(p.fechaInicio)
+          };
+        });
+        setPedidos(merged);
+        setNextId(Math.max(...merged.map(p => Number(p.id) || 0)) + 1);
+      }
+      if (bordSh.length > 0) {
+        const bordParsed = bordSh.map(b => ({
+          ...b,
+          abonos: parseCampo(b.abonos) || []
+        }));
+        setBordados(bordParsed);
+        setNextBordId(Math.max(...bordParsed.map(b => Number(b.id) || 0)) + 1);
+      }
+      if (cuelSh.length > 0) {
+        const cuelParsed = cuelSh.map(cu => ({
+          ...cu,
+          abonos: parseCampo(cu.abonos) || [],
+          cuello: parseCampo(cu.cuello) || null,
+          puno: parseCampo(cu.puno) || null,
+          banda: parseCampo(cu.banda) || null
+        }));
+        setCuellos(cuelParsed);
+        setNextCuelId(Math.max(...cuelParsed.map(c => Number(c.id) || 0)) + 1);
+      }
+      if (cliSh.length > 0) {
+        setClientes(cliSh);
+      } else {
+        const mapaC = {};
+        [...sheetsData, ...bordSh, ...cuelSh].forEach(p => {
+          const nombre = (p.cliente || "").trim();
+          if (!nombre) return;
+          const key = nombre.toLowerCase();
+          if (!mapaC[key]) mapaC[key] = {
+            id: Object.keys(mapaC).length + 1,
+            nombre,
+            telefono: p.telefono || "",
+            tipo: p.tipoCliente || "persona",
+            contacto: p.nombreContacto || "",
+            nit: p.nit || "",
+            nrc: p.nrc || "",
+            razonSocial: p.razonSocial || "",
+            dirFiscal: p.dirFiscal || "",
+            notas: "",
+            fecha: hoy()
+          };else {
+            const ex = mapaC[key];
+            if (!ex.telefono && p.telefono) ex.telefono = p.telefono;
+            if (!ex.nit && p.nit) ex.nit = p.nit;
+            if (!ex.nrc && p.nrc) ex.nrc = p.nrc;
+          }
+        });
+        const listaCli = Object.values(mapaC);
+        if (listaCli.length > 0) {
+          setClientes(listaCli);
+          listaCli.forEach(cli => gsClientesGuardar(cli));
+        }
+      }
+      if (catSh && catSh.length > 0) setCatalogo(catSh);
+      setSync("ok");
+    }).catch(err => { console.warn("Carga parcial:", err); setSync("ok"); });
+  }, [rolBase]);
+  async function guardarPedido(form, _esNuevo) {
+    const esNuevo = _esNuevo !== undefined ? _esNuevo : modal === "nuevo";
+    const idPedido = esNuevo ? nextId : (modal || {}).id || form.id;
+    const baseP = esNuevo ? {
+      ...form,
+      id: idPedido,
+      fecha: hoy()
+    } : {
+      ...(modal || {}),
+      ...form,
+      id: idPedido
+    };
+    setModal(null);
+    setSync("guardando");
+    const pendientes = (baseP.imagenes || []).filter(i => i.data && !i.driveUrl);
+    let imagenesFinales = [...(baseP.imagenes || [])];
+    const erroresSubida = [];
+    if (pendientes.length > 0) {
+      setProgreso({
+        actual: 0,
+        total: pendientes.length,
+        errores: 0
+      });
+      let idx = 0;
+      imagenesFinales = [];
+      for (const img of baseP.imagenes || []) {
+        if (!img.data || img.driveUrl) {
+          imagenesFinales.push(img);
+          continue;
+        }
+        const {
+          img: imgResult,
+          ok,
+          err
+        } = await subirImagenADrive(img, "confeccion", baseP.cliente);
+        imagenesFinales.push(imgResult);
+        idx++;
+        if (!ok) erroresSubida.push({
+          nombre: img.nombre || "foto",
+          err
+        });
+        setProgreso({
+          actual: idx,
+          total: pendientes.length,
+          errores: erroresSubida.length
+        });
+      }
+      await new Promise(r => setTimeout(r, 500));
+      setProgreso(null);
+    }
+    const p = {
+      ...baseP,
+      imagenes: imagenesFinales
+    };
+    if (esNuevo) {
+      setPedidos(prev => [...prev, p]);
+      setNextId(n => n + 1);
+    } else {
+      setPedidos(prev => prev.map(x => x.id === p.id ? p : x));
+    }
+    upsertClienteLocal(p.cliente, {
+      telefono: p.telefono,
+      tipo: p.tipoCliente,
+      contacto: p.nombreContacto,
+      nit: p.nit,
+      nrc: p.nrc,
+      razonSocial: p.razonSocial,
+      dirFiscal: p.dirFiscal
+    });
+    const tieneMedsNuevas = p.medidas && Object.values(p.medidas).some(v => v);
+    if (tieneMedsNuevas) {
+      const cliIdx = clientes.findIndex(cl => cl.nombre.toLowerCase() === p.cliente.toLowerCase());
+      if (cliIdx >= 0) {
+        const cliActual = clientes[cliIdx];
+        const medsCli = cliActual.medidas || {};
+        const hayDiferencia = Object.entries(p.medidas).some(([k, v]) => v && medsCli[k] !== v);
+        if (hayDiferencia) {
+          setModalActMedidas({
+            pedido: p,
+            cliente: cliActual
+          });
+        }
+      }
+    }
+    try {
+      await Promise.all([gsGuardar(p), idbGuardar(p.id, p.imagenes)]);
+      if (erroresSubida.length > 0) {
+        setSync("error_fotos");
+        setErrorFotos(erroresSubida);
+      } else {
+        setSync("ok");
+      }
+    } catch {
+      setSync("error");
+    }
+  }
+  function upsertClienteLocal(nombre, extra = {}) {
+    if (!nombre || !nombre.trim()) return;
+    const key = nombre.trim().toLowerCase();
+    setClientes(prev => {
+      const idx = prev.findIndex(c => c.nombre.toLowerCase() === key);
+      if (idx >= 0) {
+        const ex = {
+          ...prev[idx]
+        };
+        if (!ex.telefono && extra.telefono) ex.telefono = extra.telefono;
+        if (!ex.tipo && extra.tipo) ex.tipo = extra.tipo;
+        if (!ex.contacto && extra.contacto) ex.contacto = extra.contacto;
+        if (!ex.nit && extra.nit) ex.nit = extra.nit;
+        if (!ex.nrc && extra.nrc) ex.nrc = extra.nrc;
+        if (!ex.razonSocial && extra.razonSocial) ex.razonSocial = extra.razonSocial;
+        if (!ex.dirFiscal && extra.dirFiscal) ex.dirFiscal = extra.dirFiscal;
+        gsClientesGuardar(ex);
+        const nuevos = [...prev];
+        nuevos[idx] = ex;
+        return nuevos;
+      } else {
+        const nuevo = {
+          id: prev.length ? Math.max(...prev.map(c => c.id || 0)) + 1 : 1,
+          nombre: nombre.trim(),
+          fecha: hoy(),
+          ...extra
+        };
+        gsClientesGuardar(nuevo);
+        return [...prev, nuevo];
+      }
+    });
+  }
+  async function cambiarEstatus(id, est) {
+    const lista = pedidos.map(p => p.id === id ? {
+      ...p,
+      estatus: est
+    } : p);
+    setPedidos(lista);
+    try {
+      await gsGuardar(lista.find(p => p.id === id));
+    } catch {}
+  }
+  async function eliminar(id) {
+    setPedidos(p => p.filter(x => x.id !== id));
+    setConf(null);
+    try {
+      await Promise.all([gsBorrar(id), idbBorrar(id)]);
+    } catch {}
+  }
+  const diasPara = f => f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null;
+  const vencidosSinArchivar = pedidos.filter(p => {
+    if (["Entregado", "Cancelado", "Listo", "Archivado"].includes(p.estatus)) return false;
+    const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
+    if (saldo > 0) return false; // tiene deuda — no proponer archivar
+    const d = diasPara(p.fechaEntrega);
+    return d !== null && d < 0;
+  });
+  useEffect(() => {
+    if (!rolBase || modal || detalle || modalArchivar) return;
+    if (vencidosSinArchivar.length > 0) setModalArchivar(vencidosSinArchivar[0]);
+  }, [pedidos]);
+  function archivarPedido(p, fechaEntregaReal) {
+    const actualizado = {
+      ...p,
+      estatus: "Entregado",
+      fechaEntrega: fechaEntregaReal || p.fechaEntrega
+    };
+    setPedidos(prev => prev.map(x => x.id === p.id ? actualizado : x));
+    gsGuardar(actualizado);
+    setModalArchivar(null);
+  }
+  const filtrados = pedidos.filter(p => {
+    const q = busqueda.toLowerCase();
+    const match = !q || [
+      p.cliente, p.tipoPrenda, p.tela, p.color, p.costurera,
+      p.notas, p.descripcion, p.nombreContacto, p.estatus,
+      String(p.id||""), p.fechaEntrega, p.tipoDocumento
+    ].some(v => v && String(v).toLowerCase().includes(q));
+    return match && (filtro === "Todos" || p.estatus === filtro);
+  });
+  const conteos = ESTATUS.reduce((a, e) => ({
+    ...a,
+    [e]: pedidos.filter(p => p.estatus === e).length
+  }), {});
+  const parseMonto = v => {
+    const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
+    return isNaN(n) ? 0 : n;
+  };
+  const porCobrar = [...pedidos.filter(p => p.estatus !== "Cancelado"), ...bordados.filter(b => b.estatus !== "Cancelado"), ...cuellos.filter(c => c.estatus !== "Cancelado")].reduce((s, p) => {
+    const precio = parseMonto(p.precio || p.precioT);
+    const anticipo = parseMonto(p.anticipo);
+    const saldo = precio - anticipo;
+    return saldo > 0 ? s + saldo : s;
+  }, 0);
+  const alertaCF = pedidos.filter(p => p.tipoDocumento === "Crédito Fiscal (pendiente datos)").length;
+  const activos = pedidos.filter(p => !["Entregado", "Cancelado"].includes(p.estatus)).length + bordados.filter(b => !["Entregado", "Cancelado"].includes(b.estatus)).length + cuellos.filter(c => !["Entregado", "Cancelado"].includes(c.estatus)).length;
+  const matAgotados = inventario.filter(m => m.categoria === "material" && m.cantidad - asignaciones.filter(a => a.materialId === m.id).reduce((s, a) => s + a.cantidad, 0) <= 0).length;
+  const syncInfo = {
+    idle: {
+      c: "#aaa",
+      t: ""
+    },
+    cargando: {
+      c: "#FFC107",
+      t: "⏳ Cargando..."
+    },
+    guardando: {
+      c: "#FFC107",
+      t: "⏳ Guardando..."
+    },
+    ok: {
+      c: "#28A745",
+      t: "✅ Sync"
+    },
+    error: {
+      c: "#DC3545",
+      t: "⚠️ Sin conexión"
+    },
+    error_fotos: {
+      c: "#E67E22",
+      t: "⚠️ Fotos no subidas"
+    }
+  }[sync];
+  if (!rolBase) return /*#__PURE__*/React.createElement(PantallaLogin, {
+    onLogin: setRol
+  });
+  const moduloOperario = (rol || "").startsWith("operario_") ? rol.replace("operario_", "") : null;
+  const NAV = esAdmin ? [{
+    id: "estadisticas",
+    label: "Estadísticas",
+    icon: "📊"
+  }, {
+    id: "pedidos",
+    label: "Confección",
+    icon: "✂️"
+  }, {
+    id: "bordados",
+    label: "Bordados",
+    icon: "🪡"
+  }, {
+    id: "cuellos",
+    label: "Cuellos",
+    icon: "🧶"
+  }, {
+    id: "inventario",
+    label: "Inventario",
+    icon: "📦",
+    soloAdmin: true
+  }, {
+    id: "catalogo",
+    label: "Catálogo",
+    icon: "🧵"
+  }, {
+    id: "clientes",
+    label: "Clientes",
+    icon: "👥"
+  }] : moduloOperario === "pedidos" ? [{
+    id: "pedidos",
+    label: "Confección",
+    icon: "✂️"
+  }] : moduloOperario === "bordados" ? [{
+    id: "bordados",
+    label: "Bordados",
+    icon: "🪡"
+  }] : moduloOperario === "cuellos" ? [{
+    id: "cuellos",
+    label: "Cuellos",
+    icon: "🧶"
+  }] : [{
+    id: "pedidos",
+    label: "Confección",
+    icon: "✂️"
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      height: "100vh"
+    }
+  }, progreso && /*#__PURE__*/React.createElement(BarraProgreso, {
+    actual: progreso.actual,
+    total: progreso.total,
+    errores: progreso.errores || 0
+  }), /*#__PURE__*/React.createElement("aside", {
+    className: "sidebar-desktop",
+    style: {
+      width: 196,
+      background: "#2C1654",
+      flexDirection: "column",
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "20px 16px 12px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: 2,
+      color: "#9B59B6",
+      textTransform: "uppercase",
+      marginBottom: 4
+    }
+  }, TALLER), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 800,
+      color: "#fff",
+      fontFamily: "Georgia,serif",
+      lineHeight: 1.3
+    }
+  }, "Sistema de", /*#__PURE__*/React.createElement("br", null), "Pedidos"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      background: esAdmin ? "#9B59B6" : "#3a1f6b",
+      color: "#fff",
+      padding: "2px 8px",
+      borderRadius: 20,
+      fontWeight: 700
+    }
+  }, esAdmin ? "🔐 Admin" : "✂️ Operario")), (sync === "ok" || sync === "error" || sync === "error_fotos") && syncInfo && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: syncInfo.c,
+      fontWeight: 700,
+      marginTop: 6
+    }
+  }, syncInfo.t)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      padding: "4px 8px"
+    }
+  }, NAV.map(item => {
+    const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
+    const activo = seccion === item.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: item.id,
+      onClick: () => !bloqueado && setSec(item.id),
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        padding: "9px 10px",
+        borderRadius: 8,
+        border: "none",
+        background: activo ? "rgba(155,89,182,0.25)" : "transparent",
+        color: bloqueado ? "#3a2060" : activo ? "#CE93D8" : "#bbb",
+        cursor: bloqueado ? "default" : "pointer",
+        fontSize: 12,
+        fontWeight: activo ? 700 : 400,
+        textAlign: "left",
+        marginBottom: 2
+      }
+    }, /*#__PURE__*/React.createElement("span", null, item.icon), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1
+      }
+    }, item.label), item.id === "inventario" && matAgotados > 0 && !bloqueado && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        background: "#DC3545",
+        color: "#fff",
+        padding: "1px 5px",
+        borderRadius: 10,
+        fontWeight: 700
+      }
+    }, "\u26A0\uFE0F"), item.pronto && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        background: "#3a1f6b",
+        color: "#555",
+        padding: "2px 5px",
+        borderRadius: 8
+      }
+    }, "PRONTO"), item.soloAdmin && !esAdmin && !item.pronto && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        background: "#3a1f6b",
+        color: "#555",
+        padding: "2px 5px",
+        borderRadius: 8
+      }
+    }, "\uD83D\uDD10"));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 16px",
+      borderTop: "1px solid #3a1f6b"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#666",
+      marginBottom: 2
+    }
+  }, "Pedidos activos"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 22,
+      fontWeight: 800,
+      color: "#CE93D8",
+      marginBottom: 6
+    }
+  }, activos), esAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#666",
+      marginBottom: 2
+    }
+  }, "Por cobrar"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 800,
+      color: "#28A745",
+      marginBottom: 8
+    }
+  }, fmt$(porCobrar)), alertaCF > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#FFF3CD",
+      borderRadius: 8,
+      padding: "5px 8px",
+      fontSize: 10,
+      color: "#856404",
+      fontWeight: 700,
+      marginBottom: 8
+    }
+  }, "\u26A0\uFE0F ", alertaCF, " CF pend.")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setRol(null),
+    style: {
+      width: "100%",
+      padding: "7px",
+      borderRadius: 8,
+      border: "1px solid #3a1f6b",
+      background: "transparent",
+      color: "#555",
+      cursor: "pointer",
+      fontSize: 11
+    }
+  }, "\uD83D\uDEAA Cerrar sesi\xF3n"))), /*#__PURE__*/React.createElement("main", {
+    style: {
+      flex: 1,
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      position: "relative"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "topbar-mobile",
+    style: {
+      display: "none",
+      background: "#2C1654",
+      padding: "10px 16px",
+      alignItems: "center",
+      gap: 10,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 800,
+      color: "#fff"
+    }
+  }, TALLER), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#9B59B6"
+    }
+  }, esAdmin ? "🔐 Admin" : "✂️ Operario", (sync === "ok" || sync === "error" || sync === "error_fotos") && syncInfo ? ` · ` + syncInfo.t : "")), esAdmin && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "right"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#28A745",
+      fontWeight: 700
+    }
+  }, fmt$(porCobrar)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#9B59B6"
+    }
+  }, "Por cobrar")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "rgba(255,255,255,0.1)",
+      borderRadius: 8,
+      padding: "6px 10px",
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 20,
+      fontWeight: 800,
+      color: "#CE93D8"
+    }
+  }, activos), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#9B59B6"
+    }
+  }, "activos"))), seccion === "estadisticas" && esAdmin && /*#__PURE__*/React.createElement(SeccionEstadisticas, {
+    pedidos: pedidos,
+    bordados: bordados,
+    cuellos: cuellos,
+    clientes: clientes
+  }), seccion === "inventario" && /*#__PURE__*/React.createElement(SeccionInventario, {
+    pedidos: pedidos,
+    inventario: inventario,
+    setInventario: setInventario,
+    asignaciones: asignaciones,
+    setAsignaciones: setAsignaciones,
+    esAdmin: esAdmin
+  }), seccion === "bordados" && /*#__PURE__*/React.createElement(SeccionBordados, {
+    bordados: bordados,
+    setBordados: setBordados,
+    nextBordId: nextBordId,
+    setNextBordId: setNextBordId,
+    pedidosConf: pedidos,
+    esAdmin: esAdmin,
+    clientes: clientes,
+    upsertClienteLocal: upsertClienteLocal
+  }), seccion === "cuellos" && /*#__PURE__*/React.createElement(SeccionCuellos, {
+    cuellos: cuellos,
+    setCuellos: setCuellos,
+    nextCuelId: nextCuelId,
+    setNextCuelId: setNextCuelId,
+    pedidosConf: pedidos,
+    esAdmin: esAdmin,
+    clientes: clientes,
+    upsertClienteLocal: upsertClienteLocal
+  }), seccion === "catalogo" && /*#__PURE__*/React.createElement(SeccionCatalogo, {
+    catalogo: catalogo,
+    setCatalogo: setCatalogo,
+    esAdmin: esAdmin
+  }), seccion === "clientes" && esAdmin && /*#__PURE__*/React.createElement(SeccionClientes, {
+    clientes: clientes,
+    setClientes: setClientes,
+    pedidos: pedidos,
+    bordados: bordados,
+    cuellos: cuellos,
+    esAdmin: esAdmin
+  }), seccion === "pedidos" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 16px",
+      background: "#fff",
+      borderBottom: "1px solid #eee",
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: 0,
+      fontSize: 16,
+      color: "#2C1654",
+      fontWeight: 800,
+      fontFamily: "Georgia,serif"
+    }
+  }, "Registro de Pedidos"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#aaa"
+    }
+  }, pedidos.length, " pedido(s)")), /*#__PURE__*/React.createElement("input", {
+    value: busqueda,
+    onChange: e => setBusq(e.target.value),
+    placeholder: "\uD83D\uDD0D Buscar...",
+    style: {
+      ...INP,
+      width: 160,
+      padding: "7px 10px",
+      fontSize: 13
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setModal("nuevo"),
+    style: {
+      ...BTN("#9B59B6"),
+      whiteSpace: "nowrap",
+      padding: "9px 14px",
+      fontSize: 13
+    }
+  }, "\u2702\uFE0F Nuevo")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      background: "#fff",
+      borderBottom: "1px solid #eee",
+      padding: "0 12px",
+      overflowX: "auto",
+      flexShrink: 0
+    }
+  }, ["Todos", ...ESTATUS].map(s => {
+    const count = s === "Todos" ? pedidos.length : conteos[s] || 0;
+    const active = filtro === s;
+    return /*#__PURE__*/React.createElement("button", {
+      key: s,
+      onClick: () => setFiltro(s),
+      style: {
+        padding: "7px 8px",
+        border: "none",
+        background: "none",
+        borderBottom: active ? "2.5px solid #9B59B6" : "2.5px solid transparent",
+        color: active ? "#9B59B6" : "#999",
+        fontWeight: active ? 700 : 400,
+        cursor: "pointer",
+        fontSize: 10,
+        display: "flex",
+        alignItems: "center",
+        gap: 3,
+        whiteSpace: "nowrap"
+      }
+    }, s, /*#__PURE__*/React.createElement("span", {
+      style: {
+        background: active ? "#9B59B6" : "#eee",
+        color: active ? "#fff" : "#aaa",
+        borderRadius: 20,
+        padding: "1px 5px",
+        fontSize: 10,
+        fontWeight: 700
+      }
+    }, count));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "main-area",
+    style: {
+      flex: 1,
+      overflow: "auto",
+      padding: 12
+    }
+  }, /*#__PURE__*/React.createElement(ProximasEntregas, {
+    pedidos: pedidos,
+    diasPara: diasPara,
+    esAdmin: esAdmin,
+    onVer: setDet,
+    onEditar: setModal,
+    onWA: p => copiarWA(p, esAdmin)
+  }), filtrados.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: 60,
+      color: "#ccc"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 44,
+      marginBottom: 10
+    }
+  }, "\uD83E\uDDF5"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 600,
+      color: "#aaa"
+    }
+  }, sync === "cargando" ? "Cargando pedidos..." : "No hay pedidos registrados"), sync === "ok" && pedidos.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      background: "#FFF8E1",
+      border: "1px solid #FFE082",
+      borderRadius: 8,
+      padding: "10px 16px",
+      fontSize: 12,
+      color: "#856404",
+      maxWidth: 380,
+      margin: "12px auto 0"
+    }
+  }, /*#__PURE__*/React.createElement("strong", null, "Diagn\xF3stico:"), " El script respondi\xF3 OK pero sin datos.", /*#__PURE__*/React.createElement("br", null), "Verifica en la consola del navegador (F12 \u2192 Console) el mensaje \"Datos cargados\".", /*#__PURE__*/React.createElement("br", null), "O abre esta URL: ", /*#__PURE__*/React.createElement("a", {
+    href: SCRIPT_URL + "?action=getAll",
+    target: "_blank",
+    style: {
+      color: "#856404"
+    }
+  }, "ver datos en script"))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
+    className: "tabla-pedidos",
+    style: {
+      width: "100%",
+      borderCollapse: "separate",
+      borderSpacing: "0 4px"
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ["#", "Cliente", "Prenda / Tallas", "Fotos", esAdmin ? "Factura" : null, esAdmin ? "$ / Saldo" : null, "Entrega", "Estatus", ""].filter(Boolean).map(h => /*#__PURE__*/React.createElement("th", {
+    key: h,
+    style: {
+      textAlign: "left",
+      padding: "5px 10px",
+      fontSize: 9,
+      fontWeight: 700,
+      color: "#ccc",
+      textTransform: "uppercase"
+    }
+  }, h)))), /*#__PURE__*/React.createElement("tbody", null, filtrados.map(p => {
+    const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
+    const dias = diasPara(p.fechaEntrega);
+    const urgent = dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(p.estatus);
+    const esCFp = p.tipoDocumento === "Crédito Fiscal (pendiente datos)";
+    const tallasR = resumenTallas(p);
+    const imgs = (p.imagenes || []).filter(i => imgSrc(i));
+    const nFotos = imgs.length;
+    const nAsig = asignaciones.filter(a => a.pedidoId === String(p.id)).length;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: p.id,
+      onClick: () => setDet(p),
+      style: {
+        background: "#fff",
+        cursor: "pointer"
+      }
+    }, /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px",
+        borderRadius: "10px 0 0 10px",
+        color: "#ccc",
+        fontSize: 11,
+        fontWeight: 700,
+        whiteSpace: "nowrap"
+      }
+    }, "N\xB0", String(p.id).padStart(4, "0")), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        color: "#2C1654",
+        fontSize: 13
+      }
+    }, p.tipoCliente === "escuela" ? "🏫 " : p.tipoCliente === "empresa" ? "🏢 " : "", p.cliente), p.nombreContacto && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "#555"
+      }
+    }, "\uD83D\uDC64 ", p.nombreContacto), p.costurera && p.costurera !== "(Sin asignar)" && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "#9B59B6"
+      }
+    }, "\u2702\uFE0F ", p.costurera), esAdmin && nAsig > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "#27AE60"
+      }
+    }, "\uD83E\uDDF5 ", nAsig)), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 600,
+        color: "#444",
+        marginBottom: p.tallasItems && p.tallasItems.length ? 4 : 0
+      }
+    }, p.tipoPrenda), p.tallasItems && p.tallasItems.length ? /*#__PURE__*/React.createElement(TallasChips, {
+      items: p.tallasItems,
+      compact: true
+    }) : tallasR ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: "#E67E22",
+        fontWeight: 700
+      }
+    }, tallasR) : null), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px"
+      }
+    }, nFotos > 0 ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 4
+      }
+    }, imgs.slice(0, 2).map((img, i) => /*#__PURE__*/React.createElement("img", {
+      key: i,
+      src: imgSrc(img),
+      onClick: () => setVisor({
+        imgs: imgs.map(imgSrc),
+        idx: i
+      }),
+      style: {
+        width: 32,
+        height: 32,
+        borderRadius: 5,
+        objectFit: "cover",
+        border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e0e0e0"),
+        cursor: "zoom-in"
+      }
+    })), nFotos > 2 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: "#888",
+        fontWeight: 700
+      }
+    }, "+", nFotos - 2)) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#ddd",
+        fontSize: 11
+      }
+    }, "\u2014")), esAdmin && /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px"
+      }
+    }, p.tipoDocumento === "Consumidor Final" ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: "#ccc"
+      }
+    }, "Consumidor") : /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        background: esCFp ? "#FFF3CD" : "#D4EDDA",
+        color: esCFp ? "#856404" : "#155724",
+        padding: "2px 7px",
+        borderRadius: 20,
+        fontWeight: 700
+      }
+    }, esCFp ? "⚠️ CF pend." : "✅ CF")), esAdmin && /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px",
+        whiteSpace: "nowrap"
+      }
+    }, p.precio ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        color: "#2C1654",
+        fontSize: 13
+      }
+    }, fmt$(p.precio)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: saldo > 0 ? "#E63946" : "#28A745"
+      }
+    }, saldo > 0 ? "Resta " + fmt$(saldo) : "✅ Pagado")) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#ddd"
+      }
+    }, "\u2014")), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px",
+        whiteSpace: "nowrap"
+      }
+    }, p.fechaEntrega ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: urgent ? "#E63946" : "#555",
+        fontWeight: urgent ? 700 : 400
+      }
+    }, urgent ? "⚠️ " : "", p.fechaEntrega), dias !== null && !["Entregado", "Cancelado"].includes(p.estatus) && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: dias < 0 ? "#E63946" : dias <= 2 ? "#FD7E14" : "#aaa"
+      }
+    }, dias < 0 ? "Venció " + Math.abs(dias) + "d" : dias === 0 ? "¡Hoy!" : dias + "d")) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#ddd",
+        fontSize: 11
+      }
+    }, "\u2014")), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px"
+      }
+    }, /*#__PURE__*/React.createElement("select", {
+      value: p.estatus,
+      onChange: e => cambiarEstatus(p.id, e.target.value),
+      style: {
+        border: "none",
+        background: (EC[p.estatus] || {}).bg,
+        color: (EC[p.estatus] || {}).fg,
+        padding: "3px 8px",
+        borderRadius: 20,
+        fontWeight: 700,
+        fontSize: 10,
+        cursor: "pointer"
+      }
+    }, ESTATUS.map(e => /*#__PURE__*/React.createElement("option", {
+      key: e
+    }, e)))), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: "10px",
+        borderRadius: "0 10px 10px 0"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 3
+      }
+    }, /*#__PURE__*/React.createElement(WABtn, {
+      p: p,
+      esAdmin: esAdmin
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => imprimirPedido(p, esAdmin),
+      title: "Imprimir hoja",
+      style: {
+        padding: "4px 8px",
+        borderRadius: 6,
+        border: "1.5px solid #d8c0f0",
+        background: "#f8f4ff",
+        cursor: "pointer",
+        fontSize: 11
+      }
+    }, "\uD83D\uDDA8\uFE0F"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setModal(p),
+      style: {
+        padding: "4px 8px",
+        borderRadius: 6,
+        border: "1.5px solid #e0e0e0",
+        background: "#fff",
+        cursor: "pointer",
+        fontSize: 11
+      }
+    }, "\u270F\uFE0F"), esAdmin && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setConf(p.id),
+      style: {
+        padding: "4px 7px",
+        borderRadius: 6,
+        border: "1.5px solid #fdd",
+        background: "#fff8f8",
+        cursor: "pointer",
+        fontSize: 11
+      }
+    }, "\uD83D\uDDD1\uFE0F"))));
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "cards-pedidos",
+    style: {
+      flexDirection: "column",
+      display: "none"
+    }
+  }, filtrados.map(p => /*#__PURE__*/React.createElement(CardPedido, {
+    key: p.id,
+    p: p,
+    esAdmin: esAdmin,
+    onVer: setDet,
+    onEditar: setModal,
+    onCambiarEstatus: cambiarEstatus,
+    onEliminar: setConf,
+    onDuplicar: p => {
+      const copia = Object.assign({}, p, {
+        id: nextId,
+        fecha: new Date().toISOString().split("T")[0],
+        estatus: "Tomado",
+        anticipo: "",
+        abonos: [],
+        fechaEntrega: ""
+      });
+      setModal(copia);
+    },
+    onImprimir: p => imprimirPedido(p, esAdmin),
+    onVerFoto: v => setVisor(v)
+  })))))), /*#__PURE__*/React.createElement("nav", {
+    className: "bottomnav",
+    style: {
+      display: "none",
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      background: "#2C1654",
+      borderTop: "1px solid #3a1f6b",
+      zIndex: 50,
+      padding: "6px 0 8px"
+    }
+  }, NAV.map(item => {
+    const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
+    const activo = seccion === item.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: item.id,
+      onClick: () => !bloqueado && setSec(item.id),
+      style: {
+        flex: 1,
+        border: "none",
+        background: "transparent",
+        cursor: bloqueado ? "default" : "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+        padding: "4px 0",
+        opacity: bloqueado ? 0.3 : 1
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 20
+      }
+    }, item.icon), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: activo ? "#CE93D8" : "#888"
+      }
+    }, item.label));
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setRol(null),
+    style: {
+      flex: 1,
+      border: "none",
+      background: "transparent",
+      cursor: "pointer",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 2,
+      padding: "4px 0"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 20
+    }
+  }, "\uD83D\uDEAA"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      fontWeight: 700,
+      color: "#888"
+    }
+  }, "Salir")))), modalArchivar && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.65)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 300,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: 16,
+      padding: 28,
+      maxWidth: 420,
+      width: "100%",
+      boxShadow: "0 24px 60px rgba(0,0,0,0.3)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 40,
+      marginBottom: 8
+    }
+  }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: "0 0 6px",
+      color: "#2C1654",
+      fontSize: 17
+    }
+  }, "Pedido vencido \u2014 \xBFfue entregado?"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#888",
+      fontSize: 13,
+      margin: "0 0 4px"
+    }
+  }, "El pedido de ", /*#__PURE__*/React.createElement("strong", null, modalArchivar.cliente), " ya venci\xF3 su fecha de entrega."), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#888",
+      fontSize: 12
+    }
+  }, "Si fue entregado, se archivar\xE1 autom\xE1ticamente.")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#f8f4ff",
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 16,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      color: "#2C1654"
+    }
+  }, "N\xB0", String(modalArchivar.id).padStart(4, "0"), " \u2014 ", modalArchivar.cliente), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "#666",
+      marginTop: 2
+    }
+  }, modalArchivar.tipoPrenda), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "#C0392B",
+      fontWeight: 700,
+      marginTop: 2
+    }
+  }, "Fecha pactada: ", modalArchivar.fechaEntrega)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: "#888",
+      textTransform: "uppercase",
+      marginBottom: 4,
+      display: "block"
+    }
+  }, "\xBFCu\xE1ndo fue entregado?"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    id: "fecha-entrega-real",
+    defaultValue: hoy(),
+    style: {
+      width: "100%",
+      padding: "9px 12px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      fontSize: 14,
+      outline: "none"
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const f = document.getElementById("fecha-entrega-real") ? document.getElementById("fecha-entrega-real").value : hoy();
+      archivarPedido(modalArchivar, f);
+    },
+    style: {
+      padding: "11px",
+      borderRadius: 8,
+      border: "none",
+      background: "#28A745",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 800,
+      fontSize: 14
+    }
+  }, "\u2705 S\xED, fue entregado \u2014 archivar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const actualizado = {
+        ...modalArchivar,
+        estatus: "Listo"
+      };
+      setPedidos(prev => prev.map(x => x.id === modalArchivar.id ? actualizado : x));
+      gsGuardar(actualizado);
+      setModalArchivar(null);
+    },
+    style: {
+      padding: "11px",
+      borderRadius: 8,
+      border: "1.5px solid #E67E22",
+      background: "#fff",
+      color: "#E67E22",
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 13
+    }
+  }, "\uD83D\uDD50 Todav\xEDa no \u2014 cambiar a \"Listo\""), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setModalArchivar(null),
+    style: {
+      padding: "9px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      background: "#fff",
+      color: "#aaa",
+      cursor: "pointer",
+      fontSize: 12
+    }
+  }, "Recordar despu\xE9s")))), modalIA && /*#__PURE__*/React.createElement(ModalAsistenteIA, {
+    rol: rol,
+    onCrearPedido: p => {
+      setModalIA(false);
+      guardarPedido(p, true);
+    },
+    onAbrir: p => {
+      setModalIA(false);
+      setModal(p || "nuevo");
+    },
+    onCerrar: () => setModalIA(false)
+  }), modal && /*#__PURE__*/React.createElement(Modal, {
+    title: modal === "nuevo" ? "✂️ Nuevo Pedido" : "✏️ Editar N°" + String(modal.id).padStart(4, "0"),
+    onClose: () => setModal(null)
+  }, modal === "nuevo" && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setModal(null);
+      setModalIA(true);
+    },
+    style: {
+      width: "100%",
+      padding: "11px",
+      borderRadius: 10,
+      border: "1.5px solid #1A5276",
+      background: "#EBF5FB",
+      color: "#1A5276",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 700,
+      marginBottom: 14,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8
+    }
+  }, "\uD83E\uDD16 Registrar con Asistente IA (voz o texto)"), /*#__PURE__*/React.createElement(FormPedido, {
+    initial: modal !== "nuevo" ? modal : null,
+    onSave: guardarPedido,
+    onCancel: () => setModal(null),
+    rol: rol,
+    pedidosExistentes: pedidos,
+    clientes: clientes,
+    catalogo: catalogo
+  })), detalle && /*#__PURE__*/React.createElement(Modal, {
+    title: "📋 N°" + String(detalle.id).padStart(4, "0") + " — " + detalle.cliente,
+    onClose: () => setDet(null)
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 10,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: "#888",
+      textTransform: "uppercase",
+      marginBottom: 4
+    }
+  }, "Estatus"), /*#__PURE__*/React.createElement("select", {
+    value: detalle.estatus,
+    onChange: e => {
+      const nuevo = {
+        ...detalle,
+        estatus: e.target.value
+      };
+      setDet(nuevo);
+      cambiarEstatus(detalle.id, e.target.value);
+    },
+    style: {
+      width: "100%",
+      padding: "9px 10px",
+      borderRadius: 8,
+      border: "1.5px solid " + ((EC[detalle.estatus] || {}).bg || "#e0e0e0"),
+      background: (EC[detalle.estatus] || {}).bg || "#f5f5f5",
+      color: (EC[detalle.estatus] || {}).fg || "#333",
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: "pointer",
+      outline: "none"
+    }
+  }, ESTATUS.map(e => /*#__PURE__*/React.createElement("option", {
+    key: e
+  }, e)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: "#888",
+      textTransform: "uppercase",
+      marginBottom: 4
+    }
+  }, "Costurera"), /*#__PURE__*/React.createElement("select", {
+    value: detalle.costurera || "(Sin asignar)",
+    onChange: e => {
+      const nuevo = {
+        ...detalle,
+        costurera: e.target.value
+      };
+      setDet(nuevo);
+      setPedidos(prev => prev.map(p => p.id === detalle.id ? nuevo : p));
+      gsGuardar(nuevo);
+    },
+    style: {
+      width: "100%",
+      padding: "9px 10px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      background: "#f8f4ff",
+      color: "#2C1654",
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: "pointer",
+      outline: "none"
+    }
+  }, COLABORADORAS.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c
+  }, c))))), [["Cliente", (detalle.tipoCliente === "escuela" ? "🏫 " : detalle.tipoCliente === "empresa" ? "🏢 " : "") + detalle.cliente], detalle.nombreContacto ? ["Contacto", detalle.nombreContacto] : null, ["Teléfono", detalle.telefono], ["Prenda", detalle.tipoPrenda], ["Tallas", detalle.tallasItems && detalle.tallasItems.length ? "§chips§" : resumenTallas(detalle)], detalle.personas && detalle.personas.length ? ["👥 Beneficiarios", detalle.personas.length + " persona" + (detalle.personas.length !== 1 ? "s" : "")] : null, ["Tela", detalle.tela], esAdmin ? ["Facturación", detalle.tipoDocumento] : null, esAdmin && detalle.nit ? ["NIT", detalle.nit] : null, esAdmin ? ["Precio", fmt$(detalle.precio)] : null, esAdmin ? ["Abonado", fmt$((detalle.abonos || []).length > 0 ? detalle.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0) : parseFloat(detalle.anticipo || 0))] : null, esAdmin ? ["Saldo", fmt$(parseFloat(detalle.precio || 0) - ((detalle.abonos || []).length > 0 ? detalle.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0) : parseFloat(detalle.anticipo || 0)))] : null, ["Entrega", detalle.fechaEntrega], ["Notas", detalle.notas]].filter(Boolean).map(([k, v]) => !v ? null : /*#__PURE__*/React.createElement("div", {
+    key: k,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      padding: "9px 0",
+      borderBottom: "1px solid #f5f5f5",
+      gap: 10,
+      flexWrap: k === "Tallas" ? "wrap" : "nowrap",
+      flexDirection: k === "Tallas" ? "column" : "row"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: "#aaa",
+      fontWeight: 700,
+      whiteSpace: "nowrap"
+    }
+  }, k), k === "Tallas" && v === "§chips§" ? /*#__PURE__*/React.createElement(TallasChips, {
+    items: detalle.tallasItems,
+    compact: false
+  }) : /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      color: "#333",
+      textAlign: "right",
+      fontWeight: 600
+    }
+  }, v))), (detalle.abonos || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#27AE60",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      marginBottom: 6
+    }
+  }, "\uD83D\uDCB5 Abonos registrados"), (detalle.abonos || []).map((a, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: "flex",
+      gap: 8,
+      padding: "5px 0",
+      borderBottom: "1px solid #f5f5f5",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      fontWeight: 800,
+      color: "#155724"
+    }
+  }, "$", parseFloat(a.monto).toFixed(2)), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      background: "#d4edda",
+      color: "#155724",
+      padding: "1px 7px",
+      borderRadius: 10,
+      fontWeight: 700
+    }
+  }, a.metodo), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: "#666",
+      flex: 1
+    }
+  }, a.nota), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: "#aaa"
+    }
+  }, a.fecha)))), (detalle.imagenes || []).filter(i => imgSrc(i)).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#28A745",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      marginBottom: 8
+    }
+  }, "\u2601\uFE0F Im\xE1genes"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8
+    }
+  }, (detalle.imagenes || []).filter(i => imgSrc(i)).map((img, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      position: "relative"
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: imgSrc(img),
+    alt: img.nombre,
+    style: {
+      width: 80,
+      height: 80,
+      borderRadius: 8,
+      objectFit: "cover",
+      border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e0e0e0"),
+      cursor: "zoom-in"
+    },
+    onClick: () => setVisor({
+      imgs: (detalle.imagenes || []).filter(x => imgSrc(x)).map(imgSrc),
+      idx: i
+    })
+  }), img.driveUrl && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      bottom: 3,
+      right: 3,
+      background: "rgba(40,167,69,0.9)",
+      borderRadius: 4,
+      padding: "1px 4px",
+      fontSize: 9,
+      color: "#fff",
+      fontWeight: 700
+    }
+  }, "\u2601\uFE0F"))))), (detalle.personas || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#1A5276",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      marginBottom: 6
+    }
+  }, "\uD83D\uDC65 Beneficiarios"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowX: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("table", {
+    style: {
+      width: "100%",
+      borderCollapse: "collapse",
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    style: {
+      background: "#EBF5FB"
+    }
+  }, ["#", "Nombre", "Cargo", "Gafete", "Talla"].map(h => /*#__PURE__*/React.createElement("th", {
+    key: h,
+    style: {
+      padding: "5px 8px",
+      textAlign: "left",
+      fontSize: 10,
+      fontWeight: 700,
+      color: "#1A5276",
+      textTransform: "uppercase"
+    }
+  }, h)))), /*#__PURE__*/React.createElement("tbody", null, (detalle.personas || []).map((p, i) => /*#__PURE__*/React.createElement("tr", {
+    key: p.id || i,
+    style: {
+      borderBottom: "1px solid #f0f8ff",
+      background: i % 2 === 0 ? "#fff" : "#f8fcff"
+    }
+  }, /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "5px 8px",
+      color: "#aaa"
+    }
+  }, i + 1), /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "5px 8px",
+      fontWeight: 700,
+      color: "#2C1654"
+    }
+  }, p.nombre || "—"), /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "5px 8px",
+      color: "#555"
+    }
+  }, p.cargo || "—"), /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "5px 8px",
+      textAlign: "center",
+      color: "#555"
+    }
+  }, p.gafete || "—"), /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "5px 8px",
+      textAlign: "center"
+    }
+  }, p.talla ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: "#1A5276",
+      color: "#fff",
+      borderRadius: 10,
+      padding: "2px 8px",
+      fontWeight: 700,
+      fontSize: 11
+    }
+  }, p.talla) : "—"))))))), (() => {
+    const bVinc = bordados.find(b => String(b.confRef) === String(detalle.id));
+    const cVinc = cuellos.find(cu => String(cu.confRef) === String(detalle.id));
+    const pConf = parseFloat(detalle.precio || 0);
+    const pBord = bVinc ? parseFloat(bVinc.precioT || 0) : 0;
+    const pCuel = cVinc ? parseFloat(cVinc.precioT || 0) : 0;
+    return /*#__PURE__*/React.createElement(React.Fragment, null, true && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 8
+      }
+    }, bVinc ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: "#f0fff8",
+        border: "1.5px solid #1A5F5A",
+        borderRadius: 10,
+        padding: "10px 14px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 800,
+        color: "#1A5F5A"
+      }
+    }, "\uD83E\uDEA1 Bordado \u2014 BORD-", String(bVinc.id).padStart(3, "0")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: "#555",
+        marginTop: 2
+      }
+    }, bVinc.estatus, bVinc.precioT ? " · $" + parseFloat(bVinc.precioT).toFixed(2) : "")), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setSec("bordados");
+        setDet(null);
+      },
+      style: {
+        padding: "6px 12px",
+        borderRadius: 7,
+        border: "none",
+        background: "#1A5F5A",
+        color: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
+        fontSize: 11
+      }
+    }, "Ver \u2192")) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        background: "#f8f8f8",
+        border: "1.5px dashed #ccc",
+        borderRadius: 10,
+        padding: "10px 14px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: "#888"
+      }
+    }, "\uD83E\uDEA1 Lleva bordado \u2014 sin registrar a\xFAn"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        const nb = {
+          id: nextBordId,
+          cliente: detalle.cliente,
+          telefono: detalle.telefono || "",
+          confRef: String(detalle.id),
+          soporte: detalle.tipoPrenda || "",
+          estatus: "Tomado",
+          fecha: new Date().toISOString().split("T")[0],
+          anticipo: "",
+          precioU: "",
+          precioT: "",
+          diseño: "",
+          puntadas: "",
+          hilos: "",
+          posicion: "Pecho izquierdo",
+          estadoDiseño: "Pendiente diseñar",
+          esNuevo: "nuevo",
+          abonos: [],
+          notas: "Creado desde confección N°" + String(detalle.id).padStart(4, "0")
+        };
+        setBordados(prev => [...prev, nb]);
+        setNextBordId(n => n + 1);
+        gsBordGuardar(nb);
+        setSec("bordados");
+        setDet(null);
+      },
+      style: {
+        padding: "7px 14px",
+        borderRadius: 8,
+        border: "none",
+        background: "#1A5F5A",
+        color: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
+        fontSize: 12
+      }
+    }, "+ Crear bordado"))), true && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 8
+      }
+    }, cVinc ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: "#fff4e6",
+        border: "1.5px solid #B85C00",
+        borderRadius: 10,
+        padding: "10px 14px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 800,
+        color: "#B85C00"
+      }
+    }, "\uD83E\uDDF6 Cuello \u2014 CUEL-", String(cVinc.id).padStart(3, "0")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: "#555",
+        marginTop: 2
+      }
+    }, cVinc.estatus, cVinc.precioT ? " · $" + parseFloat(cVinc.precioT).toFixed(2) : "")), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setSec("cuellos");
+        setDet(null);
+      },
+      style: {
+        padding: "6px 12px",
+        borderRadius: 7,
+        border: "none",
+        background: "#B85C00",
+        color: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
+        fontSize: 11
+      }
+    }, "Ver \u2192")) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        background: "#f8f8f8",
+        border: "1.5px dashed #ccc",
+        borderRadius: 10,
+        padding: "10px 14px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: "#888"
+      }
+    }, "\uD83E\uDDF6 Lleva cuello tejido \u2014 sin registrar a\xFAn"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        const nc = {
+          id: nextCuelId,
+          cliente: detalle.cliente,
+          telefono: detalle.telefono || "",
+          confRef: String(detalle.id),
+          cantidad: "1",
+          material: "Acrílico",
+          calibre: "Medio",
+          estatus: "Tomado",
+          fecha: new Date().toISOString().split("T")[0],
+          anticipo: "",
+          precioU: "",
+          precioT: "",
+          cuello: {
+            activa: true,
+            largo: "",
+            ancho: "",
+            colores: ""
+          },
+          puno: {
+            activa: false,
+            largo: "",
+            ancho: "",
+            colores: ""
+          },
+          banda: {
+            activa: false,
+            largo: "",
+            ancho: "",
+            colores: ""
+          },
+          abonos: [],
+          notas: "Creado desde confección N°" + String(detalle.id).padStart(4, "0")
+        };
+        setCuellos(prev => [...prev, nc]);
+        setNextCuelId(n => n + 1);
+        gsCuelGuardar(nc);
+        setSec("cuellos");
+        setDet(null);
+      },
+      style: {
+        padding: "7px 14px",
+        borderRadius: 8,
+        border: "none",
+        background: "#B85C00",
+        color: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
+        fontSize: 12
+      }
+    }, "+ Crear cuello"))), esAdmin && (pBord > 0 || pCuel > 0) && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: "#f0ebff",
+        border: "1.5px solid #9B59B6",
+        borderRadius: 10,
+        padding: "10px 14px",
+        marginTop: 4,
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        fontWeight: 800,
+        color: "#9B59B6",
+        textTransform: "uppercase",
+        marginBottom: 6
+      }
+    }, "Resumen de precios"), pConf > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 12,
+        marginBottom: 3
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "\u2702\uFE0F Confecci\xF3n"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 700
+      }
+    }, "$", pConf.toFixed(2))), pBord > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 12,
+        marginBottom: 3
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "\uD83E\uDEA1 Bordado"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 700
+      }
+    }, "$", pBord.toFixed(2))), pCuel > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 12,
+        marginBottom: 3
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "\uD83E\uDDF6 Cuello"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 700
+      }
+    }, "$", pCuel.toFixed(2))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 14,
+        fontWeight: 900,
+        color: "#2C1654",
+        borderTop: "1px solid #ddd",
+        paddingTop: 6,
+        marginTop: 4
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "Total"), /*#__PURE__*/React.createElement("span", null, "$", (pConf + pBord + pCuel).toFixed(2)))));
+  })(), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      justifyContent: "flex-end",
+      marginTop: 16
+    }
+  }, esAdmin && /*#__PURE__*/React.createElement("button", {
+    onClick: () => exportarPedidoPDF(detalle, "confeccion"),
+    style: {
+      padding: "9px 12px",
+      borderRadius: 8,
+      border: "none",
+      background: "#1D6A3A",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 700,
+      fontSize: 12
+    }
+  }, "\uD83D\uDCC4 PDF"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => imprimirPedido(detalle, esAdmin),
+    style: {
+      ...BTN("#6c3483"),
+      padding: "9px 16px",
+      fontSize: 13
+    }
+  }, "\uD83D\uDDA8\uFE0F Imprimir"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setModal(detalle);
+      setDet(null);
+    },
+    style: BTN("#9B59B6")
+  }, "\u270F\uFE0F Editar"))), visor && (() => {
+    const vImgs = visor.imgs;
+    const vIdx = visor.idx;
+    const prev = () => setVisor(v => ({
+      ...v,
+      idx: (v.idx - 1 + vImgs.length) % vImgs.length
+    }));
+    const next = () => setVisor(v => ({
+      ...v,
+      idx: (v.idx + 1) % vImgs.length
+    }));
+    const src = vImgs[vIdx];
+    let touchX = null;
+    const onTouchStart = e => {
+      touchX = e.touches[0].clientX;
+    };
+    const onTouchEnd = e => {
+      if (touchX === null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) {
+        dx < 0 ? next() : prev();
+      }
+      touchX = null;
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.95)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 400,
+        padding: "16px 8px"
+      },
+      onTouchStart: onTouchStart,
+      onTouchEnd: onTouchEnd
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: "100%",
+        maxWidth: 700,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 10,
+        padding: "0 8px"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: "#fff",
+        fontSize: 13,
+        fontWeight: 700,
+        opacity: .7
+      }
+    }, vIdx + 1, " / ", vImgs.length), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("a", {
+      href: src,
+      target: "_blank",
+      rel: "noreferrer",
+      style: {
+        padding: "7px 14px",
+        borderRadius: 8,
+        background: "rgba(155,89,182,0.8)",
+        color: "#fff",
+        fontWeight: 700,
+        fontSize: 12,
+        textDecoration: "none"
+      }
+    }, "\uD83D\uDD17 Drive"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setVisor(null),
+      style: {
+        padding: "7px 14px",
+        borderRadius: 8,
+        border: "none",
+        background: "rgba(255,255,255,0.15)",
+        color: "#fff",
+        fontWeight: 700,
+        fontSize: 12,
+        cursor: "pointer"
+      }
+    }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: "relative",
+        width: "100%",
+        maxWidth: 700,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flex: 1,
+        minHeight: 0
+      }
+    }, vImgs.length > 1 && /*#__PURE__*/React.createElement("button", {
+      onClick: prev,
+      style: {
+        position: "absolute",
+        left: 0,
+        zIndex: 10,
+        background: "rgba(255,255,255,0.15)",
+        border: "none",
+        color: "#fff",
+        fontSize: 28,
+        fontWeight: 700,
+        cursor: "pointer",
+        borderRadius: 8,
+        padding: "12px 14px",
+        backdropFilter: "blur(4px)"
+      }
+    }, "\u2039"), /*#__PURE__*/React.createElement("img", {
+      src: src,
+      style: {
+        maxWidth: "calc(100% - 80px)",
+        maxHeight: "75vh",
+        borderRadius: 10,
+        objectFit: "contain",
+        userSelect: "none",
+        pointerEvents: "none"
+      }
+    }), vImgs.length > 1 && /*#__PURE__*/React.createElement("button", {
+      onClick: next,
+      style: {
+        position: "absolute",
+        right: 0,
+        zIndex: 10,
+        background: "rgba(255,255,255,0.15)",
+        border: "none",
+        color: "#fff",
+        fontSize: 28,
+        fontWeight: 700,
+        cursor: "pointer",
+        borderRadius: 8,
+        padding: "12px 14px",
+        backdropFilter: "blur(4px)"
+      }
+    }, "\u203A")), vImgs.length > 1 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 6,
+        marginTop: 12,
+        overflowX: "auto",
+        padding: "4px 8px",
+        maxWidth: "100%"
+      }
+    }, vImgs.map((s, i) => /*#__PURE__*/React.createElement("img", {
+      key: i,
+      src: s,
+      onClick: () => setVisor(v => ({
+        ...v,
+        idx: i
+      })),
+      style: {
+        width: 52,
+        height: 52,
+        borderRadius: 6,
+        objectFit: "cover",
+        cursor: "pointer",
+        border: i === vIdx ? "2.5px solid #9B59B6" : "2px solid transparent",
+        opacity: i === vIdx ? 1 : 0.55,
+        flexShrink: 0,
+        transition: "opacity .2s"
+      }
+    }))));
+  })(), errorFotos.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 300,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: 14,
+      padding: 28,
+      maxWidth: 380,
+      width: "100%",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.3)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 36,
+      marginBottom: 8,
+      textAlign: "center"
+    }
+  }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: "0 0 8px",
+      color: "#2C1654",
+      textAlign: "center"
+    }
+  }, "Fotos no subidas a Drive"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#888",
+      fontSize: 13,
+      margin: "0 0 14px",
+      textAlign: "center"
+    }
+  }, "El pedido se guard\xF3, pero estas fotos no pudieron subirse. Solo se ver\xE1n en este dispositivo."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#FFF3CD",
+      borderRadius: 8,
+      padding: "10px 14px",
+      marginBottom: 16
+    }
+  }, errorFotos.map((e, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      fontSize: 12,
+      color: "#856404",
+      marginBottom: 2
+    }
+  }, /*#__PURE__*/React.createElement("strong", null, e.nombre), ": ", e.err))), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#888",
+      fontSize: 12,
+      marginBottom: 16
+    }
+  }, "Para subirlas, edita el pedido y vuelve a guardar."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setErrorFotos([]),
+    style: {
+      ...BTN("#9B59B6"),
+      width: "100%"
+    }
+  }, "Entendido"))), modalActMedidas && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 300,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: 16,
+      padding: 28,
+      maxWidth: 400,
+      width: "100%",
+      boxShadow: "0 24px 60px rgba(0,0,0,0.3)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 36,
+      marginBottom: 8
+    }
+  }, "\uD83D\uDCD0"), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: "0 0 6px",
+      color: "#1A5276",
+      fontSize: 17
+    }
+  }, "\xBFActualizar medidas del cliente?"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#888",
+      fontSize: 13,
+      margin: 0
+    }
+  }, "Las medidas de este pedido son diferentes a las guardadas para ", /*#__PURE__*/React.createElement("strong", null, modalActMedidas.cliente.nombre), ".")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#f0f4ff",
+      borderRadius: 10,
+      padding: "10px 14px",
+      marginBottom: 16,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 6
+    }
+  }, MEDIDAS_DEF.filter(m => modalActMedidas.pedido.medidas && modalActMedidas.pedido.medidas[m.k]).map(m => /*#__PURE__*/React.createElement("div", {
+    key: m.k,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#888",
+      fontWeight: 700
+    }
+  }, m.l, ":"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#1A5276",
+      fontWeight: 800
+    }
+  }, modalActMedidas.pedido.medidas[m.k], " cm"))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const cli = {
+        ...modalActMedidas.cliente,
+        medidas: {
+          ...(modalActMedidas.cliente.medidas || {}),
+          ...modalActMedidas.pedido.medidas
+        }
+      };
+      setClientes(prev => prev.map(c => c.id === cli.id ? cli : c));
+      gsClientesGuardar(cli);
+      setModalActMedidas(null);
+    },
+    style: {
+      padding: "11px",
+      borderRadius: 8,
+      border: "none",
+      background: "#1A5276",
+      color: "#fff",
+      cursor: "pointer",
+      fontWeight: 800,
+      fontSize: 14
+    }
+  }, "\u2705 S\xED, actualizar medidas del cliente"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setModalActMedidas(null),
+    style: {
+      padding: "10px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      background: "#fff",
+      color: "#888",
+      cursor: "pointer",
+      fontSize: 13
+    }
+  }, "No, solo para este pedido")))), confirmar && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 200,
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: 14,
+      padding: 28,
+      maxWidth: 340,
+      textAlign: "center",
+      width: "100%"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 44,
+      marginBottom: 10
+    }
+  }, "\uD83D\uDDD1\uFE0F"), /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: "0 0 8px",
+      color: "#2C1654"
+    }
+  }, "\xBFEliminar pedido?"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#888",
+      fontSize: 14,
+      margin: "0 0 20px"
+    }
+  }, "Esta acci\xF3n no se puede deshacer."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConf(null),
+    style: BTN("#aaa")
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => eliminar(confirmar),
+    style: BTN("#E63946")
+  }, "S\xED, eliminar")))));
+}
+ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(App, null));
 
-
+</script>
+</body>
+</html>
