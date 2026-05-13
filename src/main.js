@@ -1179,6 +1179,159 @@ const BTN = (bg = "#9B59B6", disabled = false) => ({
   fontWeight: 700,
   fontSize: 14
 });
+const _toastBus = {
+  items: [],
+  listeners: new Set()
+};
+function pushToast(msg, kind = "info", duracion = 3500) {
+  const id = Date.now() + Math.random();
+  _toastBus.items = [..._toastBus.items, {
+    id,
+    msg,
+    kind
+  }];
+  _toastBus.listeners.forEach(fn => fn());
+  setTimeout(() => {
+    _toastBus.items = _toastBus.items.filter(t => t.id !== id);
+    _toastBus.listeners.forEach(fn => fn());
+  }, duracion);
+}
+function useToasts() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force(n => n + 1);
+    _toastBus.listeners.add(fn);
+    return () => _toastBus.listeners.delete(fn);
+  }, []);
+  return _toastBus.items;
+}
+function Toaster() {
+  const items = useToasts();
+  if (!items.length) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      top: 16,
+      right: 16,
+      zIndex: 9999,
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+      pointerEvents: "none",
+      maxWidth: "calc(100vw - 32px)"
+    }
+  }, items.map(t => /*#__PURE__*/React.createElement("div", {
+    key: t.id,
+    style: {
+      background: t.kind === "error" ? "#DC3545" : t.kind === "success" ? "#28A745" : "#2C1654",
+      color: "#fff",
+      padding: "12px 16px",
+      borderRadius: 10,
+      fontSize: 13,
+      fontWeight: 600,
+      boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
+      pointerEvents: "auto"
+    }
+  }, t.msg)));
+}
+const _confirmBus = {
+  current: null,
+  listeners: new Set()
+};
+function pushConfirm(opts) {
+  return new Promise(resolve => {
+    _confirmBus.current = {
+      ...opts,
+      resolve
+    };
+    _confirmBus.listeners.forEach(fn => fn());
+  });
+}
+function useConfirm() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force(n => n + 1);
+    _confirmBus.listeners.add(fn);
+    return () => _confirmBus.listeners.delete(fn);
+  }, []);
+  return _confirmBus.current;
+}
+function ConfirmDialog() {
+  const c = useConfirm();
+  if (!c) return null;
+  const close = v => {
+    const resolver = c.resolve;
+    _confirmBus.current = null;
+    _confirmBus.listeners.forEach(fn => fn());
+    resolver(v);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.65)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 500,
+      padding: 16
+    },
+    onClick: () => close(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "#fff",
+      borderRadius: 16,
+      padding: 24,
+      maxWidth: 380,
+      width: "100%",
+      boxShadow: "0 24px 60px rgba(0,0,0,0.3)"
+    }
+  }, c.titulo && /*#__PURE__*/React.createElement("h3", {
+    style: {
+      margin: "0 0 8px",
+      color: "#2C1654",
+      fontSize: 16
+    }
+  }, c.titulo), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: "#444",
+      fontSize: 14,
+      marginBottom: 18,
+      lineHeight: 1.5
+    }
+  }, c.msg), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => close(false),
+    style: {
+      padding: "10px 18px",
+      borderRadius: 8,
+      border: "1.5px solid #e0e0e0",
+      background: "#fff",
+      color: "#666",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 600
+    }
+  }, c.cancelLabel || "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => close(true),
+    style: {
+      padding: "10px 18px",
+      borderRadius: 8,
+      border: "none",
+      background: c.danger ? "#DC3545" : "#9B59B6",
+      color: "#fff",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, c.okLabel || "Confirmar"))));
+}
 function Check({
   label,
   value,
@@ -3069,8 +3222,13 @@ function ListaPrendas({
       fontWeight: 700
     }
   }, "Igualar talla"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      if (window.confirm("¿Limpiar toda la lista?")) onChange([]);
+    onClick: async () => {
+      if (await pushConfirm({
+        titulo: "Limpiar lista",
+        msg: "¿Querés borrar toda la lista de personas? Esta acción no se puede deshacer.",
+        okLabel: "Sí, limpiar",
+        danger: true
+      })) onChange([]);
     },
     style: {
       padding: "4px 10px",
@@ -4206,7 +4364,7 @@ function FormPedido({
     };
     if (!initial && DRAFT_KEY) {
       try {
-        const saved = sessionStorage.getItem(DRAFT_KEY);
+        const saved = localStorage.getItem(DRAFT_KEY);
         if (saved) {
           const d = JSON.parse(saved);
           return {
@@ -4242,7 +4400,14 @@ function FormPedido({
   const totalAbonos = (f.abonos || []).reduce((s, a) => s + parseFloat(a.monto || 0), 0);
   const anticopoEfectivo = totalAbonos > 0 ? totalAbonos : parseFloat(f.anticipo || 0);
   const saldo = parseFloat(f.precio || 0) - anticopoEfectivo;
-  const valido = f.cliente.trim() && f.tipoPrenda.trim();
+  const tieneCantidad = (f.tallasItems || []).some(it => Number(it.qty) > 0) || (f.personas || []).length > 0;
+  const validez = {
+    cliente: !!f.cliente.trim(),
+    tipoPrenda: !!f.tipoPrenda.trim(),
+    cantidad: tieneCantidad,
+    fechaEntrega: !!f.fechaEntrega
+  };
+  const valido = Object.values(validez).every(Boolean);
   useEffect(() => {
     if (initial || !DRAFT_KEY) return;
     try {
@@ -4250,12 +4415,12 @@ function FormPedido({
         imagenes,
         ...rest
       } = f;
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(rest));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(rest));
     } catch (e) {}
   }, [f]);
   const limpiarBorrador = () => {
     try {
-      sessionStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(DRAFT_KEY);
     } catch (e) {}
   };
   function buscarClientes(q) {
@@ -4896,13 +5061,26 @@ function FormPedido({
     style: BTN("#aaa")
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (valido) {
-        limpiarBorrador();
-        onSave(f);
+      if (!validez.cliente) {
+        pushToast("Falta el nombre del cliente", "error");
+        return;
       }
+      if (!validez.tipoPrenda) {
+        pushToast("Seleccion\u00E1 el tipo de prenda", "error");
+        return;
+      }
+      if (!validez.cantidad) {
+        pushToast("Agreg\u00E1 al menos una talla con cantidad o una persona", "error");
+        return;
+      }
+      if (!validez.fechaEntrega) {
+        pushToast("Falta la fecha de entrega", "error");
+        return;
+      }
+      limpiarBorrador();
+      onSave(f);
     },
-    disabled: !valido,
-    style: BTN("#9B59B6", !valido)
+    style: BTN("#9B59B6")
   }, "\uD83D\uDCBE Guardar pedido")));
 }
 function RegistroAbonos({
@@ -6205,7 +6383,7 @@ Cuando generes el JSON, responde ÚNICAMENTE con esto, sin texto antes ni despu�
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.");
+      pushToast("Tu navegador no soporta reconocimiento de voz. Usá Chrome o Edge.", "error");
       return;
     }
     const rec = new SpeechRecognition();
@@ -6417,8 +6595,9 @@ Cuando generes el JSON, responde ÚNICAMENTE con esto, sin texto antes ni despu�
     onClick: () => {
       if (apiKey.startsWith("sk-")) {
         localStorage.setItem("taller_ia_key", apiKey);
+        pushToast("Clave guardada", "success");
       } else {
-        alert("La clave debe empezar con sk-ant-");
+        pushToast("La clave debe empezar con sk-ant-", "error");
       }
     },
     style: {
@@ -8644,8 +8823,16 @@ function BordadoModal({
     }
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (!f.cliente || !f.soporte || !f.diseño) {
-        alert("⚠️ Cliente, soporte y nombre del diseño son obligatorios");
+      if (!f.cliente) {
+        pushToast("Falta el nombre del cliente", "error");
+        return;
+      }
+      if (!f.soporte) {
+        pushToast("Seleccioná el soporte (camisa, gorra, etc)", "error");
+        return;
+      }
+      if (!f.diseño) {
+        pushToast("Falta el nombre del diseño", "error");
         return;
       }
       onSave(f);
@@ -10298,11 +10485,11 @@ function CuelloModal({
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (!f.cliente) {
-        alert("⚠️ El nombre del cliente es obligatorio");
+        pushToast("Falta el nombre del cliente", "error");
         return;
       }
       if (!f.cuello.activa && !f.puno.activa && !f.banda.activa) {
-        alert("⚠️ Selecciona al menos una pieza (cuello, puño o banda)");
+        pushToast("Seleccioná al menos una pieza: cuello, puño o banda", "error");
         return;
       }
       onSave(f);
@@ -11555,8 +11742,13 @@ function SeccionCatalogo({
     gsCatalogoGuardar(nueva);
     setModal(null);
   }
-  function eliminar(id) {
-    if (!window.confirm("¿Eliminar este producto del catálogo?")) return;
+  async function eliminar(id) {
+    if (!await pushConfirm({
+      titulo: "Eliminar producto",
+      msg: "¿Eliminar este producto del catálogo? Esta acción no se puede deshacer.",
+      okLabel: "Eliminar",
+      danger: true
+    })) return;
     const nueva = catalogo.filter(p => p.id !== id);
     setCatalogo(nueva);
     gsCatalogoGuardar(nueva);
@@ -12272,7 +12464,7 @@ function ModalFormProducto({
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (!f.nombre.trim()) {
-        alert("El nombre es obligatorio");
+        pushToast("El nombre es obligatorio", "error");
         return;
       }
       onSave(f);
@@ -12941,7 +13133,7 @@ function ModalFormCliente({
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (!f.nombre.trim()) {
-        alert("El nombre es obligatorio");
+        pushToast("El nombre es obligatorio", "error");
         return;
       }
       onSave(f);
@@ -13170,31 +13362,26 @@ function App() {
         total: pendientes.length,
         errores: 0
       });
-      let idx = 0;
-      imagenesFinales = [];
-      for (const img of baseP.imagenes || []) {
-        if (!img.data || img.driveUrl) {
-          imagenesFinales.push(img);
-          continue;
-        }
+      let completadas = 0;
+      imagenesFinales = await Promise.all((baseP.imagenes || []).map(async img => {
+        if (!img.data || img.driveUrl) return img;
         const {
           img: imgResult,
           ok,
           err
         } = await subirImagenADrive(img, "confeccion", baseP.cliente);
-        imagenesFinales.push(imgResult);
-        idx++;
         if (!ok) erroresSubida.push({
           nombre: img.nombre || "foto",
           err
         });
+        completadas++;
         setProgreso({
-          actual: idx,
+          actual: completadas,
           total: pendientes.length,
           errores: erroresSubida.length
         });
-      }
-      await new Promise(r => setTimeout(r, 500));
+        return imgResult;
+      }));
       setProgreso(null);
     }
     const p = {
@@ -15324,7 +15511,7 @@ function App() {
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => eliminar(confirmar),
     style: BTN("#E63946")
-  }, "S\xED, eliminar")))));
+  }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null));
 }
 ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(App, null));
 

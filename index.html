@@ -2,7 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2C1654">
+<meta name="description" content="Sistema de gestión de pedidos del taller IMIS — confección, bordados y cuellos.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Taller IMIS">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="pwa-icon.svg">
 <title>Taller IMIS — Sistema de Pedidos</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -15,11 +22,11 @@
   ::-webkit-scrollbar-track{background:#f1f1f1}
   ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
   @media(max-width:767px){
-    .sidebar-desktop{display:none!important}.bottomnav{display:flex!important}
+    .sidebar-desktop{display:none!important}.bottomnav{display:flex!important;padding-bottom:calc(8px + env(safe-area-inset-bottom))!important}
     .topbar-mobile{display:flex!important}.tabla-pedidos{display:none!important}
     .cards-pedidos{display:flex!important}.g2{grid-template-columns:1fr!important}
     .g3{grid-template-columns:1fr!important}.gm{grid-template-columns:1fr 1fr!important}
-    .inv-grid{grid-template-columns:1fr!important}.main-area{padding-bottom:72px!important}
+    .inv-grid{grid-template-columns:1fr!important}.main-area{padding-bottom:calc(80px + env(safe-area-inset-bottom))!important}
     /* Modales desde abajo en móvil */
     .modal-wrap{align-items:flex-end!important}
     .modal-box{border-radius:16px 16px 0 0!important;max-height:90vh!important}
