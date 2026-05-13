@@ -37,6 +37,32 @@ npm run build      # genera dist/
 npm run preview    # sirve dist/ como en prod
 ```
 
+## Slash commands (Claude Code)
+
+- `/dev` — arranca el dev server en background y avisa cuando esté listo.
+- `/build` — corre `npm run build`, reporta tamaños y errores.
+- `/pwa` — inicia la conversión a PWA (instala `vite-plugin-pwa`, configura workbox, etc.).
+
+Las definiciones están en `.claude/commands/`. Para agregar más, dropea un `.md` ahí con frontmatter `description: ...` y el cuerpo es el prompt que se ejecuta.
+
+## MCP de Supabase
+
+Configurado en `.mcp.json` (modo read-only, scope al proyecto `kszdievqesveluzcnzsh`). Para activarlo en local, exportá tu personal access token de Supabase:
+
+```powershell
+# Windows PowerShell — persiste entre sesiones
+[Environment]::SetEnvironmentVariable("SUPABASE_ACCESS_TOKEN", "sbp_...", "User")
+```
+
+```bash
+# macOS / Linux — agregalo a tu ~/.bashrc o ~/.zshrc
+export SUPABASE_ACCESS_TOKEN="sbp_..."
+```
+
+Generá el token en https://supabase.com/dashboard/account/tokens. Con eso, Claude Code puede listar tablas, hacer queries, mirar advisors, etc., sin tener que pasar por mí.
+
+Modo read-only: el MCP no puede ejecutar `apply_migration` ni `execute_sql` con DDL. Si necesitás hacer cambios en la BD, quitá el `--read-only` de `.mcp.json` temporalmente o ejecutá el SQL desde el dashboard de Supabase.
+
 ## Deploy
 
 Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `dist/` en Pages. La URL queda viva en ~1 min.
@@ -74,4 +100,4 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 - **Nunca** hardcodear API keys o tokens. La Claude API key se pide al usuario y vive en `localStorage`.
 - El `SCRIPT_URL` del Apps Script está en `src/main.js` y es necesariamente público (corre con permisos del dueño del Apps Script). No es un secreto.
-- Si necesitás un PAT de GitHub para pushear: genéralo con permisos mínimos (`Contents: Read and write`, y `Workflows: Read and write` solo si vas a modificar `.github/workflows/`).
+- Si necesitás un PAT de GitHub para pushear: generálo con permisos mínimos (`Contents: Read and write`, y `Workflows: Read and write` solo si vas a modificar `.github/workflows/`).
