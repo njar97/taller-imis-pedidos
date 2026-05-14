@@ -1,148 +1,7 @@
 
-// ══ LECTOR DE ARCHIVOS DE BORDADO ══════════════════════════
-// Lee metadata de .dst (Tajima) y .pes (Brother)
-// .emb (Wilcom) es propietario y no es legible sin su SDK
-
-function leerMetadataBordado(file){
-  return new Promise(res=>{
-    const ext = file.name.split(".").pop().toLowerCase();
-    const reader = new FileReader();
-
-    reader.onload = e => {
-      const buf = e.target.result;
-      const bytes = new Uint8Array(buf);
-
-      try{
-        // ── DST (Tajima) ──────────────────────────────────────
-        // Header: campos separados por \r, formato CAMPO:valor
-        if(ext==="dst"){
-          const dec = new TextDecoder("ascii");
-          const hdr = dec.decode(bytes.slice(0,512));
-
-          // LA: nombre del diseño
-          const laMatch = hdr.match(/LA:([^\r\n\x1a]+)/);
-          const nombre  = laMatch ? laMatch[1].trim() : null;
-          // ST: puntadas
-          const stMatch = hdr.match(/ST:\s*(\d+)/);
-          const puntadas= stMatch ? parseInt(stMatch[1]) : null;
-          // CO: número de colores
-          const coMatch = hdr.match(/CO:\s*(\d+)/);
-          const colores = coMatch ? parseInt(coMatch[1].trim()) : null;
-          // +X -X +Y -Y: extensiones en 0.1mm
-          const pxMatch = hdr.match(/\+X:\s*(\d+)/);
-          const mxMatch = hdr.match(/-X:\s*(\d+)/);
-          const pyMatch = hdr.match(/\+Y:\s*(\d+)/);
-          const myMatch = hdr.match(/-Y:\s*(\d+)/);
-          let anchoMm=null, altoMm=null;
-          if(pxMatch&&mxMatch) anchoMm = Math.round((parseInt(pxMatch[1])+parseInt(mxMatch[1]))/10);
-          if(pyMatch&&myMatch) altoMm  = Math.round((parseInt(pyMatch[1])+parseInt(myMatch[1]))/10);
-
-          // // Si ST no está en header, contar puntadas manualmente
-          // En DST: cada registro = 3 bytes; último registro es 3 bytes 0x00,0x00,0xF3
-          let puntContadas = 0;
-          if(!puntadas && bytes.length > 512){
-            for(let i=512; i<bytes.length-2; i+=3){
-              const b2 = bytes[i+2];
-              if(b2===0xF3) break; // end marker
-              if((b2&0x83)===0x03) puntContadas++; // stitch bit
-            }
-          }
-
-          res({
-            formato:"DST (Tajima)",
-            nombre:   nombre||null,
-            puntadas: puntadas||puntContadas||null,
-            colores:  colores||null,
-            anchoMm:  anchoMm||null,
-            altoMm:   altoMm||null,
-          });
-          return;
-        }
-
-        // ── PES (Brother) ─────────────────────────────────────
-        // Header empieza con "#PES" o "#PEC"
-        if(ext==="pes"){
-          const sig = String.fromCharCode(...bytes.slice(0,4));
-          if(sig==="#PES"){
-            // PES v1: offset 4 = versión, offset 8 = pec offset (little-endian u32)
-            const pecOff = bytes[8]|(bytes[9]<<8)|(bytes[10]<<16)|(bytes[11]<<24);
-            // PEC block: colores en pecOff+48
-            const nCol = (bytes[pecOff+48]||0)+1;
-            // Dimensiones: en header PES, offset 40-47 (little-endian i16, unidades 0.1mm)
-            const w = (bytes[40]|(bytes[41]<<8)) * 0.1;
-            const h = (bytes[42]|(bytes[43]<<8)) * 0.1;
-            // Contar puntadas desde PEC
-            let punt=0;
-            if(pecOff && pecOff+532 < bytes.length){
-              for(let i=pecOff+532; i<bytes.length-1; i++){
-                if(bytes[i]===0xFF&&bytes[i+1]===0x00) break;
-                if(bytes[i]===0xFE&&bytes[i+1]===0xB8){i++;continue;}
-                if((bytes[i]&0x80)===0) punt++;
-              }
-            }
-            res({
-              formato:"PES (Brother)",
-              nombre:   null,
-              puntadas: punt||null,
-              colores:  nCol>1?nCol:null,
-              anchoMm:  w>0?Math.round(w):null,
-              altoMm:   h>0?Math.round(h):null,
-            });
-            return;
-          }
-        }
-
-        // ── JEF (Janome) ──────────────────────────────────────
-        if(ext==="jef"){
-          // Offset 0: puntadas (little-endian i32)
-          const punt = bytes[0]|(bytes[1]<<8)|(bytes[2]<<16)|(bytes[3]<<24);
-          // Offset 24: colores (i32)
-          const col  = bytes[24]|(bytes[25]<<8)|(bytes[26]<<16)|(bytes[27]<<24);
-          // Offset 36-43: hoop extents (i32 each, en 0.1mm)
-          const x1 = bytes[36]|(bytes[37]<<8)|(bytes[38]<<16)|(bytes[39]<<24);
-          const x2 = bytes[40]|(bytes[41]<<8)|(bytes[42]<<16)|(bytes[43]<<24);
-          const y1 = bytes[44]|(bytes[45]<<8)|(bytes[46]<<16)|(bytes[47]<<24);
-          const y2 = bytes[48]|(bytes[49]<<8)|(bytes[50]<<16)|(bytes[51]<<24);
-          res({
-            formato:"JEF (Janome)",
-            nombre:   null,
-            puntadas: punt>0?punt:null,
-            colores:  col>0?col:null,
-            anchoMm:  (x2-x1)>0?Math.round((x2-x1)/10):null,
-            altoMm:   (y2-y1)>0?Math.round((y2-y1)/10):null,
-          });
-          return;
-        }
-
-        // ── EMB (Wilcom) — propietario, no se puede leer ──────
-        if(ext==="emb"){
-          // Intentar extraer strings legibles (nombre del diseño a veces está en texto)
-          const text = new TextDecoder("latin1").decode(bytes);
-          // Buscar secuencias de texto imprimible largas
-          const matches = text.match(/[ -~]{4,}/g)||[];
-          const candidatos = matches.filter(s=>s.length>3&&s.length<60&&/[a-zA-Z]/.test(s));
-          res({
-            formato:"EMB (Wilcom)",
-            nombre:   candidatos.length>0?candidatos[0]:null,
-            puntadas: null,
-            colores:  null,
-            anchoMm:  null,
-            altoMm:   null,
-            nota:     "El formato .emb es propietario de Wilcom — solo se puede subir a Drive, los datos deben ingresarse manualmente."
-          });
-          return;
-        }
-
-        res({formato:ext.toUpperCase(), nombre:null, puntadas:null, colores:null, anchoMm:null, altoMm:null});
-      }catch(err){
-        res({formato:ext.toUpperCase(), nombre:null, puntadas:null, colores:null, anchoMm:null, altoMm:null, err:err.message});
-      }
-    };
-    reader.onerror=()=>res(null);
-    reader.readAsArrayBuffer(file);
-  });
-}
-
+// Lector de archivos de bordado (.dst/.pes/.jef/.emb) en chunk lazy.
+// Importar bajo demanda con: (await import("./leerBordado.js")).leerMetadataBordado
+const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
 
 const {
   useState,
@@ -5599,6 +5458,7 @@ function Modal({
       background: "#fff",
       borderRadius: "16px 16px 0 0",
       padding: 16,
+      paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
       width: "100%",
       maxWidth: 640,
       maxHeight: "92vh",
@@ -7908,6 +7768,7 @@ function BordadoModal({
     setSubiendoEmb(true);
     setErrSubida("");
     const confClienteNombre = f.confRef && pedidosConf ? pedidosConf.find(p => String(p.id) === String(f.confRef)) ? pedidosConf.find(p => String(p.id) === String(f.confRef)).cliente : null : null;
+    const leerMetadataBordado = await cargarLectorBordado();
     const [meta, subida] = await Promise.all([leerMetadataBordado(file), subirEmbADrive(file, f.cliente, confClienteNombre)]);
     setSubiendoEmb(false);
     if (meta) {
@@ -7942,6 +7803,7 @@ function BordadoModal({
     setErrSubida("");
     const confClienteNombre = f.confRef && pedidosConf ? (pedidosConf.find(p => String(p.id) === String(f.confRef)) || {}).cliente || null : null;
     const nombreSug = (f.id ? "BORD-" + String(f.id).padStart(3, "0") + "_" : "") + (f.cliente || "").split(" ").slice(0, 2).join("_") + (f.diseño ? "_" + f.diseño : "");
+    const leerMetadataBordado = await cargarLectorBordado();
     const [meta, subida] = await Promise.all([leerMetadataBordado(file), subirEmbADrive(file, f.cliente, confClienteNombre, nombreSug)]);
     setSubiendoDst(false);
     if (meta) {
@@ -13277,6 +13139,39 @@ function App() {
   const [modalIA, setModalIA] = useState(false);
   const [modalArchivar, setModalArchivar] = useState(null);
   const [modalActMedidas, setModalActMedidas] = useState(null);
+  const [masOpen, setMasOpen] = useState(false);
+  const [refrescando, setRefrescando] = useState(false);
+  const [pullDist, setPullDist] = useState(0);
+  const pullStartRef = useRef(null);
+  function refrescar() {
+    if (refrescando) return;
+    setRefrescando(true);
+    pushToast("Actualizando datos...", "info", 1000);
+    setTimeout(() => window.location.reload(), 250);
+  }
+  function onMainTouchStart(e) {
+    const main = e.currentTarget;
+    if (main.scrollTop > 5) {
+      pullStartRef.current = null;
+      return;
+    }
+    pullStartRef.current = e.touches[0].clientY;
+  }
+  function onMainTouchMove(e) {
+    if (pullStartRef.current === null) return;
+    const delta = e.touches[0].clientY - pullStartRef.current;
+    if (delta > 0) {
+      setPullDist(Math.min(delta * 0.5, 80));
+    }
+  }
+  function onMainTouchEnd() {
+    if (pullStartRef.current === null) return;
+    pullStartRef.current = null;
+    if (pullDist > 60) {
+      refrescar();
+    }
+    setPullDist(0);
+  }
   const [clientes, setClientes] = useState([]);
   const [catalogo, setCatalogo] = useState(CATALOGO_BASE);
   const [bordados, setBordados] = useState(() => {
@@ -13723,6 +13618,126 @@ function App() {
     label: "Confección",
     icon: "✂️"
   }];
+  const NAV_IDS_VISIBLES = ["pedidos", "bordados", "cuellos", "inventario"];
+  const renderItemBottom = item => {
+    const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
+    const activo = seccion === item.id;
+    const badgeCount = item.id === "pedidos" ? vencidosSinArchivar.length : item.id === "inventario" ? matAgotados : 0;
+    return /*#__PURE__*/React.createElement("button", {
+      key: item.id,
+      onClick: () => {
+        if (bloqueado) return;
+        setSec(item.id);
+        setMasOpen(false);
+      },
+      style: {
+        flex: 1,
+        border: "none",
+        background: "transparent",
+        cursor: bloqueado ? "default" : "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+        padding: "4px 0",
+        opacity: bloqueado ? 0.3 : 1,
+        position: "relative"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 20,
+        position: "relative"
+      }
+    }, item.icon, badgeCount > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: "absolute",
+        top: -4,
+        right: -10,
+        background: "#DC3545",
+        color: "#fff",
+        fontSize: 9,
+        fontWeight: 800,
+        padding: "1px 5px",
+        borderRadius: 10,
+        minWidth: 16,
+        textAlign: "center",
+        lineHeight: 1.2
+      }
+    }, badgeCount > 9 ? "9+" : badgeCount)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: activo ? "#CE93D8" : "#888"
+      }
+    }, item.label));
+  };
+  function renderBottomNav() {
+    const navVisible = NAV.filter(item => NAV_IDS_VISIBLES.includes(item.id));
+    const navOculto = NAV.filter(item => !NAV_IDS_VISIBLES.includes(item.id));
+    const ultBoton = navOculto.length > 0 ? /*#__PURE__*/React.createElement("button", {
+      key: "_mas",
+      onClick: () => setMasOpen(true),
+      style: {
+        flex: 1,
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+        padding: "4px 0"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 20
+      }
+    }, "···"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: masOpen ? "#CE93D8" : "#888"
+      }
+    }, "Más")) : /*#__PURE__*/React.createElement("button", {
+      key: "_salir",
+      onClick: () => setRol(null),
+      style: {
+        flex: 1,
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+        padding: "4px 0"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 20
+      }
+    }, "🚪"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: "#888"
+      }
+    }, "Salir"));
+    return /*#__PURE__*/React.createElement("nav", {
+      className: "bottomnav",
+      style: {
+        display: "none",
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "#2C1654",
+        borderTop: "1px solid #3a1f6b",
+        zIndex: 50,
+        padding: "6px 0 8px"
+      }
+    }, navVisible.map(renderItemBottom), ultBoton);
+  }
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -13880,6 +13895,21 @@ function App() {
       marginBottom: 8
     }
   }, "\u26A0\uFE0F ", alertaCF, " CF pend.")), /*#__PURE__*/React.createElement("button", {
+    onClick: refrescar,
+    disabled: refrescando,
+    style: {
+      width: "100%",
+      padding: "7px",
+      borderRadius: 8,
+      border: "1px solid #3a1f6b",
+      background: "transparent",
+      color: "#9B59B6",
+      cursor: refrescando ? "default" : "pointer",
+      fontSize: 11,
+      marginBottom: 6,
+      opacity: refrescando ? 0.5 : 1
+    }
+  }, refrescando ? "\u23F3 Actualizando..." : "\uD83D\uDD04 Actualizar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setRol(null),
     style: {
       width: "100%",
@@ -13957,7 +13987,22 @@ function App() {
       fontSize: 9,
       color: "#9B59B6"
     }
-  }, "activos"))), seccion === "estadisticas" && esAdmin && /*#__PURE__*/React.createElement(SeccionEstadisticas, {
+  }, "activos")), /*#__PURE__*/React.createElement("button", {
+    onClick: refrescar,
+    disabled: refrescando,
+    title: "Actualizar datos",
+    style: {
+      background: "rgba(255,255,255,0.1)",
+      border: "none",
+      color: "#CE93D8",
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+      fontSize: 18,
+      cursor: refrescando ? "default" : "pointer",
+      opacity: refrescando ? 0.5 : 1
+    }
+  }, refrescando ? "⏳" : "🔄")), seccion === "estadisticas" && esAdmin && /*#__PURE__*/React.createElement(SeccionEstadisticas, {
     pedidos: pedidos,
     bordados: bordados,
     cuellos: cuellos,
@@ -14083,12 +14128,32 @@ function App() {
     }, count));
   })), /*#__PURE__*/React.createElement("div", {
     className: "main-area",
+    onTouchStart: onMainTouchStart,
+    onTouchMove: onMainTouchMove,
+    onTouchEnd: onMainTouchEnd,
     style: {
       flex: 1,
       overflow: "auto",
-      padding: 12
+      padding: 12,
+      transform: pullDist > 0 ? "translateY(" + pullDist + "px)" : undefined,
+      transition: pullDist === 0 ? "transform 0.2s" : undefined
     }
-  }, vencidosSinArchivar.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, pullDist > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: -pullDist,
+      left: 0,
+      right: 0,
+      height: pullDist,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#9B59B6",
+      fontWeight: 700,
+      fontSize: 13,
+      pointerEvents: "none"
+    }
+  }, pullDist > 60 ? "↓ Soltá para actualizar" : "↓ Tirá para actualizar"), vencidosSinArchivar.length > 0 && /*#__PURE__*/React.createElement("div", {
     onClick: () => setModalArchivar(vencidosSinArchivar[0]),
     style: {
       background: "#FFF3CD",
@@ -14441,90 +14506,102 @@ function App() {
     },
     onImprimir: p => imprimirPedido(p, esAdmin),
     onVerFoto: v => setVisor(v)
-  })))))), /*#__PURE__*/React.createElement("nav", {
-    className: "bottomnav",
+  })))))), renderBottomNav(), masOpen && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setMasOpen(false),
     style: {
-      display: "none",
       position: "fixed",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      background: "#2C1654",
-      borderTop: "1px solid #3a1f6b",
-      zIndex: 50,
-      padding: "6px 0 8px"
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "center",
+      zIndex: 150
     }
-  }, NAV.map(item => {
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: "#2C1654",
+      borderRadius: "16px 16px 0 0",
+      width: "100%",
+      maxWidth: 480,
+      padding: "16px 8px",
+      paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
+      boxShadow: "0 -8px 40px rgba(0,0,0,0.4)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 44,
+      height: 4,
+      background: "#9B59B6",
+      borderRadius: 2,
+      margin: "0 auto 14px"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(4, 1fr)",
+      gap: 4
+    }
+  }, NAV.filter(item => !["pedidos", "bordados", "cuellos", "inventario"].includes(item.id)).map(item => {
     const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
     const activo = seccion === item.id;
-    const badgeCount = item.id === "pedidos" ? vencidosSinArchivar.length : item.id === "inventario" ? matAgotados : 0;
     return /*#__PURE__*/React.createElement("button", {
       key: item.id,
-      onClick: () => !bloqueado && setSec(item.id),
+      onClick: () => {
+        if (bloqueado) return;
+        setSec(item.id);
+        setMasOpen(false);
+      },
       style: {
-        flex: 1,
         border: "none",
-        background: "transparent",
+        background: activo ? "rgba(155,89,182,0.25)" : "transparent",
         cursor: bloqueado ? "default" : "pointer",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 2,
-        padding: "4px 0",
-        opacity: bloqueado ? 0.3 : 1,
-        position: "relative"
+        gap: 4,
+        padding: "12px 4px",
+        borderRadius: 10,
+        opacity: bloqueado ? 0.3 : 1
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 20,
-        position: "relative"
+        fontSize: 26
       }
-    }, item.icon, badgeCount > 0 && /*#__PURE__*/React.createElement("span", {
+    }, item.icon), /*#__PURE__*/React.createElement("span", {
       style: {
-        position: "absolute",
-        top: -4,
-        right: -10,
-        background: "#DC3545",
-        color: "#fff",
-        fontSize: 9,
-        fontWeight: 800,
-        padding: "1px 5px",
-        borderRadius: 10,
-        minWidth: 16,
-        textAlign: "center",
-        lineHeight: 1.2
-      }
-    }, badgeCount > 9 ? "9+" : badgeCount)), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: 700,
-        color: activo ? "#CE93D8" : "#888"
+        color: activo ? "#CE93D8" : "#bbb"
       }
     }, item.label));
   }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setRol(null),
+    onClick: () => {
+      setRol(null);
+      setMasOpen(false);
+    },
     style: {
-      flex: 1,
       border: "none",
       background: "transparent",
       cursor: "pointer",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      gap: 2,
-      padding: "4px 0"
+      gap: 4,
+      padding: "12px 4px",
+      borderRadius: 10
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 20
+      fontSize: 26
     }
   }, "\uD83D\uDEAA"), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: 700,
-      color: "#888"
+      color: "#bbb"
     }
-  }, "Salir")))), modalArchivar && /*#__PURE__*/React.createElement("div", {
+  }, "Salir")))))), modalArchivar && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
       inset: 0,
