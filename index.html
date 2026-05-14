@@ -36,6 +36,15 @@
     /* Formularios en móvil */
     .grid-4col{grid-template-columns:1fr 1fr!important}
     .grid-3col{grid-template-columns:1fr 1fr!important}
+    /* Touch targets mínimos: 44px en mobile */
+    button, [role="button"], select, input[type="checkbox"], input[type="radio"]{min-height:44px}
+    /* Excepciones: chips pequeños y botones que ya son grandes */
+    .chip-mini, .chip-mini button{min-height:0!important}
+    /* Search bar responsive */
+    .search-pedidos{width:100%!important;flex:1!important}
+  }
+  @media(min-width:768px){
+    .search-pedidos{width:200px!important}
   }
   @media(min-width:768px){
     .sidebar-desktop{display:flex!important}.bottomnav{display:none!important}
