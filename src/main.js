@@ -147,8 +147,19 @@ function leerMetadataBordado(file){
 const {
   useState,
   useEffect,
-  useRef
+  useRef,
+  useMemo,
+  useCallback
 } = React;
+function useDebouncedCallback(fn, delay = 150) {
+  const timer = useRef(null);
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  return useCallback((...args) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => fnRef.current(...args), delay);
+  }, [delay]);
+}
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyam7Sk6hstowABIbcEsH7zEJ46eIWNKIRCrm-xmkYCqdC0QF1x0QdGo5qBYo8zU18/exec";
 // Hash SHA-256 del PIN admin. Para cambiar el PIN, en una terminal:
 //   node -e "console.log(require('crypto').createHash('sha256').update('TU_NUEVO_PIN').digest('hex'))"
@@ -467,9 +478,21 @@ async function idbBorrar(pedidoId) {
     req.onerror = () => res();
   });
 }
+async function fetchConTimeout(url, opts = {}, timeoutMs = 30000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...opts,
+      signal: ctrl.signal
+    });
+  } finally {
+    clearTimeout(t);
+  }
+}
 async function gsLeer() {
   try {
-    const r = await fetch(SCRIPT_URL + "?action=getAll");
+    const r = await fetchConTimeout(SCRIPT_URL + "?action=getAll");
     const d = await r.json();
     if (d.error) console.error("gsLeer error:", d.error);
     return d.pedidos || [];
@@ -488,7 +511,7 @@ async function gsGuardar(p) {
       driveId: img.driveId || null
     }))
   };
-  await fetch(SCRIPT_URL, {
+  await fetchConTimeout(SCRIPT_URL, {
     method: "POST",
     headers: {
       "Content-Type": "text/plain"
@@ -500,7 +523,7 @@ async function gsGuardar(p) {
   });
 }
 async function gsBorrar(id) {
-  await fetch(SCRIPT_URL, {
+  await fetchConTimeout(SCRIPT_URL, {
     method: "POST",
     headers: {
       "Content-Type": "text/plain"
@@ -513,7 +536,7 @@ async function gsBorrar(id) {
 }
 async function gsBordLeer() {
   try {
-    const r = await fetch(SCRIPT_URL + "?action=getBordados");
+    const r = await fetchConTimeout(SCRIPT_URL + "?action=getBordados");
     const d = await r.json();
     return d.bordados || [];
   } catch {
@@ -522,7 +545,7 @@ async function gsBordLeer() {
 }
 async function gsBordGuardar(b) {
   try {
-    await fetch(SCRIPT_URL, {
+    await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -532,11 +555,14 @@ async function gsBordGuardar(b) {
         data: b
       })
     });
-  } catch {}
+  } catch (e) {
+    console.error("gsBordGuardar:", e);
+    pushToast("No pude guardar el bordado en el servidor", "error");
+  }
 }
 async function gsBordBorrar(id) {
   try {
-    await fetch(SCRIPT_URL, {
+    await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -546,11 +572,14 @@ async function gsBordBorrar(id) {
         id
       })
     });
-  } catch {}
+  } catch (e) {
+    console.error("gsBordBorrar:", e);
+    pushToast("No pude eliminar el bordado en el servidor", "error");
+  }
 }
 async function gsCuelLeer() {
   try {
-    const r = await fetch(SCRIPT_URL + "?action=getCuellos");
+    const r = await fetchConTimeout(SCRIPT_URL + "?action=getCuellos");
     const d = await r.json();
     return d.cuellos || [];
   } catch {
@@ -559,7 +588,7 @@ async function gsCuelLeer() {
 }
 async function gsCuelGuardar(c) {
   try {
-    await fetch(SCRIPT_URL, {
+    await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -569,11 +598,14 @@ async function gsCuelGuardar(c) {
         data: c
       })
     });
-  } catch {}
+  } catch (e) {
+    console.error("gsCuelGuardar:", e);
+    pushToast("No pude guardar el cuello en el servidor", "error");
+  }
 }
 async function gsCuelBorrar(id) {
   try {
-    await fetch(SCRIPT_URL, {
+    await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -583,11 +615,14 @@ async function gsCuelBorrar(id) {
         id
       })
     });
-  } catch {}
+  } catch (e) {
+    console.error("gsCuelBorrar:", e);
+    pushToast("No pude eliminar el cuello en el servidor", "error");
+  }
 }
 async function gsClientesLeer() {
   try {
-    const r = await fetch(SCRIPT_URL + "?action=getClientes");
+    const r = await fetchConTimeout(SCRIPT_URL + "?action=getClientes");
     const d = await r.json();
     return d.clientes || [];
   } catch {
@@ -596,7 +631,7 @@ async function gsClientesLeer() {
 }
 async function gsClientesGuardar(cli) {
   try {
-    await fetch(SCRIPT_URL, {
+    await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -606,11 +641,13 @@ async function gsClientesGuardar(cli) {
         data: cli
       })
     });
-  } catch {}
+  } catch (e) {
+    console.error("gsClientesGuardar:", e);
+  }
 }
 async function gsClientesBorrar(id) {
   try {
-    await fetch(SCRIPT_URL, {
+    await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -620,7 +657,10 @@ async function gsClientesBorrar(id) {
         id
       })
     });
-  } catch {}
+  } catch (e) {
+    console.error("gsClientesBorrar:", e);
+    pushToast("No pude eliminar el cliente en el servidor", "error");
+  }
 }
 async function subirImagenADrive(img, modulo, cliente, clienteConf) {
   if (img.driveUrl) return {
@@ -633,7 +673,7 @@ async function subirImagenADrive(img, modulo, cliente, clienteConf) {
     err: "Sin datos locales"
   };
   try {
-    const r = await fetch(SCRIPT_URL, {
+    const r = await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -647,7 +687,7 @@ async function subirImagenADrive(img, modulo, cliente, clienteConf) {
         cliente: cliente || "Sin cliente",
         clienteConf: clienteConf || null
       })
-    });
+    }, 60000);
     if (!r.ok) return {
       img,
       ok: false,
@@ -681,7 +721,7 @@ async function subirEmbADrive(file, cliente, clienteConf, nombreSugerido) {
     reader.onload = async e => {
       try {
         const base64 = e.target.result.split(",")[1];
-        const r = await fetch(SCRIPT_URL, {
+        const r = await fetchConTimeout(SCRIPT_URL, {
           method: "POST",
           headers: {
             "Content-Type": "text/plain"
@@ -695,7 +735,7 @@ async function subirEmbADrive(file, cliente, clienteConf, nombreSugerido) {
             cliente: cliente || "Sin cliente",
             clienteConf: clienteConf || null
           })
-        });
+        }, 60000);
         const d = await r.json();
         if (d.ok) res({
           ok: true,
@@ -1191,7 +1231,14 @@ const _toastBus = {
   items: [],
   listeners: new Set()
 };
+function buzz(pattern = 15) {
+  try {
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(pattern);
+  } catch {}
+}
 function pushToast(msg, kind = "info", duracion = 3500) {
+  if (kind === "success") buzz(15);
+  if (kind === "error") buzz([20, 60, 20]);
   const id = Date.now() + Math.random();
   _toastBus.items = [..._toastBus.items, {
     id,
@@ -1577,7 +1624,17 @@ function UploaderImagenes({
     style: {
       color: "#aaa"
     }
-  }, "Se suben al guardar el pedido")));
+  }, "Se suben al guardar el pedido")), nPendientes > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      borderRadius: 8,
+      padding: "8px 10px",
+      background: "#FFF3CD",
+      color: "#856404",
+      marginTop: 6,
+      border: "1px solid #FFE082"
+    }
+  }, "⚠️ Las fotos no se guardan en borrador. Si cerr\xE1s sin guardar, las perd\xE9s."));
 }
 function BarraProgreso({
   actual,
@@ -4426,7 +4483,7 @@ function FormPedido({
   const totalPzasAuto = (f.tallasItems || []).reduce((s, it) => s + it.qty, 0);
   useEffect(() => {
     if (totalTallasAuto > 0) s("precio", totalTallasAuto.toFixed(2));
-  }, [JSON.stringify(f.tallasItems)]);
+  }, [totalTallasAuto]);
   const totalAbonos = (f.abonos || []).reduce((s, a) => s + parseFloat(a.monto || 0), 0);
   const anticopoEfectivo = totalAbonos > 0 ? totalAbonos : parseFloat(f.anticipo || 0);
   const saldo = parseFloat(f.precio || 0) - anticopoEfectivo;
@@ -4476,6 +4533,7 @@ function FormPedido({
     }).slice(0, 5);
     setSugs(res);
   }
+  const buscarClientesDebounced = useDebouncedCallback(buscarClientes, 200);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: SEC("#2C1654")
   }, "\uD83D\uDC64 Cliente"), /*#__PURE__*/React.createElement("div", {
@@ -4489,7 +4547,7 @@ function FormPedido({
     placeholder: "Nombre del cliente *",
     onChange: e => {
       s("cliente", e.target.value);
-      buscarClientes(e.target.value);
+      buscarClientesDebounced(e.target.value);
       setShowSugs(true);
     },
     onBlur: () => setTimeout(() => setShowSugs(false), 150)
@@ -7815,6 +7873,7 @@ function BordadoModal({
     }).slice(0, 5);
     setSugsB(res);
   }
+  const buscarClientesBordDebounced = useDebouncedCallback(buscarClientesBord, 200);
   const [subiendoEmb, setSubiendoEmb] = React.useState(false);
   const [subiendoDst, setSubiendoDst] = React.useState(false);
   const [subiendoImg, setSubiendoImg] = React.useState(false);
@@ -8017,7 +8076,7 @@ function BordadoModal({
     placeholder: "Nombre o empresa",
     onChange: e => {
       set("cliente", e.target.value);
-      buscarClientesBord(e.target.value);
+      buscarClientesBordDebounced(e.target.value);
       setShowSugsB(true);
     },
     onBlur: () => setTimeout(() => setShowSugsB(false), 150)
@@ -9800,6 +9859,7 @@ function CuelloModal({
       return true;
     }).slice(0, 5));
   }
+  const buscarClientesCuelDebounced = useDebouncedCallback(buscarClientesCuel, 200);
   const subirArchivo = async e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -9907,7 +9967,7 @@ function CuelloModal({
     placeholder: "Nombre o empresa",
     onChange: e => {
       set("cliente", e.target.value);
-      buscarClientesCuel(e.target.value);
+      buscarClientesCuelDebounced(e.target.value);
       setShowSugsC(true);
     },
     onBlur: () => setTimeout(() => setShowSugsC(false), 150)
@@ -11732,7 +11792,7 @@ const CATALOGO_BASE = [{
 }];
 async function gsCatalogoLeer() {
   try {
-    const r = await fetch(SCRIPT_URL + "?action=getCatalogo");
+    const r = await fetchConTimeout(SCRIPT_URL + "?action=getCatalogo");
     const d = await r.json();
     return d.catalogo && d.catalogo.length > 0 ? d.catalogo : CATALOGO_BASE;
   } catch {
@@ -11741,7 +11801,7 @@ async function gsCatalogoLeer() {
 }
 async function gsCatalogoGuardar(lista) {
   try {
-    await fetch(SCRIPT_URL, {
+    await fetchConTimeout(SCRIPT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain"
@@ -11751,7 +11811,10 @@ async function gsCatalogoGuardar(lista) {
         data: lista
       })
     });
-  } catch {}
+  } catch (e) {
+    console.error("gsCatalogoGuardar:", e);
+    pushToast("No pude guardar el catálogo en el servidor", "error");
+  }
 }
 function SeccionCatalogo({
   catalogo,
@@ -13183,8 +13246,23 @@ function ModalFormCliente({
 function App() {
   const [rol, setRol] = useState(null);
   const [seccion, setSec] = useState("pedidos");
-  const [pedidos, setPedidos] = useState([]);
-  const [nextId, setNextId] = useState(1);
+  const [pedidos, setPedidos] = useState(() => {
+    try {
+      const d = localStorage.getItem("imis_pedidos");
+      return d ? JSON.parse(d) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [nextId, setNextId] = useState(() => {
+    try {
+      const d = localStorage.getItem("imis_pedidos");
+      const l = d ? JSON.parse(d) : [];
+      return l.length ? Math.max(...l.map(p => Number(p.id) || 0)) + 1 : 1;
+    } catch {
+      return 1;
+    }
+  });
   const [inventario, setInventario] = useState([]);
   const [asignaciones, setAsignaciones] = useState([]);
   const [modal, setModal] = useState(null);
@@ -13235,6 +13313,20 @@ function App() {
       return 1;
     }
   });
+  useEffect(() => {
+    try {
+      const sinData = pedidos.map(p => ({
+        ...p,
+        imagenes: (p.imagenes || []).map(img => ({
+          nombre: img.nombre,
+          tipo: img.tipo,
+          driveUrl: img.driveUrl || null,
+          driveId: img.driveId || null
+        }))
+      }));
+      localStorage.setItem("imis_pedidos", JSON.stringify(sinData));
+    } catch {}
+  }, [pedidos]);
   useEffect(() => {
     try {
       localStorage.setItem("imis_bordados", JSON.stringify(bordados));
@@ -13453,11 +13545,15 @@ function App() {
       if (erroresSubida.length > 0) {
         setSync("error_fotos");
         setErrorFotos(erroresSubida);
+        pushToast("Pedido guardado, pero " + erroresSubida.length + " foto" + (erroresSubida.length === 1 ? "" : "s") + " no se subieron", "error", 5000);
       } else {
         setSync("ok");
+        pushToast("Pedido " + (esNuevo ? "creado" : "actualizado") + " ✓", "success");
       }
-    } catch {
+    } catch (err) {
       setSync("error");
+      const msg = err && err.name === "AbortError" ? "Servidor no responde. El pedido quedó local — sincronizará cuando vuelva la red." : "Error al guardar. Revisá la conexión.";
+      pushToast(msg, "error", 5000);
     }
   }
   function upsertClienteLocal(nombre, extra = {}) {
@@ -13510,13 +13606,13 @@ function App() {
     } catch {}
   }
   const diasPara = f => f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null;
-  const vencidosSinArchivar = pedidos.filter(p => {
+  const vencidosSinArchivar = useMemo(() => pedidos.filter(p => {
     if (["Entregado", "Cancelado", "Listo", "Archivado"].includes(p.estatus)) return false;
     const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
-    if (saldo > 0) return false; // tiene deuda — no proponer archivar
+    if (saldo > 0) return false;
     const d = diasPara(p.fechaEntrega);
     return d !== null && d < 0;
-  });
+  }), [pedidos]);
   function archivarPedido(p, fechaEntregaReal) {
     const actualizado = {
       ...p,
@@ -13527,32 +13623,30 @@ function App() {
     gsGuardar(actualizado);
     setModalArchivar(null);
   }
-  const filtrados = pedidos.filter(p => {
+  const filtrados = useMemo(() => {
     const q = busqueda.toLowerCase();
-    const match = !q || [
-      p.cliente, p.tipoPrenda, p.tela, p.color, p.costurera,
-      p.notas, p.descripcion, p.nombreContacto, p.estatus,
-      String(p.id||""), p.fechaEntrega, p.tipoDocumento
-    ].some(v => v && String(v).toLowerCase().includes(q));
-    return match && (filtro === "Todos" || p.estatus === filtro);
-  });
-  const conteos = ESTATUS.reduce((a, e) => ({
+    return pedidos.filter(p => {
+      const match = !q || [p.cliente, p.tipoPrenda, p.tela, p.color, p.costurera, p.notas, p.descripcion, p.nombreContacto, p.estatus, String(p.id || ""), p.fechaEntrega, p.tipoDocumento].some(v => v && String(v).toLowerCase().includes(q));
+      return match && (filtro === "Todos" || p.estatus === filtro);
+    });
+  }, [pedidos, busqueda, filtro]);
+  const conteos = useMemo(() => ESTATUS.reduce((a, e) => ({
     ...a,
     [e]: pedidos.filter(p => p.estatus === e).length
-  }), {});
+  }), {}), [pedidos]);
   const parseMonto = v => {
     const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
     return isNaN(n) ? 0 : n;
   };
-  const porCobrar = [...pedidos.filter(p => p.estatus !== "Cancelado"), ...bordados.filter(b => b.estatus !== "Cancelado"), ...cuellos.filter(c => c.estatus !== "Cancelado")].reduce((s, p) => {
+  const porCobrar = useMemo(() => [...pedidos.filter(p => p.estatus !== "Cancelado"), ...bordados.filter(b => b.estatus !== "Cancelado"), ...cuellos.filter(c => c.estatus !== "Cancelado")].reduce((s, p) => {
     const precio = parseMonto(p.precio || p.precioT);
     const anticipo = parseMonto(p.anticipo);
     const saldo = precio - anticipo;
     return saldo > 0 ? s + saldo : s;
-  }, 0);
-  const alertaCF = pedidos.filter(p => p.tipoDocumento === "Crédito Fiscal (pendiente datos)").length;
-  const activos = pedidos.filter(p => !["Entregado", "Cancelado"].includes(p.estatus)).length + bordados.filter(b => !["Entregado", "Cancelado"].includes(b.estatus)).length + cuellos.filter(c => !["Entregado", "Cancelado"].includes(c.estatus)).length;
-  const matAgotados = inventario.filter(m => m.categoria === "material" && m.cantidad - asignaciones.filter(a => a.materialId === m.id).reduce((s, a) => s + a.cantidad, 0) <= 0).length;
+  }, 0), [pedidos, bordados, cuellos]);
+  const alertaCF = useMemo(() => pedidos.filter(p => p.tipoDocumento === "Crédito Fiscal (pendiente datos)").length, [pedidos]);
+  const activos = useMemo(() => pedidos.filter(p => !["Entregado", "Cancelado"].includes(p.estatus)).length + bordados.filter(b => !["Entregado", "Cancelado"].includes(b.estatus)).length + cuellos.filter(c => !["Entregado", "Cancelado"].includes(c.estatus)).length, [pedidos, bordados, cuellos]);
+  const matAgotados = useMemo(() => inventario.filter(m => m.categoria === "material" && m.cantidad - asignaciones.filter(a => a.materialId === m.id).reduce((s, a) => s + a.cantidad, 0) <= 0).length, [inventario, asignaciones]);
   const syncInfo = {
     idle: {
       c: "#aaa",
@@ -13931,12 +14025,12 @@ function App() {
       color: "#aaa"
     }
   }, pedidos.length, " pedido(s)")), /*#__PURE__*/React.createElement("input", {
+    className: "search-pedidos",
     value: busqueda,
     onChange: e => setBusq(e.target.value),
     placeholder: "\uD83D\uDD0D Buscar...",
     style: {
       ...INP,
-      width: 160,
       padding: "7px 10px",
       fontSize: 13
     }
@@ -14363,6 +14457,7 @@ function App() {
   }, NAV.map(item => {
     const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
     const activo = seccion === item.id;
+    const badgeCount = item.id === "pedidos" ? vencidosSinArchivar.length : item.id === "inventario" ? matAgotados : 0;
     return /*#__PURE__*/React.createElement("button", {
       key: item.id,
       onClick: () => !bloqueado && setSec(item.id),
@@ -14376,13 +14471,30 @@ function App() {
         alignItems: "center",
         gap: 2,
         padding: "4px 0",
-        opacity: bloqueado ? 0.3 : 1
+        opacity: bloqueado ? 0.3 : 1,
+        position: "relative"
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 20
+        fontSize: 20,
+        position: "relative"
       }
-    }, item.icon), /*#__PURE__*/React.createElement("span", {
+    }, item.icon, badgeCount > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: "absolute",
+        top: -4,
+        right: -10,
+        background: "#DC3545",
+        color: "#fff",
+        fontSize: 9,
+        fontWeight: 800,
+        padding: "1px 5px",
+        borderRadius: 10,
+        minWidth: 16,
+        textAlign: "center",
+        lineHeight: 1.2
+      }
+    }, badgeCount > 9 ? "9+" : badgeCount)), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 9,
         fontWeight: 700,
@@ -15577,5 +15689,91 @@ function App() {
     style: BTN("#E63946")
   }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null));
 }
-ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(App, null));
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      error: null
+    };
+  }
+  static getDerivedStateFromError(error) {
+    return {
+      error
+    };
+  }
+  componentDidCatch(error, info) {
+    console.error("ErrorBoundary catch:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          background: "#F7F4FA",
+          fontFamily: "system-ui, sans-serif"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          maxWidth: 420,
+          width: "100%",
+          textAlign: "center",
+          background: "#fff",
+          padding: 28,
+          borderRadius: 14,
+          boxShadow: "0 6px 20px rgba(0,0,0,0.08)"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 52,
+          marginBottom: 8
+        }
+      }, "💥"), /*#__PURE__*/React.createElement("h2", {
+        style: {
+          color: "#2C1654",
+          margin: "0 0 8px",
+          fontFamily: "Georgia, serif"
+        }
+      }, "Algo se rompió"), /*#__PURE__*/React.createElement("p", {
+        style: {
+          color: "#666",
+          fontSize: 13,
+          margin: "0 0 16px"
+        }
+      }, "La app encontró un error inesperado. Probá recargar — tus datos están guardados."), /*#__PURE__*/React.createElement("div", {
+        style: {
+          background: "#FFF3CD",
+          padding: "10px 12px",
+          borderRadius: 8,
+          fontSize: 11,
+          color: "#856404",
+          marginBottom: 18,
+          fontFamily: "monospace",
+          textAlign: "left",
+          wordBreak: "break-word",
+          maxHeight: 100,
+          overflow: "auto"
+        }
+      }, String(this.state.error && this.state.error.message || this.state.error)), /*#__PURE__*/React.createElement("button", {
+        onClick: () => window.location.reload(),
+        style: {
+          padding: "13px 24px",
+          borderRadius: 10,
+          border: "none",
+          background: "#9B59B6",
+          color: "#fff",
+          cursor: "pointer",
+          fontSize: 14,
+          fontWeight: 700,
+          width: "100%"
+        }
+      }, "🔄 Recargar app")));
+    }
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(ErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
 
