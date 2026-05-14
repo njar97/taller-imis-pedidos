@@ -150,7 +150,15 @@ const {
   useRef
 } = React;
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyam7Sk6hstowABIbcEsH7zEJ46eIWNKIRCrm-xmkYCqdC0QF1x0QdGo5qBYo8zU18/exec";
-const PIN_ADMIN = "1234";
+// Hash SHA-256 del PIN admin. Para cambiar el PIN, en una terminal:
+//   node -e "console.log(require('crypto').createHash('sha256').update('TU_NUEVO_PIN').digest('hex'))"
+// y reemplazá el string de abajo con el resultado.
+const PIN_ADMIN_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+async function sha256(text) {
+  const buf = new TextEncoder().encode(text);
+  const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
 const ANTHROPIC_KEY = ""; // ← Pega aquí tu clave sk-ant-...
 const TALLER = "Taller IMIS";
 const SQL_JS = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js";
@@ -2562,14 +2570,36 @@ function PantallaLogin({
   const [open, setOpen] = useState(false);
   const [paso, setPaso] = useState("inicio"); // "inicio" | "modulo"
 
-  function entrarAdmin() {
-    if (pin === PIN_ADMIN) {
+  async function entrarAdmin() {
+    try {
+      const lock = JSON.parse(localStorage.getItem("imis_pin_lock") || "null");
+      if (lock && lock.until && lock.until > Date.now()) {
+        const min = Math.ceil((lock.until - Date.now()) / 60000);
+        pushToast("Demasiados intentos. Probá de nuevo en " + min + " min.", "error");
+        return;
+      }
+    } catch {}
+    const inputHash = await sha256(pin);
+    if (inputHash === PIN_ADMIN_HASH) {
+      try {
+        localStorage.removeItem("imis_pin_lock");
+      } catch {}
       onLogin("admin");
-    } else {
-      setErr("PIN incorrecto");
-      setPin("");
-      setTimeout(() => setErr(""), 2000);
+      return;
     }
+    setErr("PIN incorrecto");
+    setPin("");
+    setTimeout(() => setErr(""), 2000);
+    try {
+      const lock = JSON.parse(localStorage.getItem("imis_pin_lock") || '{"count":0}');
+      lock.count = (lock.count || 0) + 1;
+      if (lock.count >= 5) {
+        lock.until = Date.now() + 5 * 60 * 1000;
+        lock.count = 0;
+        pushToast("Demasiados intentos. Bloqueado 5 minutos.", "error");
+      }
+      localStorage.setItem("imis_pin_lock", JSON.stringify(lock));
+    } catch {}
   }
   const MODULOS = [{
     id: "pedidos",
@@ -13487,10 +13517,6 @@ function App() {
     const d = diasPara(p.fechaEntrega);
     return d !== null && d < 0;
   });
-  useEffect(() => {
-    if (!rolBase || modal || detalle || modalArchivar) return;
-    if (vencidosSinArchivar.length > 0) setModalArchivar(vencidosSinArchivar[0]);
-  }, [pedidos]);
   function archivarPedido(p, fechaEntregaReal) {
     const actualizado = {
       ...p,
@@ -13968,7 +13994,45 @@ function App() {
       overflow: "auto",
       padding: 12
     }
-  }, /*#__PURE__*/React.createElement(ProximasEntregas, {
+  }, vencidosSinArchivar.length > 0 && /*#__PURE__*/React.createElement("div", {
+    onClick: () => setModalArchivar(vencidosSinArchivar[0]),
+    style: {
+      background: "#FFF3CD",
+      border: "1.5px solid #FFE082",
+      borderRadius: 10,
+      padding: "12px 14px",
+      marginBottom: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      cursor: "pointer"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 22
+    }
+  }, "📦"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: "#856404"
+    }
+  }, vencidosSinArchivar.length, " pedido", vencidosSinArchivar.length === 1 ? "" : "s", " vencido", vencidosSinArchivar.length === 1 ? "" : "s", " sin archivar"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#a07c0a"
+    }
+  }, "Toc\xE1 para revisar y marcar como entregado")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 22,
+      color: "#856404",
+      fontWeight: 700
+    }
+  }, "→")), /*#__PURE__*/React.createElement(ProximasEntregas, {
     pedidos: pedidos,
     diasPara: diasPara,
     esAdmin: esAdmin,
