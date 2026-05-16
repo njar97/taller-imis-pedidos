@@ -52,6 +52,48 @@ export async function subirFotoSupabase(dataUrl, nombre, modulo = "confeccion", 
 }
 
 /**
+ * Sube un archivo binario (File) directamente a Supabase Storage.
+ * Pensado para diseños de bordado (.emb, .dst, .pes, .jef) — no comprime,
+ * sube tal cual. Devuelve { ok, url, path } igual que subirFotoSupabase.
+ *
+ * @param {File} file - File del input.
+ * @param {string} modulo - "bordados-files" | "cuellos-files" | etc.
+ * @param {string} cliente - nombre del cliente (slugificado en el path).
+ */
+export async function subirArchivoSupabase(file, modulo, cliente = "sin-cliente") {
+  try {
+    if (!file) return { ok: false, err: "Sin archivo" };
+    const ext = (file.name || "").split(".").pop().toLowerCase() || "bin";
+    const slug = slugify(cliente);
+    const ts = Date.now();
+    const rand = Math.random().toString(36).slice(2, 8);
+    const path = `${modulo}/${slug}/${ts}-${rand}.${ext}`;
+
+    const url = `${SUPA_URL}/storage/v1/object/${BUCKET}/${path}`;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPA_ANON}`,
+        apikey: SUPA_ANON,
+        "Content-Type": file.type || "application/octet-stream",
+        "x-upsert": "false",
+      },
+      body: file,
+    });
+
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      return { ok: false, err: `HTTP ${r.status}: ${txt.slice(0, 200)}` };
+    }
+
+    const publicUrl = `${SUPA_URL}/storage/v1/object/public/${BUCKET}/${path}`;
+    return { ok: true, url: publicUrl, path };
+  } catch (e) {
+    return { ok: false, err: e.message || String(e) };
+  }
+}
+
+/**
  * Elimina una foto del bucket. Necesita el path (no la URL completa).
  */
 export async function borrarFotoSupabase(path) {

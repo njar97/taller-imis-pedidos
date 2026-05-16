@@ -4,7 +4,7 @@
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
 
 // Cliente liviano de Supabase Storage (fetch directo, sin deps).
-import { subirFotoSupabase } from "./supabaseStorage.js";
+import { subirFotoSupabase, subirArchivoSupabase } from "./supabaseStorage.js";
 
 // Bus de notificaciones (toast + confirm) accesible desde cualquier módulo.
 import {
@@ -18,14 +18,11 @@ import {
   buzz,
 } from "./lib/feedback.js";
 
-// Apps Script — sólo para subir fotos viejas a Drive y archivos .emb de bordado.
-// El CRUD de pedidos/bordados/cuellos/clientes/catálogo migró a Postgres (db.js).
-import {
-  SCRIPT_URL,
-  fetchConTimeout,
-  subirImagenADrive,
-  subirEmbADrive,
-} from "./lib/api.js";
+// Apps Script ya no se usa para CRUD ni para uploads — todo migró a Supabase.
+// Estos imports quedan vacíos a propósito: si en el futuro hay que cargar
+// algo legacy del Apps Script, se reabilita desde aquí. api.js queda como
+// referencia histórica + helper genérico fetchConTimeout (re-exportado).
+import { fetchConTimeout } from "./lib/api.js";
 
 // Backend de datos: Postgres vía PostgREST (Supabase).
 // Las funciones se exportan con los nombres viejos (gsLeer, gsGuardar, ...)
@@ -7198,7 +7195,7 @@ function BordadoModal({
     setErrSubida("");
     const confClienteNombre = f.confRef && pedidosConf ? pedidosConf.find(p => String(p.id) === String(f.confRef)) ? pedidosConf.find(p => String(p.id) === String(f.confRef)).cliente : null : null;
     const leerMetadataBordado = await cargarLectorBordado();
-    const [meta, subida] = await Promise.all([leerMetadataBordado(file), subirEmbADrive(file, f.cliente, confClienteNombre)]);
+    const [meta, subida] = await Promise.all([leerMetadataBordado(file), subirArchivoSupabase(file, "bordados-emb", f.cliente)]);
     setSubiendoEmb(false);
     if (meta) {
       if (meta.puntadas) set("puntadas", String(meta.puntadas));
@@ -7214,14 +7211,13 @@ function BordadoModal({
     if (subida.ok) {
       set("linkDrive", subida.url);
       set("linkEmbDriveUrl", subida.url);
-      set("linkEmbDriveId", subida.id);
-      if (subida.folderId) set("linkEmbFolderId", subida.folderId);
+      set("linkEmbDriveId", subida.path);
       if (!f.diseño) {
         const ext = file.name.split(".").pop();
         set("diseño", file.name.replace(new RegExp("\." + ext + "$", "i"), "").replace(/[_-]/g, " ").trim());
       }
     } else {
-      setErrSubida(((meta || {}).nota ? meta.nota + "\n" : "") + "⚠️ Error subiendo a Drive: " + subida.err);
+      setErrSubida(((meta || {}).nota ? meta.nota + "\n" : "") + "⚠️ Error subiendo: " + subida.err);
     }
     e.target.value = "";
   };
@@ -7231,9 +7227,8 @@ function BordadoModal({
     setSubiendoDst(true);
     setErrSubida("");
     const confClienteNombre = f.confRef && pedidosConf ? (pedidosConf.find(p => String(p.id) === String(f.confRef)) || {}).cliente || null : null;
-    const nombreSug = (f.id ? "BORD-" + String(f.id).padStart(3, "0") + "_" : "") + (f.cliente || "").split(" ").slice(0, 2).join("_") + (f.diseño ? "_" + f.diseño : "");
     const leerMetadataBordado = await cargarLectorBordado();
-    const [meta, subida] = await Promise.all([leerMetadataBordado(file), subirEmbADrive(file, f.cliente, confClienteNombre, nombreSug)]);
+    const [meta, subida] = await Promise.all([leerMetadataBordado(file), subirArchivoSupabase(file, "bordados-dst", f.cliente)]);
     setSubiendoDst(false);
     if (meta) {
       if (meta.puntadas) set("puntadas", String(meta.puntadas));
@@ -7245,8 +7240,7 @@ function BordadoModal({
     }
     if (subida.ok) {
       set("linkDstUrl", subida.url);
-      set("linkDstId", subida.id);
-      if (subida.folderId) set("linkDstFolderId", subida.folderId);
+      set("linkDstId", subida.path);
     } else setErrSubida("⚠️ Error subiendo .dst: " + subida.err);
     e.target.value = "";
   };
@@ -9152,11 +9146,11 @@ function CuelloModal({
     const file = e.target.files[0];
     if (!file) return;
     setSubiendoArch(true);
-    const res = await subirEmbADrive(file, f.cliente, null);
+    const res = await subirArchivoSupabase(file, "cuellos-archivos", f.cliente);
     setSubiendoArch(false);
     if (res.ok) {
       set("linkDrive", res.url);
-      set("linkDriveId", res.id);
+      set("linkDriveId", res.path);
     }
     e.target.value = "";
   };
