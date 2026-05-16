@@ -64,10 +64,21 @@ async function rest(path, opts = {}) {
 
 async function leerTabla(tabla) {
   try {
-    const rows = await rest(`/${tabla}?select=*&order=id.desc&limit=10000`);
+    // Filtra borrados (soft-delete). Para ver la papelera, usar leerPapelera.
+    const rows = await rest(`/${tabla}?select=*&deleted_at=is.null&order=id.desc&limit=10000`);
     return (rows || []).map(keysToCamel);
   } catch (e) {
     console.error(`db.leerTabla(${tabla}):`, e);
+    return [];
+  }
+}
+
+async function leerPapelera(tabla) {
+  try {
+    const rows = await rest(`/${tabla}?select=*&deleted_at=not.is.null&order=deleted_at.desc&limit=10000`);
+    return (rows || []).map(keysToCamel);
+  } catch (e) {
+    console.error(`db.leerPapelera(${tabla}):`, e);
     return [];
   }
 }
@@ -88,11 +99,14 @@ async function upsertTabla(tabla, obj) {
   }
 }
 
+// Soft-delete: marca deleted_at = now() en vez de DELETE.
+// El registro queda recuperable hasta que se purgue manualmente.
 async function borrarPorId(tabla, id) {
   try {
     await rest(`/${tabla}?id=eq.${encodeURIComponent(id)}`, {
-      method: "DELETE",
+      method: "PATCH",
       headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ deleted_at: new Date().toISOString() }),
     });
     return true;
   } catch (e) {
@@ -102,11 +116,44 @@ async function borrarPorId(tabla, id) {
   }
 }
 
+async function restaurarPorId(tabla, id) {
+  try {
+    await rest(`/${tabla}?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ deleted_at: null }),
+    });
+    return true;
+  } catch (e) {
+    console.error(`db.restaurarPorId(${tabla}, ${id}):`, e);
+    pushToast(`No pude restaurar de ${tabla}`, "error");
+    return false;
+  }
+}
+
+// Borrado definitivo (purge) — para uso administrativo en la papelera.
+async function purgarPorId(tabla, id) {
+  try {
+    await rest(`/${tabla}?id=eq.${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    return true;
+  } catch (e) {
+    console.error(`db.purgarPorId(${tabla}, ${id}):`, e);
+    pushToast(`No pude purgar de ${tabla}`, "error");
+    return false;
+  }
+}
+
 // ── Pedidos ──────────────────────────────────────────────────
 
 export const dbLeer        = () => leerTabla("pedidos");
 export const dbGuardar     = p => upsertTabla("pedidos", limpiarPedido(p));
 export const dbBorrar      = id => borrarPorId("pedidos", id);
+export const dbPapelera    = () => leerPapelera("pedidos");
+export const dbRestaurar   = id => restaurarPorId("pedidos", id);
+export const dbPurgar      = id => purgarPorId("pedidos", id);
 
 function limpiarPedido(p) {
   return {
@@ -124,21 +171,30 @@ function limpiarPedido(p) {
 
 // ── Bordados ─────────────────────────────────────────────────
 
-export const dbBordLeer    = () => leerTabla("bordados");
-export const dbBordGuardar = b  => upsertTabla("bordados", b);
-export const dbBordBorrar  = id => borrarPorId("bordados", id);
+export const dbBordLeer      = () => leerTabla("bordados");
+export const dbBordGuardar   = b  => upsertTabla("bordados", b);
+export const dbBordBorrar    = id => borrarPorId("bordados", id);
+export const dbBordPapelera  = () => leerPapelera("bordados");
+export const dbBordRestaurar = id => restaurarPorId("bordados", id);
+export const dbBordPurgar    = id => purgarPorId("bordados", id);
 
 // ── Cuellos ──────────────────────────────────────────────────
 
-export const dbCuelLeer    = () => leerTabla("cuellos");
-export const dbCuelGuardar = c  => upsertTabla("cuellos", c);
-export const dbCuelBorrar  = id => borrarPorId("cuellos", id);
+export const dbCuelLeer      = () => leerTabla("cuellos");
+export const dbCuelGuardar   = c  => upsertTabla("cuellos", c);
+export const dbCuelBorrar    = id => borrarPorId("cuellos", id);
+export const dbCuelPapelera  = () => leerPapelera("cuellos");
+export const dbCuelRestaurar = id => restaurarPorId("cuellos", id);
+export const dbCuelPurgar    = id => purgarPorId("cuellos", id);
 
 // ── Clientes ─────────────────────────────────────────────────
 
-export const dbClientesLeer    = () => leerTabla("clientes");
-export const dbClientesGuardar = cli => upsertTabla("clientes", cli);
-export const dbClientesBorrar  = id  => borrarPorId("clientes", id);
+export const dbClientesLeer      = () => leerTabla("clientes");
+export const dbClientesGuardar   = cli => upsertTabla("clientes", cli);
+export const dbClientesBorrar    = id  => borrarPorId("clientes", id);
+export const dbClientesPapelera  = () => leerPapelera("clientes");
+export const dbClientesRestaurar = id  => restaurarPorId("clientes", id);
+export const dbClientesPurgar    = id  => purgarPorId("clientes", id);
 
 // ── Catálogo ─────────────────────────────────────────────────
 
