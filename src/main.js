@@ -1,4 +1,4 @@
-
+﻿
 // Lector de archivos de bordado (.dst/.pes/.jef/.emb) en chunk lazy.
 // Importar bajo demanda con: (await import("./leerBordado.js")).leerMetadataBordado
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
@@ -38,6 +38,57 @@ import {
   subirEmbADrive,
 } from "./lib/api.js";
 
+// Constantes de dominio (estados, opciones, tallas, medidas)
+import {
+  TALLER,
+  SQL_JS,
+  SQL_WASM,
+  ANTHROPIC_KEY,
+  ESTATUS,
+  EC,
+  BORD_E,
+  BORD_EC,
+  SOPORTES_BORD,
+  POSICIONES_BORD,
+  DISENO_EST,
+  CUEL_E,
+  CUEL_EC,
+  TIPOS_CUELLO,
+  MATS_CUELLO,
+  CALS_CUELLO,
+  TALLAS_CUELLO,
+  TIPO_DOC,
+  COLABORADORAS,
+  TALLAS_A,
+  TALLAS_N,
+  TALLAS_NUM,
+  MEDIDAS_DEF,
+  CATEGORIAS_INV,
+} from "./lib/constants.js";
+
+// Helpers de dominio (formato, plantilla de pedido)
+import {
+  medInit,
+  hoy,
+  fmt$,
+  tallasTexto,
+  tallasItemsTexto,
+  resumenTallas,
+  PEDIDO_BASE,
+} from "./lib/dominio.js";
+
+// Helpers de imágenes
+import {
+  imgSrc,
+  driveViewUrl,
+  driveDownloadUrl,
+  extractDriveId,
+  comprimirImagen,
+} from "./lib/imagenes.js";
+
+// Cache local de imágenes en IndexedDB
+import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
+
 const {
   useState,
   useEffect,
@@ -62,346 +113,6 @@ async function sha256(text) {
   const buf = new TextEncoder().encode(text);
   const hashBuf = await crypto.subtle.digest("SHA-256", buf);
   return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-const ANTHROPIC_KEY = ""; // ← Pega aquí tu clave sk-ant-...
-const TALLER = "Taller IMIS";
-const SQL_JS = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js";
-const SQL_WASM = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.wasm";
-const IDB_NAME = "taller_imis_db";
-const IDB_VER = 1;
-const IDB_STORE = "imagenes";
-const ESTATUS = ["Tomado", "Diseño Wilcom", "Bordado", "En corte", "En costura", "En acabados", "Listo", "Entregado", "Cancelado"];
-const EC = {
-  "Tomado": {
-    bg: "#FFF3CD",
-    fg: "#856404"
-  },
-  "Diseño Wilcom": {
-    bg: "#FFE5D0",
-    fg: "#7B3A10"
-  },
-  "Bordado": {
-    bg: "#FCE4EC",
-    fg: "#880E4F"
-  },
-  "En corte": {
-    bg: "#FFF9C4",
-    fg: "#795548"
-  },
-  "En costura": {
-    bg: "#CCE5FF",
-    fg: "#004085"
-  },
-  "En acabados": {
-    bg: "#E8D5FF",
-    fg: "#4B0082"
-  },
-  "Listo": {
-    bg: "#D4EDDA",
-    fg: "#155724"
-  },
-  "Entregado": {
-    bg: "#E2E3E5",
-    fg: "#383D41"
-  },
-  "Cancelado": {
-    bg: "#F8D7DA",
-    fg: "#721C24"
-  }
-};
-const BORD_E = ["Tomado", "Diseño Wilcom", "Prueba bordado", "En producción", "Listo", "Entregado", "Cancelado"];
-const BORD_EC = {
-  "Tomado": {
-    bg: "#FFF8E1",
-    fg: "#7B5E00"
-  },
-  "Diseño Wilcom": {
-    bg: "#E8F5E9",
-    fg: "#1B5E20"
-  },
-  "Prueba bordado": {
-    bg: "#E3F2FD",
-    fg: "#0D47A1"
-  },
-  "En producción": {
-    bg: "#FCE4EC",
-    fg: "#880E4F"
-  },
-  "Listo": {
-    bg: "#D4EDDA",
-    fg: "#155724"
-  },
-  "Entregado": {
-    bg: "#E2E3E5",
-    fg: "#383D41"
-  },
-  "Cancelado": {
-    bg: "#F8D7DA",
-    fg: "#721C24"
-  }
-};
-const SOPORTES_BORD = ["Camisa polo", "Camiseta", "Gorra", "Bolso/Morral", "Toalla", "Tela suelta", "Parche independiente", "Delantal", "Otro"];
-const POSICIONES_BORD = ["Pecho izquierdo", "Pecho centro", "Espalda alta", "Espalda completa", "Manga derecha", "Manga izquierda", "Frente gorra", "Costado gorra", "Bolsillo", "Libre/Otra"];
-const DISENO_EST = ["Pendiente diseñar", "En Wilcom", "Diseño listo", "Diseño del cliente"];
-const CUEL_E = ["Tomado", "En tejido", "Control calidad", "Listo", "Entregado", "Cancelado"];
-const CUEL_EC = {
-  "Tomado": {
-    bg: "#FFF8E1",
-    fg: "#7B5E00"
-  },
-  "En tejido": {
-    bg: "#E0F7FA",
-    fg: "#006064"
-  },
-  "Control calidad": {
-    bg: "#F3E5F5",
-    fg: "#4A148C"
-  },
-  "Listo": {
-    bg: "#D4EDDA",
-    fg: "#155724"
-  },
-  "Entregado": {
-    bg: "#E2E3E5",
-    fg: "#383D41"
-  },
-  "Cancelado": {
-    bg: "#F8D7DA",
-    fg: "#721C24"
-  }
-};
-const TIPOS_CUELLO = ["Redondo básico", "V básico", "Polo (con abertura)", "Con tapa de botones", "Bebé", "Deportivo cuadrado", "Especial/otro"];
-const MATS_CUELLO = ["Acrílico", "Algodón", "Poliéster", "Lana", "Mezcla algodón-poliéster", "Otro"];
-const CALS_CUELLO = ["Fino", "Medio", "Grueso"];
-const TALLAS_CUELLO = ["Bebé", "Niño pequeño", "Niño", "S", "M", "L", "XL", "XXL", "A medida"];
-const TIPO_DOC = ["Consumidor Final", "Crédito Fiscal (pendiente datos)", "Crédito Fiscal (completo)"];
-const COLABORADORAS = ["(Sin asignar)", "Blanqui", "Sandra", "Tere", "Paty", "Morena", "Imelda"];
-const TALLAS_A = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
-const TALLAS_N = ["2", "4", "6", "8", "10", "12", "14", "16"];
-const TALLAS_NUM = ["34", "36", "38", "40", "42", "44", "46", "48"];
-const MEDIDAS_DEF = [{
-  k: "hombro",
-  l: "Hombro"
-}, {
-  k: "pecho",
-  l: "Pecho"
-}, {
-  k: "cintura",
-  l: "Cintura"
-}, {
-  k: "base",
-  l: "Base"
-}, {
-  k: "largo",
-  l: "Largo"
-}, {
-  k: "lManga",
-  l: "L. Manga"
-}, {
-  k: "sisa",
-  l: "Sisa"
-}, {
-  k: "pinsa",
-  l: "Pinsa"
-}, {
-  k: "escote",
-  l: "Escote"
-}, {
-  k: "lAtras",
-  l: "L. Atrás"
-}, {
-  k: "pierna",
-  l: "Pierna"
-}, {
-  k: "rodillo",
-  l: "Rodillo"
-}, {
-  k: "ruedo",
-  l: "Ruedo"
-}, {
-  k: "tiro",
-  l: "Tiro"
-}];
-const CATEGORIAS_INV = [{
-  id: "material",
-  label: "Material",
-  icon: "🧵",
-  color: "#9B59B6",
-  desc: "Telas, hilos, botones"
-}, {
-  id: "herramienta",
-  label: "Herramienta",
-  icon: "✂️",
-  color: "#E67E22",
-  desc: "Tijeras, agujas, reglas..."
-}, {
-  id: "equipo",
-  label: "Equipo",
-  icon: "🔧",
-  color: "#2980B9",
-  desc: "Máquinas, planchas..."
-}];
-const medInit = () => Object.fromEntries(MEDIDAS_DEF.map(m => [m.k, ""]));
-const hoy = () => new Date().toISOString().split("T")[0];
-const fmt$ = n => "$" + parseFloat(n || 0).toFixed(2);
-const tallasTexto = (qty = {}) => Object.entries(qty).filter(([, c]) => parseInt(c) > 0).map(([t, c]) => c + "×" + t).join(" · ");
-const tallasItemsTexto = (items = []) => items.map(it => {
-  const base = `${it.qty}\u00d7${it.talla}`;
-  const s = (it.spec || "").trim();
-  const abrev = s.length === 0 ? "" : s.length <= 12 ? s : s.replace(/[aeiou\u00e1\u00e9\u00ed\u00f3\u00fa\u00fc]/gi, "").slice(0, 10);
-  const p = it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0 ? `@$${parseFloat(it.precio).toFixed(2)}` : "";
-  const extras = [abrev, p].filter(Boolean).join(" ");
-  return extras ? `${base}(${extras})` : base;
-}).join(" \u00b7 ");
-const resumenTallas = p => {
-  if (p.tallasItems && p.tallasItems.length) return tallasItemsTexto(p.tallasItems);
-  if (p.modoTallas === "libre") return p.tallasLibre || "";
-  return tallasTexto(p.tallasQty || {});
-};
-const imgSrc = img => {
-  if (!img) return "";
-  if (img.data) return img.data;
-  if (img.supabaseUrl) return img.supabaseUrl;
-  let fileId = img.driveId || null;
-  if (!fileId && img.driveUrl) {
-    const m1 = img.driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (m1) fileId = m1[1];else {
-      const m2 = img.driveUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (m2) fileId = m2[1];
-    }
-  }
-  if (fileId) return "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w400";
-  if (img.driveUrl) return img.driveUrl;
-  return "";
-};
-const driveViewUrl = id => id ? "https://drive.google.com/file/d/" + id + "/view" : "";
-const driveDownloadUrl = id => id ? "https://drive.google.com/uc?export=download&id=" + id : "";
-const extractDriveId = url => {
-  if (!url) return null;
-  const m1 = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-  if (m1) return m1[1];
-  const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  return m2 ? m2[1] : null;
-};
-const PEDIDO_BASE = {
-  cliente: "",
-  tipoCliente: "persona",
-  nombreContacto: "",
-  telefono: "",
-  modoPrenda: "medida",
-  tipoPrenda: "",
-  modoTallas: "estandar",
-  grupoTallas: "adulto",
-  tallasQty: {},
-  tallasLibre: "",
-  tallasItems: [],
-  tela: "",
-  color: "",
-  descripcion: "",
-  tieneBordado: false,
-  estatusDiseno: "",
-  telaComprada: false,
-  tipoDocumento: "Consumidor Final",
-  razonSocial: "",
-  nit: "",
-  nrc: "",
-  dirFiscal: "",
-  precio: "",
-  anticipo: "",
-  fechaInicio: "",
-  fechaEntrega: "",
-  estatus: "Tomado",
-  costurera: "(Sin asignar)",
-  vendedor: "",
-  notas: "",
-  medidas: medInit(),
-  imagenes: [],
-  abonos: [],
-  personas: [],
-  modoRegistro: "tallas",
-  tallasItems: []
-};
-let _idb = null;
-function abrirIDB() {
-  if (_idb) return Promise.resolve(_idb);
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(IDB_NAME, IDB_VER);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE, {
-      keyPath: "pedidoId"
-    });
-    req.onsuccess = e => {
-      _idb = e.target.result;
-      res(_idb);
-    };
-    req.onerror = e => rej(e.target.error);
-  });
-}
-async function idbGuardar(pedidoId, imagenes) {
-  const db = await abrirIDB();
-  return new Promise(res => {
-    const tx = db.transaction(IDB_STORE, "readwrite");
-    const st = tx.objectStore(IDB_STORE);
-    const imgs = (imagenes || []).filter(i => i.data || i.driveUrl);
-    if (imgs.length) {
-      const req = st.put({
-        pedidoId: String(pedidoId),
-        imagenes: imgs
-      });
-      req.onsuccess = () => res();
-      req.onerror = () => res();
-    } else {
-      const req = st.delete(String(pedidoId));
-      req.onsuccess = () => res();
-      req.onerror = () => res();
-    }
-  });
-}
-async function idbLeerTodas() {
-  const db = await abrirIDB();
-  return new Promise(res => {
-    const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).getAll();
-    req.onsuccess = e => res(e.target.result || []);
-    req.onerror = () => res([]);
-  });
-}
-async function idbBorrar(pedidoId) {
-  const db = await abrirIDB();
-  return new Promise(res => {
-    const req = db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).delete(String(pedidoId));
-    req.onsuccess = () => res();
-    req.onerror = () => res();
-  });
-}
-function comprimirImagen(file, maxW = 900, calidad = 0.82) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let w = img.width,
-          h = img.height;
-        if (w > maxW) {
-          h = Math.round(h * (maxW / w));
-          w = maxW;
-        }
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-        res({
-          data: canvas.toDataURL("image/jpeg", calidad),
-          nombre: file.name,
-          tipo: "image/jpeg",
-          w,
-          h
-        });
-      };
-      img.onerror = rej;
-      img.src = e.target.result;
-    };
-    reader.onerror = rej;
-    reader.readAsDataURL(file);
-  });
 }
 async function leerDB(file) {
   if (!window.initSqlJs) {
