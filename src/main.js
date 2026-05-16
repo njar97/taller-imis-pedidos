@@ -3,6 +3,9 @@
 // Importar bajo demanda con: (await import("./leerBordado.js")).leerMetadataBordado
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
 
+// Vista de Papelera (admin, lazy)
+const SeccionPapeleraLazy = React.lazy(() => import("./SeccionPapelera.jsx"));
+
 // Cliente liviano de Supabase Storage (fetch directo, sin deps).
 import { subirFotoSupabase, subirArchivoSupabase } from "./supabaseStorage.js";
 
@@ -94,6 +97,9 @@ import {
 
 // Cache local de imágenes en IndexedDB
 import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
+
+// Suscripción a cambios en Postgres (WebSocket, sin SDK)
+import { suscribirCambios } from "./lib/realtime.js";
 
 const {
   useState,
@@ -12757,6 +12763,53 @@ function App() {
       setSync("ok");
     }).catch(err => { console.warn("Carga parcial:", err); setSync("ok"); });
   }, [rolBase]);
+
+  // Realtime: cuando otro dispositivo cambia algo en Postgres, refrescamos
+  // sólo la tabla afectada (sin recargar toda la app). Debounce 300ms en el
+  // cliente WS — varios eventos seguidos = una sola refetch.
+  useEffect(() => {
+    if (!rolBase) return;
+    const refetchTabla = async (tabla) => {
+      try {
+        if (tabla === "pedidos" || tabla === "*") {
+          const data = await gsLeer();
+          if (data) setPedidos(prev => data.length > 0 ? data.map(p => ({
+            ...p,
+            tallasItems: Array.isArray(p.tallasItems) ? p.tallasItems : [],
+            tallasQty: typeof p.tallasQty === "object" ? p.tallasQty : {},
+            medidas: typeof p.medidas === "object" ? p.medidas : {},
+            abonos: Array.isArray(p.abonos) ? p.abonos : [],
+            personas: Array.isArray(p.personas) ? p.personas : [],
+            imagenes: Array.isArray(p.imagenes) ? p.imagenes : [],
+            modoRegistro: p.modoRegistro || "tallas"
+          })) : prev);
+        }
+        if (tabla === "bordados" || tabla === "*") {
+          const data = await gsBordLeer();
+          if (data) setBordados(data);
+        }
+        if (tabla === "cuellos" || tabla === "*") {
+          const data = await gsCuelLeer();
+          if (data) setCuellos(data);
+        }
+        if (tabla === "clientes" || tabla === "*") {
+          const data = await gsClientesLeer();
+          if (data) setClientes(data);
+        }
+        if (tabla === "catalogo" || tabla === "*") {
+          const data = await gsCatalogoLeer();
+          if (data && data.length > 0) setCatalogo(data);
+        }
+      } catch (e) {
+        console.warn("Refetch realtime falló:", e);
+      }
+    };
+    const sub = suscribirCambios(
+      ["pedidos","bordados","cuellos","clientes","catalogo"],
+      refetchTabla
+    );
+    return () => sub.cerrar();
+  }, [rolBase]);
   async function guardarPedido(form, _esNuevo) {
     const esNuevo = _esNuevo !== undefined ? _esNuevo : modal === "nuevo";
     const idPedido = esNuevo ? nextId : (modal || {}).id || form.id;
@@ -13007,6 +13060,11 @@ function App() {
     id: "clientes",
     label: "Clientes",
     icon: "👥"
+  }, {
+    id: "papelera",
+    label: "Papelera",
+    icon: "🗑️",
+    soloAdmin: true
   }] : moduloOperario === "pedidos" ? [{
     id: "pedidos",
     label: "Confección",
@@ -13449,7 +13507,11 @@ function App() {
     bordados: bordados,
     cuellos: cuellos,
     esAdmin: esAdmin
-  }), seccion === "pedidos" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }), seccion === "papelera" && esAdmin && /*#__PURE__*/React.createElement(React.Suspense, {
+    fallback: /*#__PURE__*/React.createElement("div", { style: { padding: 32, textAlign: "center", color: "#999" } }, "⏳ Cargando papelera...")
+  }, /*#__PURE__*/React.createElement(SeccionPapeleraLazy, {
+    onRestaurado: refrescar
+  })), seccion === "pedidos" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "12px 16px",
       background: "#fff",

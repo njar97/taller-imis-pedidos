@@ -4,6 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Deploy a GitHub Pages bajo el path /taller-imis-pedidos/
 export default defineConfig({
   base: '/taller-imis-pedidos/',
+  // React se carga por CDN como window.React — usar el classic transform sin
+  // import explícito. Permite escribir JSX en .jsx sin tener que importar React.
+  esbuild: {
+    jsxFactory: 'React.createElement',
+    jsxFragment: 'React.Fragment',
+  },
   build: {
     outDir: 'dist',
     target: 'es2020',
