@@ -18,25 +18,34 @@ import {
   buzz,
 } from "./lib/feedback.js";
 
-// Cliente del Apps Script (Google Sheets + Drive como backend).
+// Apps Script — sólo para subir fotos viejas a Drive y archivos .emb de bordado.
+// El CRUD de pedidos/bordados/cuellos/clientes/catálogo migró a Postgres (db.js).
 import {
   SCRIPT_URL,
   fetchConTimeout,
-  gsLeer,
-  gsGuardar,
-  gsBorrar,
-  gsBordLeer,
-  gsBordGuardar,
-  gsBordBorrar,
-  gsCuelLeer,
-  gsCuelGuardar,
-  gsCuelBorrar,
-  gsClientesLeer,
-  gsClientesGuardar,
-  gsClientesBorrar,
   subirImagenADrive,
   subirEmbADrive,
 } from "./lib/api.js";
+
+// Backend de datos: Postgres vía PostgREST (Supabase).
+// Las funciones se exportan con los nombres viejos (gsLeer, gsGuardar, ...)
+// para no tocar las ~50 call-sites en main.js. Cambio en cero líneas posteriores.
+import {
+  dbLeer            as gsLeer,
+  dbGuardar         as gsGuardar,
+  dbBorrar          as gsBorrar,
+  dbBordLeer        as gsBordLeer,
+  dbBordGuardar     as gsBordGuardar,
+  dbBordBorrar      as gsBordBorrar,
+  dbCuelLeer        as gsCuelLeer,
+  dbCuelGuardar     as gsCuelGuardar,
+  dbCuelBorrar      as gsCuelBorrar,
+  dbClientesLeer    as gsClientesLeer,
+  dbClientesGuardar as gsClientesGuardar,
+  dbClientesBorrar  as gsClientesBorrar,
+  dbCatalogoLeer,
+  dbCatalogoGuardar,
+} from "./lib/db.js";
 
 // Constantes de dominio (estados, opciones, tallas, medidas)
 import {
@@ -11070,31 +11079,10 @@ const CATALOGO_BASE = [{
   notas: "Describir el arreglo específico en la descripción del pedido."
 }];
 async function gsCatalogoLeer() {
-  try {
-    const r = await fetchConTimeout(SCRIPT_URL + "?action=getCatalogo");
-    const d = await r.json();
-    return d.catalogo && d.catalogo.length > 0 ? d.catalogo : CATALOGO_BASE;
-  } catch {
-    return CATALOGO_BASE;
-  }
+  const rows = await dbCatalogoLeer();
+  return rows && rows.length > 0 ? rows : CATALOGO_BASE;
 }
-async function gsCatalogoGuardar(lista) {
-  try {
-    await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "saveCatalogo",
-        data: lista
-      })
-    });
-  } catch (e) {
-    console.error("gsCatalogoGuardar:", e);
-    pushToast("No pude guardar el catálogo en el servidor", "error");
-  }
-}
+const gsCatalogoGuardar = dbCatalogoGuardar;
 function SeccionCatalogo({
   catalogo,
   setCatalogo,
