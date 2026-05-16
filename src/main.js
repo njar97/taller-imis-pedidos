@@ -3,6 +3,9 @@
 // Importar bajo demanda con: (await import("./leerBordado.js")).leerMetadataBordado
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
 
+// Cliente liviano de Supabase Storage (fetch directo, sin deps).
+import { subirFotoSupabase } from "./supabaseStorage.js";
+
 const {
   useState,
   useEffect,
@@ -227,6 +230,7 @@ const resumenTallas = p => {
 const imgSrc = img => {
   if (!img) return "";
   if (img.data) return img.data;
+  if (img.supabaseUrl) return img.supabaseUrl;
   let fileId = img.driveId || null;
   if (!fileId && img.driveUrl) {
     const m1 = img.driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -367,7 +371,9 @@ async function gsGuardar(p) {
       nombre: img.nombre,
       tipo: img.tipo,
       driveUrl: img.driveUrl || null,
-      driveId: img.driveId || null
+      driveId: img.driveId || null,
+      supabaseUrl: img.supabaseUrl || null,
+      supabasePath: img.supabasePath || null
     }))
   };
   await fetchConTimeout(SCRIPT_URL, {
@@ -1332,8 +1338,8 @@ function UploaderImagenes({
     e.target.value = "";
   };
   const quitar = idx => onChange((imagenes || []).filter((_, i) => i !== idx));
-  const nSubidas = (imagenes || []).filter(i => i.driveUrl).length;
-  const nPendientes = (imagenes || []).filter(i => i.data && !i.driveUrl).length;
+  const nSubidas = (imagenes || []).filter(i => i.driveUrl || i.supabaseUrl).length;
+  const nPendientes = (imagenes || []).filter(i => i.data && !i.driveUrl && !i.supabaseUrl).length;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: SEC("#E91E8C")
   }, "\uD83D\uDCF8 Im\xE1genes de referencia"), /*#__PURE__*/React.createElement("input", {
@@ -1355,6 +1361,8 @@ function UploaderImagenes({
   }, (imagenes || []).map((img, i) => {
     const src = imgSrc(img);
     const enDrive = !!img.driveUrl;
+    const enSupabase = !!img.supabaseUrl;
+    const enServidor = enDrive || enSupabase;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       style: {
@@ -1363,7 +1371,7 @@ function UploaderImagenes({
         height: 90,
         borderRadius: 8,
         overflow: "hidden",
-        border: "1.5px solid " + (enDrive ? "#a8d8a8" : "#e0e0e0"),
+        border: "1.5px solid " + (enServidor ? "#a8d8a8" : "#e0e0e0"),
         flexShrink: 0
       }
     }, src ? /*#__PURE__*/React.createElement("img", {
@@ -1405,7 +1413,7 @@ function UploaderImagenes({
         fontWeight: 700,
         lineHeight: 1
       }
-    }, "\u2715"), enDrive && /*#__PURE__*/React.createElement("div", {
+    }, "\u2715"), enServidor && /*#__PURE__*/React.createElement("div", {
       style: {
         position: "absolute",
         bottom: 0,
@@ -1418,7 +1426,7 @@ function UploaderImagenes({
         textAlign: "center",
         fontWeight: 700
       }
-    }, "\u2601\uFE0F Drive"), !enDrive && img.data && /*#__PURE__*/React.createElement("div", {
+    }, enSupabase ? "\u2601\uFE0F Subida" : "\u2601\uFE0F Drive"), !enServidor && img.data && /*#__PURE__*/React.createElement("div", {
       style: {
         position: "absolute",
         bottom: 0,
@@ -7827,17 +7835,14 @@ function BordadoModal({
     setSubiendoImg(true);
     setErrSubida("");
     const comp = await comprimirImagen(file);
-    const confClienteImg = f.confRef && pedidosConf ? pedidosConf.find(p => String(p.id) === String(f.confRef)) ? pedidosConf.find(p => String(p.id) === String(f.confRef)).cliente : null : null;
-    const res = await subirImagenADrive({
-      ...comp
-    }, "bordados", f.cliente, confClienteImg);
+    const res = await subirFotoSupabase(comp.data, comp.nombre, "bordados", f.cliente);
     setSubiendoImg(false);
-    if (res.driveUrl || res.url) {
-      set("imagenRefUrl", res.img.driveUrl);
-      set("imagenRefId", res.img.driveId || "");
+    if (res.ok) {
+      set("imagenRefUrl", res.url);
+      set("imagenRefId", res.path || "");
     } else {
       set("imagenRefUrl", comp.data);
-      setErrSubida("Foto guardada localmente (Drive no disponible)");
+      setErrSubida("Foto guardada localmente (servidor no disponible)");
     }
     e.target.value = "";
   };
@@ -13216,7 +13221,9 @@ function App() {
           nombre: img.nombre,
           tipo: img.tipo,
           driveUrl: img.driveUrl || null,
-          driveId: img.driveId || null
+          driveId: img.driveId || null,
+          supabaseUrl: img.supabaseUrl || null,
+          supabasePath: img.supabasePath || null
         }))
       }));
       localStorage.setItem("imis_pedidos", JSON.stringify(sinData));
@@ -13370,7 +13377,7 @@ function App() {
     };
     setModal(null);
     setSync("guardando");
-    const pendientes = (baseP.imagenes || []).filter(i => i.data && !i.driveUrl);
+    const pendientes = (baseP.imagenes || []).filter(i => i.data && !i.driveUrl && !i.supabaseUrl);
     let imagenesFinales = [...(baseP.imagenes || [])];
     const erroresSubida = [];
     if (pendientes.length > 0) {
@@ -13381,16 +13388,21 @@ function App() {
       });
       let completadas = 0;
       imagenesFinales = await Promise.all((baseP.imagenes || []).map(async img => {
-        if (!img.data || img.driveUrl) return img;
-        const {
-          img: imgResult,
-          ok,
-          err
-        } = await subirImagenADrive(img, "confeccion", baseP.cliente);
-        if (!ok) erroresSubida.push({
-          nombre: img.nombre || "foto",
-          err
-        });
+        if (!img.data || img.driveUrl || img.supabaseUrl) return img;
+        const res = await subirFotoSupabase(img.data, img.nombre, "confeccion", baseP.cliente);
+        let imgResult = img;
+        if (res.ok) {
+          imgResult = {
+            ...img,
+            supabaseUrl: res.url,
+            supabasePath: res.path
+          };
+        } else {
+          erroresSubida.push({
+            nombre: img.nombre || "foto",
+            err: res.err
+          });
+        }
         completadas++;
         setProgreso({
           actual: completadas,
