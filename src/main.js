@@ -6,6 +6,38 @@ const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMet
 // Cliente liviano de Supabase Storage (fetch directo, sin deps).
 import { subirFotoSupabase } from "./supabaseStorage.js";
 
+// Bus de notificaciones (toast + confirm) accesible desde cualquier módulo.
+import {
+  pushToast,
+  pushConfirm,
+  _subscribeToasts,
+  _getToasts,
+  _subscribeConfirm,
+  _getConfirm,
+  _clearConfirm,
+  buzz,
+} from "./lib/feedback.js";
+
+// Cliente del Apps Script (Google Sheets + Drive como backend).
+import {
+  SCRIPT_URL,
+  fetchConTimeout,
+  gsLeer,
+  gsGuardar,
+  gsBorrar,
+  gsBordLeer,
+  gsBordGuardar,
+  gsBordBorrar,
+  gsCuelLeer,
+  gsCuelGuardar,
+  gsCuelBorrar,
+  gsClientesLeer,
+  gsClientesGuardar,
+  gsClientesBorrar,
+  subirImagenADrive,
+  subirEmbADrive,
+} from "./lib/api.js";
+
 const {
   useState,
   useEffect,
@@ -22,7 +54,6 @@ function useDebouncedCallback(fn, delay = 150) {
     timer.current = setTimeout(() => fnRef.current(...args), delay);
   }, [delay]);
 }
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyam7Sk6hstowABIbcEsH7zEJ46eIWNKIRCrm-xmkYCqdC0QF1x0QdGo5qBYo8zU18/exec";
 // Hash SHA-256 del PIN admin. Para cambiar el PIN, en una terminal:
 //   node -e "console.log(require('crypto').createHash('sha256').update('TU_NUEVO_PIN').digest('hex'))"
 // y reemplazá el string de abajo con el resultado.
@@ -339,290 +370,6 @@ async function idbBorrar(pedidoId) {
     const req = db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).delete(String(pedidoId));
     req.onsuccess = () => res();
     req.onerror = () => res();
-  });
-}
-async function fetchConTimeout(url, opts = {}, timeoutMs = 30000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      ...opts,
-      signal: ctrl.signal
-    });
-  } finally {
-    clearTimeout(t);
-  }
-}
-async function gsLeer() {
-  try {
-    const r = await fetchConTimeout(SCRIPT_URL + "?action=getAll");
-    const d = await r.json();
-    if (d.error) console.error("gsLeer error:", d.error);
-    return d.pedidos || [];
-  } catch (e) {
-    console.error("gsLeer fetch error:", e);
-    return [];
-  }
-}
-async function gsGuardar(p) {
-  const pLimpio = {
-    ...p,
-    imagenes: (p.imagenes || []).map(img => ({
-      nombre: img.nombre,
-      tipo: img.tipo,
-      driveUrl: img.driveUrl || null,
-      driveId: img.driveId || null,
-      supabaseUrl: img.supabaseUrl || null,
-      supabasePath: img.supabasePath || null
-    }))
-  };
-  await fetchConTimeout(SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain"
-    },
-    body: JSON.stringify({
-      action: "save",
-      data: pLimpio
-    })
-  });
-}
-async function gsBorrar(id) {
-  await fetchConTimeout(SCRIPT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain"
-    },
-    body: JSON.stringify({
-      action: "delete",
-      id
-    })
-  });
-}
-async function gsBordLeer() {
-  try {
-    const r = await fetchConTimeout(SCRIPT_URL + "?action=getBordados");
-    const d = await r.json();
-    return d.bordados || [];
-  } catch {
-    return [];
-  }
-}
-async function gsBordGuardar(b) {
-  try {
-    await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "saveBordado",
-        data: b
-      })
-    });
-  } catch (e) {
-    console.error("gsBordGuardar:", e);
-    pushToast("No pude guardar el bordado en el servidor", "error");
-  }
-}
-async function gsBordBorrar(id) {
-  try {
-    await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "deleteBordado",
-        id
-      })
-    });
-  } catch (e) {
-    console.error("gsBordBorrar:", e);
-    pushToast("No pude eliminar el bordado en el servidor", "error");
-  }
-}
-async function gsCuelLeer() {
-  try {
-    const r = await fetchConTimeout(SCRIPT_URL + "?action=getCuellos");
-    const d = await r.json();
-    return d.cuellos || [];
-  } catch {
-    return [];
-  }
-}
-async function gsCuelGuardar(c) {
-  try {
-    await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "saveCuello",
-        data: c
-      })
-    });
-  } catch (e) {
-    console.error("gsCuelGuardar:", e);
-    pushToast("No pude guardar el cuello en el servidor", "error");
-  }
-}
-async function gsCuelBorrar(id) {
-  try {
-    await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "deleteCuello",
-        id
-      })
-    });
-  } catch (e) {
-    console.error("gsCuelBorrar:", e);
-    pushToast("No pude eliminar el cuello en el servidor", "error");
-  }
-}
-async function gsClientesLeer() {
-  try {
-    const r = await fetchConTimeout(SCRIPT_URL + "?action=getClientes");
-    const d = await r.json();
-    return d.clientes || [];
-  } catch {
-    return [];
-  }
-}
-async function gsClientesGuardar(cli) {
-  try {
-    await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "saveCliente",
-        data: cli
-      })
-    });
-  } catch (e) {
-    console.error("gsClientesGuardar:", e);
-  }
-}
-async function gsClientesBorrar(id) {
-  try {
-    await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "deleteCliente",
-        id
-      })
-    });
-  } catch (e) {
-    console.error("gsClientesBorrar:", e);
-    pushToast("No pude eliminar el cliente en el servidor", "error");
-  }
-}
-async function subirImagenADrive(img, modulo, cliente, clienteConf) {
-  if (img.driveUrl) return {
-    img,
-    ok: true
-  };
-  if (!img.data) return {
-    img,
-    ok: false,
-    err: "Sin datos locales"
-  };
-  try {
-    const r = await fetchConTimeout(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain"
-      },
-      body: JSON.stringify({
-        action: "uploadImage",
-        base64: img.data,
-        nombre: img.nombre,
-        tipo: img.tipo,
-        modulo: modulo || "confeccion",
-        cliente: cliente || "Sin cliente",
-        clienteConf: clienteConf || null
-      })
-    }, 60000);
-    if (!r.ok) return {
-      img,
-      ok: false,
-      err: "HTTP " + r.status
-    };
-    const d = await r.json();
-    if (d.ok) return {
-      img: {
-        ...img,
-        driveUrl: d.url,
-        driveId: d.id
-      },
-      ok: true
-    };
-    return {
-      img,
-      ok: false,
-      err: d.error || "Drive rechazó el archivo"
-    };
-  } catch (e) {
-    return {
-      img,
-      ok: false,
-      err: e.message
-    };
-  }
-}
-async function subirEmbADrive(file, cliente, clienteConf, nombreSugerido) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = async e => {
-      try {
-        const base64 = e.target.result.split(",")[1];
-        const r = await fetchConTimeout(SCRIPT_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "text/plain"
-          },
-          body: JSON.stringify({
-            action: "uploadImage",
-            base64,
-            nombre: nombreSugerido ? nombreSugerido.replace(/[\/\\:*?"<>|]/g, "").substring(0, 80) + "." + file.name.split(".").pop().toLowerCase() : file.name,
-            tipo: "application/octet-stream",
-            modulo: "bordados",
-            cliente: cliente || "Sin cliente",
-            clienteConf: clienteConf || null
-          })
-        }, 60000);
-        const d = await r.json();
-        if (d.ok) res({
-          ok: true,
-          url: d.url,
-          id: d.id,
-          nombre: file.name
-        });else res({
-          ok: false,
-          err: d.error || "Error Drive"
-        });
-      } catch (e) {
-        res({
-          ok: false,
-          err: e.message
-        });
-      }
-    };
-    reader.onerror = () => res({
-      ok: false,
-      err: "Error leyendo archivo"
-    });
-    reader.readAsDataURL(file);
   });
 }
 function comprimirImagen(file, maxW = 900, calidad = 0.82) {
@@ -1092,38 +839,10 @@ const BTN = (bg = "#9B59B6", disabled = false) => ({
   fontWeight: 700,
   fontSize: 14
 });
-const _toastBus = {
-  items: [],
-  listeners: new Set()
-};
-function buzz(pattern = 15) {
-  try {
-    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(pattern);
-  } catch {}
-}
-function pushToast(msg, kind = "info", duracion = 3500) {
-  if (kind === "success") buzz(15);
-  if (kind === "error") buzz([20, 60, 20]);
-  const id = Date.now() + Math.random();
-  _toastBus.items = [..._toastBus.items, {
-    id,
-    msg,
-    kind
-  }];
-  _toastBus.listeners.forEach(fn => fn());
-  setTimeout(() => {
-    _toastBus.items = _toastBus.items.filter(t => t.id !== id);
-    _toastBus.listeners.forEach(fn => fn());
-  }, duracion);
-}
 function useToasts() {
   const [, force] = useState(0);
-  useEffect(() => {
-    const fn = () => force(n => n + 1);
-    _toastBus.listeners.add(fn);
-    return () => _toastBus.listeners.delete(fn);
-  }, []);
-  return _toastBus.items;
+  useEffect(() => _subscribeToasts(() => force(n => n + 1)), []);
+  return _getToasts();
 }
 function Toaster() {
   const items = useToasts();
@@ -1154,35 +873,17 @@ function Toaster() {
     }
   }, t.msg)));
 }
-const _confirmBus = {
-  current: null,
-  listeners: new Set()
-};
-function pushConfirm(opts) {
-  return new Promise(resolve => {
-    _confirmBus.current = {
-      ...opts,
-      resolve
-    };
-    _confirmBus.listeners.forEach(fn => fn());
-  });
-}
 function useConfirm() {
   const [, force] = useState(0);
-  useEffect(() => {
-    const fn = () => force(n => n + 1);
-    _confirmBus.listeners.add(fn);
-    return () => _confirmBus.listeners.delete(fn);
-  }, []);
-  return _confirmBus.current;
+  useEffect(() => _subscribeConfirm(() => force(n => n + 1)), []);
+  return _getConfirm();
 }
 function ConfirmDialog() {
   const c = useConfirm();
   if (!c) return null;
   const close = v => {
     const resolver = c.resolve;
-    _confirmBus.current = null;
-    _confirmBus.listeners.forEach(fn => fn());
+    _clearConfirm();
     resolver(v);
   };
   return /*#__PURE__*/React.createElement("div", {
