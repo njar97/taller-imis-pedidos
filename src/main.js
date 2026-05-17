@@ -69,6 +69,12 @@ import InstallPrompt from "./InstallPrompt.jsx";
 // ErrorBoundary — pantalla de fallback si React revienta
 import ErrorBoundary from "./ErrorBoundary.jsx";
 
+// Barra inferior (mobile) — extraída del App
+import BottomNav from "./BottomNav.jsx";
+
+// Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
+import { getNavItems } from "./lib/navItems.js";
+
 // Modal genérico — usado en muchos sitios de main.js
 import { Modal } from "./lib/Modal.jsx";
 
@@ -1317,178 +1323,7 @@ function App() {
   if (!rolBase) return /*#__PURE__*/React.createElement(PantallaLogin, {
     onLogin: setRol
   });
-  const moduloOperario = (rol || "").startsWith("operario_") ? rol.replace("operario_", "") : null;
-  const NAV = esAdmin ? [{
-    id: "estadisticas",
-    label: "Estadísticas",
-    icon: "📊"
-  }, {
-    id: "pedidos",
-    label: "Confección",
-    icon: "✂️"
-  }, {
-    id: "bordados",
-    label: "Bordados",
-    icon: "🪡"
-  }, {
-    id: "cuellos",
-    label: "Cuellos",
-    icon: "🧶"
-  }, {
-    id: "inventario",
-    label: "Inventario",
-    icon: "📦",
-    soloAdmin: true
-  }, {
-    id: "catalogo",
-    label: "Catálogo",
-    icon: "🧵"
-  }, {
-    id: "clientes",
-    label: "Clientes",
-    icon: "👥"
-  }, {
-    id: "papelera",
-    label: "Papelera",
-    icon: "🗑️",
-    soloAdmin: true
-  }] : moduloOperario === "pedidos" ? [{
-    id: "pedidos",
-    label: "Confección",
-    icon: "✂️"
-  }] : moduloOperario === "bordados" ? [{
-    id: "bordados",
-    label: "Bordados",
-    icon: "🪡"
-  }] : moduloOperario === "cuellos" ? [{
-    id: "cuellos",
-    label: "Cuellos",
-    icon: "🧶"
-  }] : [{
-    id: "pedidos",
-    label: "Confección",
-    icon: "✂️"
-  }];
-  const NAV_IDS_VISIBLES = ["pedidos", "bordados", "cuellos", "inventario"];
-  const renderItemBottom = item => {
-    const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
-    const activo = seccion === item.id;
-    const badgeCount = item.id === "pedidos" ? vencidosSinArchivar.length : item.id === "inventario" ? matAgotados : 0;
-    return /*#__PURE__*/React.createElement("button", {
-      key: item.id,
-      onClick: () => {
-        if (bloqueado) return;
-        setSec(item.id);
-        setMasOpen(false);
-      },
-      style: {
-        flex: 1,
-        border: "none",
-        background: "transparent",
-        cursor: bloqueado ? "default" : "pointer",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 2,
-        padding: "4px 0",
-        opacity: bloqueado ? 0.3 : 1,
-        position: "relative"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 20,
-        position: "relative"
-      }
-    }, item.icon, badgeCount > 0 && /*#__PURE__*/React.createElement("span", {
-      style: {
-        position: "absolute",
-        top: -4,
-        right: -10,
-        background: "#DC3545",
-        color: "#fff",
-        fontSize: 9,
-        fontWeight: 800,
-        padding: "1px 5px",
-        borderRadius: 10,
-        minWidth: 16,
-        textAlign: "center",
-        lineHeight: 1.2
-      }
-    }, badgeCount > 9 ? "9+" : badgeCount)), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        fontWeight: 700,
-        color: activo ? "#CE93D8" : "#888"
-      }
-    }, item.label));
-  };
-  function renderBottomNav() {
-    const navVisible = NAV.filter(item => NAV_IDS_VISIBLES.includes(item.id));
-    const navOculto = NAV.filter(item => !NAV_IDS_VISIBLES.includes(item.id));
-    const ultBoton = navOculto.length > 0 ? /*#__PURE__*/React.createElement("button", {
-      key: "_mas",
-      onClick: () => setMasOpen(true),
-      style: {
-        flex: 1,
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 2,
-        padding: "4px 0"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 20
-      }
-    }, "···"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        fontWeight: 700,
-        color: masOpen ? "#CE93D8" : "#888"
-      }
-    }, "Más")) : /*#__PURE__*/React.createElement("button", {
-      key: "_salir",
-      onClick: () => setRol(null),
-      style: {
-        flex: 1,
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 2,
-        padding: "4px 0"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 20
-      }
-    }, "🚪"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        fontWeight: 700,
-        color: "#888"
-      }
-    }, "Salir"));
-    return /*#__PURE__*/React.createElement("nav", {
-      className: "bottomnav",
-      style: {
-        display: "none",
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: "#2C1654",
-        borderTop: "1px solid #3a1f6b",
-        zIndex: 50,
-        padding: "6px 0 8px"
-      }
-    }, navVisible.map(renderItemBottom), ultBoton);
-  }
+  const NAV = getNavItems(rol, esAdmin);
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -2257,7 +2092,17 @@ function App() {
     },
     onImprimir: p => imprimirPedido(p, esAdmin),
     onVerFoto: v => setVisor(v)
-  })))))), renderBottomNav(), masOpen && /*#__PURE__*/React.createElement("div", {
+  })))))), /*#__PURE__*/React.createElement(BottomNav, {
+    nav: NAV,
+    seccion: seccion,
+    setSec: setSec,
+    masOpen: masOpen,
+    setMasOpen: setMasOpen,
+    setRol: setRol,
+    esAdmin: esAdmin,
+    vencidosSinArchivar: vencidosSinArchivar,
+    matAgotados: matAgotados
+  }), masOpen && /*#__PURE__*/React.createElement("div", {
     onClick: () => setMasOpen(false),
     style: {
       position: "fixed",
