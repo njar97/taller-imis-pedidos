@@ -1,0 +1,909 @@
+// Formulario de crear/editar pedido — orquesta cliente + prenda + tallas
+// + tela/color + fecha + costurera + opcionales + facturación + fotos.
+// Antes vivía como FormPedido compilado en main.js (~748 líneas).
+
+import { COLABORADORAS, ESTATUS, TIPO_DOC } from "./lib/constants.js";
+import { PEDIDO_BASE, fmt$, medInit } from "./lib/dominio.js";
+import { pushToast } from "./lib/feedback.js";
+import { useDebouncedCallback } from "./lib/hooks.js";
+import { CATALOGO_BASE } from "./lib/catalogoBase.js";
+import {
+  BannerMedidas,
+  Check,
+  Chips,
+  FechasRapidas,
+  SeccionOpcional,
+  UploaderImagenes,
+} from "./lib/ui.jsx";
+import { ListaPrendas } from "./ListaPrendas.jsx";
+import RegistroAbonos from "./RegistroAbonos.jsx";
+import { SelectorTallas } from "./SelectorTallas.jsx";
+
+const { useState, useEffect } = React;
+
+// Estilos (duplicados de main.js para no acoplar)
+const INP = {
+  width: "100%",
+  padding: "9px 12px",
+  borderRadius: 8,
+  border: "1.5px solid #e0e0e0",
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
+  background: "#FAFAFA",
+  fontFamily: "inherit",
+};
+
+const LBL = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: "#888",
+  marginBottom: 3,
+  display: "block",
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
+};
+
+const SEC = (c = "#9B59B6") => ({
+  fontSize: 11,
+  fontWeight: 800,
+  color: c,
+  textTransform: "uppercase",
+  letterSpacing: 1,
+  margin: "14px 0 8px",
+  borderBottom: "1px solid " + c + "33",
+  paddingBottom: 3,
+});
+
+const BTN = (bg = "#9B59B6", disabled = false) => ({
+  padding: "10px 20px",
+  borderRadius: 8,
+  border: "none",
+  background: disabled ? "#ccc" : bg,
+  color: "#fff",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontWeight: 700,
+  fontSize: 14,
+});
+
+// Opciones rápidas locales al formulario
+const TELAS_RAPIDAS = ["Dacrón", "Satín", "Lino", "Gabardina", "Tafeta", "Lycra", "Algodón", "Dril", "Otro"];
+const COLORES_RAPIDOS = ["Blanco", "Negro", "Azul", "Rojo", "Verde", "Café", "Gris", "Morado", "Rosado", "Beige"];
+
+const TIPOS_CLIENTE = [
+  ["persona", "👤 Persona"],
+  ["empresa", "🏢 Empresa"],
+  ["escuela", "🏫 Escuela/Inst."],
+];
+
+const MODOS_REGISTRO = [
+  ["tallas", "📦 Por tallas", "S, M, L... con cantidades"],
+  ["lista", "📋 Lista de prendas", "Por nombre con medidas opcionales"],
+];
+
+export default function FormPedido({
+  initial,
+  onSave,
+  onCancel,
+  rol,
+  pedidosExistentes = [],
+  clientes = [],
+  catalogo = [],
+}) {
+  const DRAFT_KEY = initial ? null : "TALLER_IMIS_BORRADOR";
+  const esAdmin = rol === "admin";
+
+  const initForm = () => {
+    const base = {
+      ...PEDIDO_BASE,
+      ...(initial || {}),
+      imagenes: [...((initial || {}).imagenes || [])],
+      medidas: { ...medInit(), ...((initial || {}).medidas || {}) },
+      tallasItems: [...((initial || {}).tallasItems || [])],
+      abonos: [...((initial || {}).abonos || [])],
+      personas: [...((initial || {}).personas || [])],
+      modoRegistro: (initial || {}).modoRegistro || "tallas",
+      tipoCliente: (initial || {}).tipoCliente || "persona",
+      nombreContacto: (initial || {}).nombreContacto || "",
+    };
+    if (!initial && DRAFT_KEY) {
+      try {
+        const saved = localStorage.getItem(DRAFT_KEY);
+        if (saved) {
+          const d = JSON.parse(saved);
+          return { ...base, ...d, imagenes: [], tallasItems: d.tallasItems || [] };
+        }
+      } catch (e) {}
+    }
+    return base;
+  };
+
+  const [f, setF] = useState(initForm);
+  const [sugs, setSugs] = useState([]);
+  const [showSugs, setShowSugs] = useState(false);
+
+  const s = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  const totalTallasAuto = (f.tallasItems || [])
+    .filter(it => it.precio != null && it.precio !== "")
+    .reduce((s, it) => s + parseFloat(it.precio || 0) * it.qty, 0);
+  const totalPzasAuto = (f.tallasItems || []).reduce((s, it) => s + it.qty, 0);
+
+  useEffect(() => {
+    if (totalTallasAuto > 0) s("precio", totalTallasAuto.toFixed(2));
+  }, [totalTallasAuto]);
+
+  const totalAbonos = (f.abonos || []).reduce((s, a) => s + parseFloat(a.monto || 0), 0);
+  const anticopoEfectivo = totalAbonos > 0 ? totalAbonos : parseFloat(f.anticipo || 0);
+  const saldo = parseFloat(f.precio || 0) - anticopoEfectivo;
+  const tieneCantidad =
+    (f.tallasItems || []).some(it => Number(it.qty) > 0) || (f.personas || []).length > 0;
+
+  const validez = {
+    cliente: !!f.cliente.trim(),
+    tipoPrenda: !!f.tipoPrenda.trim(),
+    cantidad: tieneCantidad,
+    fechaEntrega: !!f.fechaEntrega,
+  };
+
+  useEffect(() => {
+    if (initial || !DRAFT_KEY) return;
+    try {
+      const { imagenes, ...rest } = f;
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(rest));
+    } catch (e) {}
+  }, [f]);
+
+  const limpiarBorrador = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch (e) {}
+  };
+
+  function buscarClientes(q) {
+    if (!q || q.length < 2) {
+      setSugs([]);
+      return;
+    }
+    const fuente =
+      clientes.length > 0
+        ? clientes
+        : (pedidosExistentes || []).map(p => ({
+            nombre: p.cliente,
+            telefono: p.telefono || "",
+            tipo: p.tipoCliente,
+            contacto: p.nombreContacto || "",
+            nit: p.nit || "",
+            nrc: p.nrc || "",
+            razonSocial: p.razonSocial || "",
+            dirFiscal: p.dirFiscal || "",
+          }));
+    const vistos = new Set();
+    const res = fuente
+      .filter(cl => cl.nombre && cl.nombre.toLowerCase().includes(q.toLowerCase()))
+      .filter(cl => {
+        if (vistos.has(cl.nombre)) return false;
+        vistos.add(cl.nombre);
+        return true;
+      })
+      .slice(0, 5);
+    setSugs(res);
+  }
+  const buscarClientesDebounced = useDebouncedCallback(buscarClientes, 200);
+
+  const elegirSugerencia = sg => {
+    s("cliente", sg.nombre);
+    if (sg.telefono) s("telefono", sg.telefono);
+    if (sg.tipo) s("tipoCliente", sg.tipo);
+    if (sg.contacto) s("nombreContacto", sg.contacto);
+    if (sg.nit) s("nit", sg.nit);
+    if (sg.nrc) s("nrc", sg.nrc);
+    if (sg.razonSocial) s("razonSocial", sg.razonSocial);
+    if (sg.dirFiscal) s("dirFiscal", sg.dirFiscal);
+    if (sg.nit && sg.nrc) s("tipoDocumento", "Crédito Fiscal (completo)");
+    if (sg.medidas && Object.values(sg.medidas).some(v => v)) {
+      setF(p => ({
+        ...p,
+        medidas: { ...p.medidas, ...sg.medidas },
+        _medCliente: sg.medidas,
+      }));
+    }
+    setShowSugs(false);
+  };
+
+  // Producto del catálogo elegido (si existe)
+  const catlist = catalogo.length ? catalogo : CATALOGO_BASE;
+  const prodSel = catlist.find(p => p.nombre === f.tipoPrenda);
+
+  // Cliente reconocido con medidas guardadas (para el banner)
+  const clienteMatch = clientes.find(
+    cl => cl.nombre.toLowerCase() === f.cliente.toLowerCase()
+  );
+  const tieneMedsCliente =
+    clienteMatch && clienteMatch.medidas && Object.values(clienteMatch.medidas).some(Boolean);
+
+  const handleGuardar = () => {
+    if (!validez.cliente) {
+      pushToast("Falta el nombre del cliente", "error");
+      return;
+    }
+    if (!validez.tipoPrenda) {
+      pushToast("Seleccioná el tipo de prenda", "error");
+      return;
+    }
+    if (!validez.cantidad) {
+      pushToast("Agregá al menos una talla con cantidad o una persona", "error");
+      return;
+    }
+    if (!validez.fechaEntrega) {
+      pushToast("Falta la fecha de entrega", "error");
+      return;
+    }
+    limpiarBorrador();
+    onSave(f);
+  };
+
+  const handlePersonas = v => {
+    s("personas", v);
+    const tallaMap = {};
+    v.forEach(p => {
+      if (!p.talla) return;
+      if (!tallaMap[p.talla]) {
+        tallaMap[p.talla] = {
+          id: Date.now() + Math.random(),
+          talla: p.talla,
+          qty: 0,
+          spec: "",
+          precio: null,
+          grupo: "adulto",
+        };
+      }
+      tallaMap[p.talla].qty++;
+    });
+    s("tallasItems", Object.values(tallaMap));
+  };
+
+  return (
+    <div>
+      {/* ── Cliente ─────────────────────────────────── */}
+      <div style={SEC("#2C1654")}>👤 Cliente</div>
+      <div style={{ position: "relative", marginBottom: 10 }}>
+        <input
+          style={INP}
+          value={f.cliente}
+          placeholder="Nombre del cliente *"
+          onChange={e => {
+            s("cliente", e.target.value);
+            buscarClientesDebounced(e.target.value);
+            setShowSugs(true);
+          }}
+          onBlur={() => setTimeout(() => setShowSugs(false), 150)}
+        />
+        {showSugs && sugs.length > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "#fff",
+              border: "1.5px solid #e0e0e0",
+              borderRadius: 8,
+              zIndex: 50,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+            }}
+          >
+            {sugs.map((sg, i) => (
+              <div
+                key={i}
+                onClick={() => elegirSugerencia(sg)}
+                style={{
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  borderBottom: "1px solid #f5f5f5",
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#2C1654" }}>{sg.nombre}</div>
+                <div style={{ display: "flex", gap: 10, marginTop: 2, flexWrap: "wrap" }}>
+                  {sg.telefono && (
+                    <span style={{ fontSize: 11, color: "#aaa" }}>📱 {sg.telefono}</span>
+                  )}
+                  {sg.tipo && sg.tipo !== "persona" && (
+                    <span style={{ fontSize: 11, color: "#9B59B6", fontWeight: 700 }}>
+                      {sg.tipo === "empresa" ? "🏢 Empresa" : "🏫 Escuela"}
+                    </span>
+                  )}
+                  {sg.nit && (
+                    <span style={{ fontSize: 11, color: "#27AE60", fontWeight: 700 }}>
+                      📋 CF
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <input
+        style={{ ...INP, marginBottom: 8 }}
+        value={f.telefono}
+        placeholder="📱 Teléfono / WhatsApp"
+        onChange={e => s("telefono", e.target.value)}
+      />
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        {TIPOS_CLIENTE.map(([val, lbl]) => (
+          <button
+            key={val}
+            onClick={() => s("tipoCliente", val)}
+            style={{
+              flex: 1,
+              padding: "7px 6px",
+              borderRadius: 8,
+              border: "1.5px solid " + (f.tipoCliente === val ? "#9B59B6" : "#e0e0e0"),
+              background: f.tipoCliente === val ? "#9B59B6" : "#fff",
+              color: f.tipoCliente === val ? "#fff" : "#666",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: f.tipoCliente === val ? 700 : 400,
+              textAlign: "center",
+            }}
+          >
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {(f.tipoCliente === "empresa" || f.tipoCliente === "escuela") && (
+        <input
+          style={{ ...INP, marginBottom: 8 }}
+          value={f.nombreContacto}
+          placeholder={
+            f.tipoCliente === "escuela"
+              ? "Nombre del director/contacto"
+              : "Nombre del contacto en la empresa"
+          }
+          onChange={e => s("nombreContacto", e.target.value)}
+        />
+      )}
+
+      {/* ── Prenda ──────────────────────────────────── */}
+      <div style={SEC("#9B59B6")}>✂️ Prenda</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+        {catlist
+          .filter(p => p.nombre !== "Bordado independiente")
+          .map(prod => {
+            const sel = f.tipoPrenda === prod.nombre;
+            return (
+              <button
+                key={prod.id}
+                onClick={() => {
+                  s("tipoPrenda", prod.nombre);
+                  if (prod.modoDefault) s("modoRegistro", prod.modoDefault);
+                  if (prod.telas && prod.telas.length === 1) s("tela", prod.telas[0]);
+                  if (prod.requiereCuello) s("tieneBordado", false);
+                }}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  border: "1.5px solid " + (sel ? "#9B59B6" : "#e0e0e0"),
+                  background: sel ? "#9B59B6" : "#fff",
+                  color: sel ? "#fff" : "#666",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: sel ? 700 : 400,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <span>{prod.icono || "✂️"}</span>
+                <span>{prod.nombre}</span>
+                {prod.requiereCuello && (
+                  <span
+                    style={{
+                      fontSize: 9,
+                      background: sel ? "rgba(255,255,255,0.3)" : "#f3e5f5",
+                      color: sel ? "#fff" : "#9B59B6",
+                      borderRadius: 8,
+                      padding: "1px 5px",
+                    }}
+                  >
+                    +cuello
+                  </span>
+                )}
+              </button>
+            );
+          })}
+      </div>
+      {!catlist.some(p => p.nombre === f.tipoPrenda) && (
+        <input
+          style={{ ...INP, marginBottom: 6 }}
+          value={f.tipoPrenda}
+          placeholder="O escribe el tipo de prenda..."
+          onChange={e => s("tipoPrenda", e.target.value)}
+        />
+      )}
+      {prodSel && prodSel.requiereCuello && (
+        <div
+          style={{
+            background: "#F3E5F5",
+            border: "1px solid #CE93D8",
+            borderRadius: 8,
+            padding: "7px 12px",
+            fontSize: 12,
+            color: "#6B2D8B",
+            marginBottom: 6,
+          }}
+        >
+          🧶 Esta prenda lleva cuello tejido — recuerda crear el pedido de cuello en el módulo
+          Cuellos
+        </div>
+      )}
+
+      {/* ── Tallas / Lista ──────────────────────────── */}
+      <div style={SEC("#E67E22")}>👕 Tallas y cantidades</div>
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          marginBottom: 10,
+          background: "#fafafa",
+          borderRadius: 10,
+          padding: 4,
+          border: "1.5px solid #fde0b8",
+        }}
+      >
+        {MODOS_REGISTRO.map(([modo, label, desc]) => {
+          const activo =
+            (!f.modoRegistro && modo === "tallas") || f.modoRegistro === modo;
+          return (
+            <button
+              key={modo}
+              onClick={() => s("modoRegistro", modo)}
+              style={{
+                flex: 1,
+                padding: "9px 6px",
+                borderRadius: 7,
+                border: "none",
+                cursor: "pointer",
+                background: activo ? "#E67E22" : "transparent",
+                color: activo ? "#fff" : "#aaa",
+                fontWeight: activo ? 700 : 400,
+                fontSize: 12,
+                lineHeight: 1.4,
+                transition: "all .15s",
+                textAlign: "center",
+              }}
+            >
+              <div>{label}</div>
+              <div style={{ fontSize: 9, opacity: 0.8, marginTop: 1 }}>{desc}</div>
+            </button>
+          );
+        })}
+      </div>
+      {(!f.modoRegistro || f.modoRegistro === "tallas") && (
+        <SelectorTallas items={f.tallasItems} onChange={v => s("tallasItems", v)} />
+      )}
+      {f.modoRegistro === "lista" && (
+        <ListaPrendas items={f.personas || []} onChange={handlePersonas} />
+      )}
+
+      {/* ── Tela y color ────────────────────────────── */}
+      <div style={SEC("#1A5276")}>🧵 Tela y color</div>
+      <div style={{ marginBottom: 6 }}>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#aaa",
+            marginBottom: 4,
+            textTransform: "uppercase",
+          }}
+        >
+          Tela
+        </div>
+        <Chips opciones={TELAS_RAPIDAS} valor={f.tela} onChange={v => s("tela", v)} color="#1A5276" />
+        {(f.tela === "Otro" || !TELAS_RAPIDAS.includes(f.tela)) && (
+          <input
+            style={{ ...INP, marginTop: 4 }}
+            value={TELAS_RAPIDAS.includes(f.tela) ? "" : f.tela}
+            placeholder="Nombre de la tela"
+            onChange={e => s("tela", e.target.value)}
+          />
+        )}
+      </div>
+      <div>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#aaa",
+            marginBottom: 4,
+            textTransform: "uppercase",
+          }}
+        >
+          Color
+        </div>
+        <Chips
+          opciones={COLORES_RAPIDOS}
+          valor={f.color}
+          onChange={v => s("color", v)}
+          color="#E91E8C"
+        />
+        {(f.color === "Otro" || !COLORES_RAPIDOS.includes(f.color)) && (
+          <input
+            style={{ ...INP, marginTop: 4 }}
+            value={COLORES_RAPIDOS.includes(f.color) ? "" : f.color}
+            placeholder="Color"
+            onChange={e => s("color", e.target.value)}
+          />
+        )}
+      </div>
+
+      {/* ── Fecha entrega ───────────────────────────── */}
+      <div style={SEC("#27AE60")}>📅 Fecha de entrega</div>
+      <FechasRapidas onChange={v => s("fechaEntrega", v)} />
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <input
+          style={{ ...INP, flex: 1 }}
+          type="date"
+          value={f.fechaEntrega}
+          onChange={e => s("fechaEntrega", e.target.value)}
+        />
+        {f.fechaEntrega && (
+          <span
+            style={{
+              fontSize: 12,
+              color: "#27AE60",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            ✅{" "}
+            {new Date(f.fechaEntrega + "T12:00").toLocaleDateString("es-SV", {
+              day: "numeric",
+              month: "short",
+            })}
+          </span>
+        )}
+      </div>
+
+      {/* ── Costurera ───────────────────────────────── */}
+      <div style={SEC("#007BFF")}>✂️ Costurera</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+        {COLABORADORAS.map(c => (
+          <button
+            key={c}
+            onClick={() => s("costurera", c)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 20,
+              border: "1.5px solid " + (f.costurera === c ? "#007BFF" : "#e0e0e0"),
+              background: f.costurera === c ? "#007BFF" : "#fff",
+              color: f.costurera === c ? "#fff" : "#666",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: f.costurera === c ? 700 : 400,
+            }}
+          >
+            {c === "(Sin asignar)" ? "— Sin asignar" : c}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Banner medidas guardadas ────────────────── */}
+      {tieneMedsCliente && !f._medCliente && (
+        <BannerMedidas
+          meds={clienteMatch.medidas}
+          onCargar={meds =>
+            setF(p => ({
+              ...p,
+              medidas: { ...p.medidas, ...meds },
+              _medCliente: meds,
+            }))
+          }
+        />
+      )}
+
+      {/* ── Detalles adicionales ─────────────────────── */}
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#aaa",
+          textTransform: "uppercase",
+          letterSpacing: 1,
+          margin: "14px 0 8px",
+        }}
+      >
+        Detalles adicionales (opcional)
+      </div>
+
+      <SeccionOpcional titulo="Descripción y bordado" icon="📝" color="#9B59B6">
+        <textarea
+          style={{ ...INP, resize: "vertical", minHeight: 60, marginBottom: 8 }}
+          value={f.descripcion}
+          placeholder="Detalles del trabajo..."
+          onChange={e => s("descripcion", e.target.value)}
+        />
+        <Check label="Lleva bordado" value={f.tieneBordado} onChange={v => s("tieneBordado", v)} />
+        <Check
+          label="Tela comprada ✅"
+          value={f.telaComprada}
+          onChange={v => s("telaComprada", v)}
+        />
+        {f.tieneBordado && (
+          <input
+            style={{ ...INP, marginTop: 8 }}
+            value={f.estatusDiseno}
+            placeholder="Estado del diseño en Wilcom..."
+            onChange={e => s("estatusDiseno", e.target.value)}
+          />
+        )}
+      </SeccionOpcional>
+
+      {/* ── Pagos (no admin) ────────────────────────── */}
+      {!esAdmin && (
+        <div style={{ marginTop: 4 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#aaa",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              margin: "14px 0 6px",
+            }}
+          >
+            💵 Pagos recibidos (opcional)
+          </div>
+          <RegistroAbonos
+            abonos={f.abonos || []}
+            precioTotal={f.precio}
+            onChange={v => {
+              s("abonos", v);
+              s("anticipo", v.reduce((sum, a) => sum + parseFloat(a.monto || 0), 0).toFixed(2));
+            }}
+            esAdmin={false}
+          />
+        </div>
+      )}
+
+      {/* ── Precio y adelanto (admin) ────────────────── */}
+      {esAdmin && (
+        <SeccionOpcional
+          titulo={
+            totalTallasAuto > 0
+              ? `💰 Precio y adelanto — Total: $${totalTallasAuto.toFixed(2)} (${totalPzasAuto} pzas)`
+              : "💰 Precio y adelanto"
+          }
+          icon="💰"
+          color="#27AE60"
+        >
+          {totalTallasAuto > 0 && (
+            <div
+              style={{
+                background: "#f0fff4",
+                border: "1.5px solid #a8d8a8",
+                borderRadius: 10,
+                padding: "10px 14px",
+                marginBottom: 12,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#888",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Calculado automáticamente
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: "#155724" }}>
+                  ${totalTallasAuto.toFixed(2)}
+                </div>
+                <div style={{ fontSize: 11, color: "#27AE60" }}>
+                  {totalPzasAuto} pieza{totalPzasAuto !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#27AE60",
+                  fontWeight: 700,
+                  textAlign: "right",
+                }}
+              >
+                ✅ Total
+                <br />
+                actualizado
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginBottom: 10 }}>
+            <label style={LBL}>Precio total ($)</label>
+            <input
+              style={INP}
+              type="number"
+              placeholder="0.00"
+              value={f.precio}
+              onChange={e => s("precio", e.target.value)}
+            />
+          </div>
+
+          <RegistroAbonos
+            abonos={f.abonos || []}
+            precioTotal={f.precio}
+            onChange={v => {
+              s("abonos", v);
+              s("anticipo", v.reduce((sum, a) => sum + parseFloat(a.monto || 0), 0).toFixed(2));
+            }}
+            esAdmin
+          />
+
+          {parseFloat(f.precio || 0) > 0 && (
+            <div
+              style={{
+                background: saldo > 0 ? "#FFF3CD" : "#D4EDDA",
+                border: "1.5px solid " + (saldo > 0 ? "#FFD54F" : "#a8d8a8"),
+                borderRadius: 10,
+                padding: "12px 14px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 10,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#888",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Saldo pendiente
+                </div>
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 900,
+                    color: saldo > 0 ? "#856404" : "#155724",
+                  }}
+                >
+                  {fmt$(saldo)}
+                </div>
+              </div>
+              {anticopoEfectivo > 0 && (
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "#888",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Total abonado
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#27AE60" }}>
+                    {fmt$(anticopoEfectivo)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ marginTop: 10 }}>
+            <label style={LBL}>Fecha inicio</label>
+            <input
+              style={INP}
+              type="date"
+              value={f.fechaInicio}
+              onChange={e => s("fechaInicio", e.target.value)}
+            />
+          </div>
+        </SeccionOpcional>
+      )}
+
+      {/* ── Facturación (admin) ─────────────────────── */}
+      {esAdmin && (
+        <SeccionOpcional titulo="Facturación / Crédito fiscal" icon="🧾" color="#E67E22">
+          <select
+            style={{ ...INP, marginBottom: 10 }}
+            value={f.tipoDocumento}
+            onChange={e => s("tipoDocumento", e.target.value)}
+          >
+            {TIPO_DOC.map(t => <option key={t}>{t}</option>)}
+          </select>
+          {f.tipoDocumento !== "Consumidor Final" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label style={LBL}>Razón Social</label>
+                <input
+                  style={INP}
+                  value={f.razonSocial}
+                  onChange={e => s("razonSocial", e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={LBL}>NIT</label>
+                <input style={INP} value={f.nit} onChange={e => s("nit", e.target.value)} />
+              </div>
+              <div>
+                <label style={LBL}>NRC</label>
+                <input style={INP} value={f.nrc} onChange={e => s("nrc", e.target.value)} />
+              </div>
+              <div>
+                <label style={LBL}>Dirección fiscal</label>
+                <input
+                  style={INP}
+                  value={f.dirFiscal}
+                  onChange={e => s("dirFiscal", e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </SeccionOpcional>
+      )}
+
+      {/* ── Observaciones y fotos ───────────────────── */}
+      <SeccionOpcional titulo="Observaciones y vendedor" icon="📌" color="#888">
+        <textarea
+          style={{ ...INP, resize: "vertical", minHeight: 50, marginBottom: 8 }}
+          value={f.notas}
+          placeholder="Observaciones..."
+          onChange={e => s("notas", e.target.value)}
+        />
+        <input
+          style={INP}
+          value={f.vendedor}
+          placeholder="Vendedor"
+          onChange={e => s("vendedor", e.target.value)}
+        />
+      </SeccionOpcional>
+
+      <SeccionOpcional titulo="Fotos de referencia" icon="📸" color="#E91E8C">
+        <UploaderImagenes imagenes={f.imagenes} onChange={imgs => s("imagenes", imgs)} />
+      </SeccionOpcional>
+
+      {/* ── Estatus ─────────────────────────────────── */}
+      <div style={{ marginTop: 10 }}>
+        <label style={LBL}>Estatus del pedido</label>
+        <select
+          style={INP}
+          value={f.estatus}
+          onChange={e => s("estatus", e.target.value)}
+        >
+          {ESTATUS.map(e => <option key={e}>{e}</option>)}
+        </select>
+      </div>
+
+      {/* ── Acciones ────────────────────────────────── */}
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 22 }}>
+        <button
+          onClick={() => {
+            limpiarBorrador();
+            onCancel();
+          }}
+          style={BTN("#aaa")}
+        >
+          Cancelar
+        </button>
+        <button onClick={handleGuardar} style={BTN("#9B59B6")}>
+          💾 Guardar pedido
+        </button>
+      </div>
+    </div>
+  );
+}
