@@ -66,6 +66,9 @@ import ConexionStatus from "./ConexionStatus.jsx";
 // Banner "Instalar como app" (PWA — Android/Chrome + iOS Safari)
 import InstallPrompt from "./InstallPrompt.jsx";
 
+// ErrorBoundary — pantalla de fallback si React revienta
+import ErrorBoundary from "./ErrorBoundary.jsx";
+
 // Modal genérico — usado en muchos sitios de main.js
 import { Modal } from "./lib/Modal.jsx";
 
@@ -3513,92 +3516,6 @@ function App() {
     onClick: () => eliminar(confirmar),
     style: BTN("#E63946")
   }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null), /*#__PURE__*/React.createElement(ConexionStatus, null), /*#__PURE__*/React.createElement(InstallPrompt, null));
-}
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      error: null
-    };
-  }
-  static getDerivedStateFromError(error) {
-    return {
-      error
-    };
-  }
-  componentDidCatch(error, info) {
-    console.error("ErrorBoundary catch:", error, info);
-  }
-  render() {
-    if (this.state.error) {
-      return /*#__PURE__*/React.createElement("div", {
-        style: {
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-          background: "#F7F4FA",
-          fontFamily: "system-ui, sans-serif"
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          maxWidth: 420,
-          width: "100%",
-          textAlign: "center",
-          background: "#fff",
-          padding: 28,
-          borderRadius: 14,
-          boxShadow: "0 6px 20px rgba(0,0,0,0.08)"
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 52,
-          marginBottom: 8
-        }
-      }, "💥"), /*#__PURE__*/React.createElement("h2", {
-        style: {
-          color: "#2C1654",
-          margin: "0 0 8px",
-          fontFamily: "Georgia, serif"
-        }
-      }, "Algo se rompió"), /*#__PURE__*/React.createElement("p", {
-        style: {
-          color: "#666",
-          fontSize: 13,
-          margin: "0 0 16px"
-        }
-      }, "La app encontró un error inesperado. Probá recargar — tus datos están guardados."), /*#__PURE__*/React.createElement("div", {
-        style: {
-          background: "#FFF3CD",
-          padding: "10px 12px",
-          borderRadius: 8,
-          fontSize: 11,
-          color: "#856404",
-          marginBottom: 18,
-          fontFamily: "monospace",
-          textAlign: "left",
-          wordBreak: "break-word",
-          maxHeight: 100,
-          overflow: "auto"
-        }
-      }, String(this.state.error && this.state.error.message || this.state.error)), /*#__PURE__*/React.createElement("button", {
-        onClick: () => window.location.reload(),
-        style: {
-          padding: "13px 24px",
-          borderRadius: 10,
-          border: "none",
-          background: "#9B59B6",
-          color: "#fff",
-          cursor: "pointer",
-          fontSize: 14,
-          fontWeight: 700,
-          width: "100%"
-        }
-      }, "🔄 Recargar app")));
-    }
-    return this.props.children;
-  }
 }
 ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(ErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
 
