@@ -75,6 +75,9 @@ import BottomNav from "./BottomNav.jsx";
 // Bottom-sheet "Más" (items que no entran en la barra inferior)
 import MasOpenSheet from "./MasOpenSheet.jsx";
 
+// Sidebar desktop (oculto en mobile via CSS)
+import SidebarDesktop from "./SidebarDesktop.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -1336,181 +1339,21 @@ function App() {
     actual: progreso.actual,
     total: progreso.total,
     errores: progreso.errores || 0
-  }), /*#__PURE__*/React.createElement("aside", {
-    className: "sidebar-desktop",
-    style: {
-      width: 196,
-      background: "#2C1654",
-      flexDirection: "column",
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: "20px 16px 12px"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      fontWeight: 700,
-      letterSpacing: 2,
-      color: "#9B59B6",
-      textTransform: "uppercase",
-      marginBottom: 4
-    }
-  }, TALLER), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 16,
-      fontWeight: 800,
-      color: "#fff",
-      fontFamily: "Georgia,serif",
-      lineHeight: 1.3
-    }
-  }, "Sistema de", /*#__PURE__*/React.createElement("br", null), "Pedidos"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      background: esAdmin ? "#9B59B6" : "#3a1f6b",
-      color: "#fff",
-      padding: "2px 8px",
-      borderRadius: 20,
-      fontWeight: 700
-    }
-  }, esAdmin ? "🔐 Admin" : "✂️ Operario")), (sync === "ok" || sync === "error" || sync === "error_fotos") && syncInfo && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: syncInfo.c,
-      fontWeight: 700,
-      marginTop: 6
-    }
-  }, syncInfo.t)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      padding: "4px 8px"
-    }
-  }, NAV.map(item => {
-    const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
-    const activo = seccion === item.id;
-    return /*#__PURE__*/React.createElement("button", {
-      key: item.id,
-      onClick: () => !bloqueado && setSec(item.id),
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        width: "100%",
-        padding: "9px 10px",
-        borderRadius: 8,
-        border: "none",
-        background: activo ? "rgba(155,89,182,0.25)" : "transparent",
-        color: bloqueado ? "#3a2060" : activo ? "#CE93D8" : "#bbb",
-        cursor: bloqueado ? "default" : "pointer",
-        fontSize: 12,
-        fontWeight: activo ? 700 : 400,
-        textAlign: "left",
-        marginBottom: 2
-      }
-    }, /*#__PURE__*/React.createElement("span", null, item.icon), /*#__PURE__*/React.createElement("span", {
-      style: {
-        flex: 1
-      }
-    }, item.label), item.id === "inventario" && matAgotados > 0 && !bloqueado && /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 10,
-        background: "#DC3545",
-        color: "#fff",
-        padding: "1px 5px",
-        borderRadius: 10,
-        fontWeight: 700
-      }
-    }, "\u26A0\uFE0F"), item.pronto && /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        background: "#3a1f6b",
-        color: "#555",
-        padding: "2px 5px",
-        borderRadius: 8
-      }
-    }, "PRONTO"), item.soloAdmin && !esAdmin && !item.pronto && /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        background: "#3a1f6b",
-        color: "#555",
-        padding: "2px 5px",
-        borderRadius: 8
-      }
-    }, "\uD83D\uDD10"));
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: "12px 16px",
-      borderTop: "1px solid #3a1f6b"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: "#666",
-      marginBottom: 2
-    }
-  }, "Pedidos activos"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 22,
-      fontWeight: 800,
-      color: "#CE93D8",
-      marginBottom: 6
-    }
-  }, activos), esAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: "#666",
-      marginBottom: 2
-    }
-  }, "Por cobrar"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 16,
-      fontWeight: 800,
-      color: "#28A745",
-      marginBottom: 8
-    }
-  }, fmt$(porCobrar)), alertaCF > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#FFF3CD",
-      borderRadius: 8,
-      padding: "5px 8px",
-      fontSize: 10,
-      color: "#856404",
-      fontWeight: 700,
-      marginBottom: 8
-    }
-  }, "\u26A0\uFE0F ", alertaCF, " CF pend.")), /*#__PURE__*/React.createElement("button", {
-    onClick: refrescar,
-    disabled: refrescando,
-    style: {
-      width: "100%",
-      padding: "7px",
-      borderRadius: 8,
-      border: "1px solid #3a1f6b",
-      background: "transparent",
-      color: "#9B59B6",
-      cursor: refrescando ? "default" : "pointer",
-      fontSize: 11,
-      marginBottom: 6,
-      opacity: refrescando ? 0.5 : 1
-    }
-  }, refrescando ? "\u23F3 Actualizando..." : "\uD83D\uDD04 Actualizar"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setRol(null),
-    style: {
-      width: "100%",
-      padding: "7px",
-      borderRadius: 8,
-      border: "1px solid #3a1f6b",
-      background: "transparent",
-      color: "#555",
-      cursor: "pointer",
-      fontSize: 11
-    }
-  }, "\uD83D\uDEAA Cerrar sesi\xF3n"))), /*#__PURE__*/React.createElement("main", {
+  }), /*#__PURE__*/React.createElement(SidebarDesktop, {
+    esAdmin: esAdmin,
+    sync: sync,
+    syncInfo: syncInfo,
+    nav: NAV,
+    seccion: seccion,
+    setSec: setSec,
+    matAgotados: matAgotados,
+    activos: activos,
+    porCobrar: porCobrar,
+    alertaCF: alertaCF,
+    refrescar: refrescar,
+    refrescando: refrescando,
+    setRol: setRol
+  }), /*#__PURE__*/React.createElement("main", {
     style: {
       flex: 1,
       display: "flex",
