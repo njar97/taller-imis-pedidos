@@ -60,6 +60,9 @@ import SeccionBordados from "./SeccionBordados.jsx";
 // Sección de Cuellos + CuelloModal (decompilado a JSX)
 import SeccionCuellos from "./SeccionCuellos.jsx";
 
+// Indicador offline + prompt de nueva versión (PWA)
+import ConexionStatus from "./ConexionStatus.jsx";
+
 // Modal genérico — usado en muchos sitios de main.js
 import { Modal } from "./lib/Modal.jsx";
 
@@ -3518,7 +3521,7 @@ function App() {
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => eliminar(confirmar),
     style: BTN("#E63946")
-  }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null));
+  }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null), /*#__PURE__*/React.createElement(ConexionStatus, null));
 }
 class ErrorBoundary extends React.Component {
   constructor(props) {

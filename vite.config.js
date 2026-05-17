@@ -17,7 +17,10 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' = el SW nuevo se instala pero NO se activa solo.
+      // En lugar de eso, src/lib/sw.js dispara un callback para que el
+      // usuario pueda decidir cuándo recargar (evita pisar trabajo en curso).
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'pwa-icon.svg'],
       manifest: {
         name: 'Taller IMIS — Sistema de Pedidos',
