@@ -101,12 +101,6 @@ import {
   buzz,
 } from "./lib/feedback.js";
 
-// Apps Script ya no se usa para CRUD ni para uploads — todo migró a Supabase.
-// Estos imports quedan vacíos a propósito: si en el futuro hay que cargar
-// algo legacy del Apps Script, se reabilita desde aquí. api.js queda como
-// referencia histórica + helper genérico fetchConTimeout (re-exportado).
-import { fetchConTimeout } from "./lib/api.js";
-
 // Backend de datos: Postgres vía PostgREST (Supabase).
 // Las funciones se exportan con los nombres viejos (gsLeer, gsGuardar, ...)
 // para no tocar las ~50 call-sites en main.js. Cambio en cero líneas posteriores.
@@ -1987,13 +1981,7 @@ function App() {
       maxWidth: 380,
       margin: "12px auto 0"
     }
-  }, /*#__PURE__*/React.createElement("strong", null, "Diagn\xF3stico:"), " El script respondi\xF3 OK pero sin datos.", /*#__PURE__*/React.createElement("br", null), "Verifica en la consola del navegador (F12 \u2192 Console) el mensaje \"Datos cargados\".", /*#__PURE__*/React.createElement("br", null), "O abre esta URL: ", /*#__PURE__*/React.createElement("a", {
-    href: SCRIPT_URL + "?action=getAll",
-    target: "_blank",
-    style: {
-      color: "#856404"
-    }
-  }, "ver datos en script"))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
+  }, /*#__PURE__*/React.createElement("strong", null, "Diagn\xF3stico:"), " No hay datos en la base.", /*#__PURE__*/React.createElement("br", null), "Verifica en la consola del navegador (F12 \u2192 Console) el mensaje \"Datos cargados\".")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("table", {
     className: "tabla-pedidos",
     style: {
       width: "100%",
