@@ -1,6 +1,11 @@
 // Cliente liviano para Supabase Storage — sin dependencias.
 // Usa fetch directo a la REST API de Storage.
 // Bucket: taller-imis-fotos (público).
+//
+// Las subidas reintentan automáticamente en errores transitorios
+// (red caída, 5xx, 429) con backoff exponencial. Ver withRetry.
+
+import { withRetry } from "./lib/retry.js";
 
 const SUPA_URL = "https://kszdievqesveluzcnzsh.supabase.co";
 const SUPA_ANON = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
@@ -15,40 +20,39 @@ const BUCKET = "taller-imis-fotos";
  * @returns {Promise<{ok: boolean, url?: string, path?: string, err?: string}>}
  */
 export async function subirFotoSupabase(dataUrl, nombre, modulo = "confeccion", cliente = "Sin cliente") {
-  try {
-    const blob = dataUrlToBlob(dataUrl);
-    if (!blob) return { ok: false, err: "data URL inválida" };
+  const blob = dataUrlToBlob(dataUrl);
+  if (!blob) return { ok: false, err: "data URL inválida" };
 
-    const ext = (nombre || "").split(".").pop().toLowerCase();
-    const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-    const slug = slugify(cliente);
-    const ts = Date.now();
-    const rand = Math.random().toString(36).slice(2, 8);
-    const path = `${modulo}/${slug}/${ts}-${rand}.${safeExt}`;
+  const ext = (nombre || "").split(".").pop().toLowerCase();
+  const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+  const slug = slugify(cliente);
+  const ts = Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  const path = `${modulo}/${slug}/${ts}-${rand}.${safeExt}`;
+  const url = `${SUPA_URL}/storage/v1/object/${BUCKET}/${path}`;
+  // URL pública (bucket público — accesible sin auth)
+  const publicUrl = `${SUPA_URL}/storage/v1/object/public/${BUCKET}/${path}`;
 
-    const url = `${SUPA_URL}/storage/v1/object/${BUCKET}/${path}`;
-    const r = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${SUPA_ANON}`,
-        "apikey": SUPA_ANON,
-        "Content-Type": blob.type || "image/jpeg",
-        "x-upsert": "false",
-      },
-      body: blob,
-    });
-
-    if (!r.ok) {
-      const txt = await r.text().catch(() => "");
-      return { ok: false, err: `HTTP ${r.status}: ${txt.slice(0, 200)}` };
-    }
-
-    // URL pública (bucket público — accesible sin auth)
-    const publicUrl = `${SUPA_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-    return { ok: true, url: publicUrl, path };
-  } catch (e) {
-    return { ok: false, err: e.message || String(e) };
-  }
+  return withRetry(
+    async () => {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${SUPA_ANON}`,
+          "apikey": SUPA_ANON,
+          "Content-Type": blob.type || "image/jpeg",
+          "x-upsert": "false",
+        },
+        body: blob,
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => "");
+        throw new Error(`HTTP ${r.status}: ${txt.slice(0, 200)}`);
+      }
+      return { ok: true, url: publicUrl, path };
+    },
+    { onRetry: (err, i) => console.warn(`subirFotoSupabase reintento ${i}:`, err.message) }
+  ).catch(e => ({ ok: false, err: e.message || String(e) }));
 }
 
 /**
@@ -61,36 +65,35 @@ export async function subirFotoSupabase(dataUrl, nombre, modulo = "confeccion", 
  * @param {string} cliente - nombre del cliente (slugificado en el path).
  */
 export async function subirArchivoSupabase(file, modulo, cliente = "sin-cliente") {
-  try {
-    if (!file) return { ok: false, err: "Sin archivo" };
-    const ext = (file.name || "").split(".").pop().toLowerCase() || "bin";
-    const slug = slugify(cliente);
-    const ts = Date.now();
-    const rand = Math.random().toString(36).slice(2, 8);
-    const path = `${modulo}/${slug}/${ts}-${rand}.${ext}`;
+  if (!file) return { ok: false, err: "Sin archivo" };
+  const ext = (file.name || "").split(".").pop().toLowerCase() || "bin";
+  const slug = slugify(cliente);
+  const ts = Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  const path = `${modulo}/${slug}/${ts}-${rand}.${ext}`;
+  const url = `${SUPA_URL}/storage/v1/object/${BUCKET}/${path}`;
+  const publicUrl = `${SUPA_URL}/storage/v1/object/public/${BUCKET}/${path}`;
 
-    const url = `${SUPA_URL}/storage/v1/object/${BUCKET}/${path}`;
-    const r = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${SUPA_ANON}`,
-        apikey: SUPA_ANON,
-        "Content-Type": file.type || "application/octet-stream",
-        "x-upsert": "false",
-      },
-      body: file,
-    });
-
-    if (!r.ok) {
-      const txt = await r.text().catch(() => "");
-      return { ok: false, err: `HTTP ${r.status}: ${txt.slice(0, 200)}` };
-    }
-
-    const publicUrl = `${SUPA_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-    return { ok: true, url: publicUrl, path };
-  } catch (e) {
-    return { ok: false, err: e.message || String(e) };
-  }
+  return withRetry(
+    async () => {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${SUPA_ANON}`,
+          apikey: SUPA_ANON,
+          "Content-Type": file.type || "application/octet-stream",
+          "x-upsert": "false",
+        },
+        body: file,
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => "");
+        throw new Error(`HTTP ${r.status}: ${txt.slice(0, 200)}`);
+      }
+      return { ok: true, url: publicUrl, path };
+    },
+    { onRetry: (err, i) => console.warn(`subirArchivoSupabase reintento ${i}:`, err.message) }
+  ).catch(e => ({ ok: false, err: e.message || String(e) }));
 }
 
 /**
