@@ -1,14 +1,13 @@
 // Cliente PostgREST de Supabase — sin dependencias, fetch directo.
-// Espejo de api.js pero apuntando a Postgres en vez del Apps Script.
 //
-// Estado: ALPHA — no usar todavía como backend principal. Activar sólo cuando
-// se haya aplicado docs/postgres-migration.sql en el proyecto Supabase
-// y se haya migrado la data desde Google Sheets.
+// La app genera IDs client-side (Math.max(ids)+1), así que las tablas no
+// necesitan IDENTITY — el INSERT trae el id en el payload.
 //
-// La app sigue generando IDs client-side (Math.max(ids)+1), así que las
-// tablas no necesitan IDENTITY — el INSERT trae el id en el payload.
+// Las operaciones reintentan automáticamente en errores transitorios
+// (red caída, 5xx, 429) con backoff exponencial. Ver withRetry.
 
 import { pushToast } from "./feedback.js";
+import { withRetry } from "./retry.js";
 
 const SUPA_URL = "https://kszdievqesveluzcnzsh.supabase.co";
 const SUPA_ANON = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
@@ -48,18 +47,26 @@ const JSONB_KEYS = new Set([
 // ── fetch wrapper ────────────────────────────────────────────
 
 async function rest(path, opts = {}) {
-  const r = await fetch(REST + path, {
-    ...opts,
-    headers: { ...HEADERS, ...(opts.headers || {}) },
-  });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`PostgREST ${r.status}: ${txt.slice(0, 200)}`);
-  }
-  // DELETE devuelve vacío
-  const ct = r.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) return null;
-  return r.json();
+  return withRetry(
+    async () => {
+      const r = await fetch(REST + path, {
+        ...opts,
+        headers: { ...HEADERS, ...(opts.headers || {}) },
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => "");
+        throw new Error(`PostgREST ${r.status}: ${txt.slice(0, 200)}`);
+      }
+      // DELETE devuelve vacío
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) return null;
+      return r.json();
+    },
+    {
+      onRetry: (err, intento) =>
+        console.warn(`db.rest(${path}) reintento ${intento}:`, err.message),
+    }
+  );
 }
 
 async function leerTabla(tabla) {
