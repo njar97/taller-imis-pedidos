@@ -9,7 +9,8 @@ Producción: https://njar97.github.io/taller-imis-pedidos/
 - **Frontend:** React 18 cargado por **CDN** (no por npm). El código de la app vive principalmente en módulos `.jsx` decompilados, con `src/main.js` como orquestador (App + helpers de impresión/export).
 - **Build:** Vite 5 con `vite-plugin-pwa`. `index.html` es el shell; Vite empaqueta `src/main.js` y los módulos JSX, reescribe paths.
 - **Hosting:** GitHub Pages. El workflow `.github/workflows/deploy.yml` corre `npm ci && npm run build` y publica `dist/`.
-- **PWA:** instalable, con service worker (workbox), manifest, e iconos. `registerType: 'autoUpdate'`. CDN libs cacheadas (`CacheFirst`), `script.google.com` y `api.anthropic.com` marcadas como `NetworkOnly`. Config en `vite.config.js`.
+- **PWA:** instalable, con service worker (workbox), manifest, e iconos. `registerType: 'prompt'` — cuando hay nueva versión se avisa al usuario con un banner en vez de actualizar silenciosamente (ver `ConexionStatus.jsx`). CDN libs cacheadas (`CacheFirst`), `api.anthropic.com` marcado como `NetworkOnly`. Config en `vite.config.js`.
+- **Resiliencia de red:** `src/lib/retry.js` envuelve fetches con backoff exponencial (300/800/2000ms) para errores transitorios (TypeError "Failed to fetch", 5xx, 408, 429). Usado en `lib/db.js` y `supabaseStorage.js`. Los 4xx no reintentan.
 
 ### Backend (datos)
 
@@ -34,7 +35,7 @@ Producción: https://njar97.github.io/taller-imis-pedidos/
 
 ### Vestigios
 
-- **Google Apps Script:** existía como backend previo. Sigue importado vacío en `src/lib/api.js` (`SCRIPT_URL`, `fetchConTimeout`) por si alguna vez hay que rescatar data legacy. El único uso vivo es un link de diagnóstico en main.js (estado de error UI), no código que se ejecute en flujos normales.
+- **Google Apps Script:** existía como backend previo. **Eliminado por completo** (PR #35, mayo 2026). El módulo `src/lib/api.js` ya no existe. Si en el futuro hay que rescatar data legacy, está en git history.
 - **El proyecto Supabase está compartido con otra app** del mismo cliente (sistema de producción/escuelas con tablas `pedido` singular, `alumno`, `escuela`, `tendido*`, `trazo*`, `bodega_movimiento`, vistas `vw_*`, bucket Storage `trazo-fotos`).
   - **Esa otra app SÍ está en producción con datos reales.**
   - **Nunca toques esas tablas/políticas/funciones/vistas sin permiso explícito.**
@@ -50,6 +51,7 @@ Módulos extraídos en `src/`:
 - **Pantallas/secciones:** `PantallaLogin`, `SeccionEstadisticas`, `SeccionClientes`, `SeccionCatalogo`, `SeccionInventario`, `SeccionBordados` (+ `BordadoModal`), `SeccionCuellos` (+ `CuelloModal`), `SeccionPapelera` (lazy)
 - **Formularios:** `FormPedido` (~700 líneas), `RegistroAbonos`, `ModalAsistenteIA`
 - **Componentes reutilizables:** `CardPedido`, `ProximasEntregas`, `ListaPrendas` (+ `TablaPersonasInternas`), `SelectorTallas` (+ `TallasChips`), `BuscadorConfRef`
+- **Shell / PWA:** `ErrorBoundary`, `ConexionStatus` (offline + new-version), `InstallPrompt` (banner instalación)
 - **Helpers UI (`src/lib/ui.jsx`):** `Toaster`, `ConfirmDialog`, `Check`, `UploaderImagenes`, `BarraProgreso`, `Chips`, `FechasRapidas`, `SeccionOpcional`, `BannerMedidas`, `WABtn`
 
 ### Módulos de soporte en `src/lib/`
@@ -66,11 +68,12 @@ Módulos extraídos en `src/`:
 - `Modal.jsx` — modal genérico (bottom-sheet con header + close)
 - `catalogoBase.js` — catálogo de 8 productos default (fallback cuando la BD está vacía)
 - `leerDB.js` — lector SQLite para archivos DTE (`.db`)
-- `api.js` — vestigial del Apps Script, sólo helpers
+- `retry.js` — `withRetry` con backoff exponencial para errores transitorios
+- `sw.js` — registro del service worker + bus de "nueva versión disponible"
 
 ### Componente App (en main.js)
 
-Es lo único que sigue como `React.createElement(...)` compilado. ~2 800 líneas. Hace orquestación de:
+Es lo único que sigue como `React.createElement(...)` compilado. ~2 700 líneas. Hace orquestación de:
 - State global (pedidos, bordados, cuellos, clientes, catálogo, inventario)
 - Auth/rol (PIN admin guardado en localStorage)
 - Navegación entre secciones
@@ -128,11 +131,19 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
+**17 may 2026 — Cierre de mantenimiento + features (PRs #31-36)**
+- #31: actualización completa de `CLAUDE.md` al estado real.
+- #32: banner offline + prompt "nueva versión disponible" (`registerType: 'prompt'`).
+- #33: banner "Instalar como app" (Android/Chrome + iOS Safari).
+- #34: reintento automático con backoff (`lib/retry.js`) — `db.js` + `supabaseStorage.js`.
+- #35: eliminación del módulo `lib/api.js` (Apps Script vestigial) + arreglo de enlace `SCRIPT_URL` que era ReferenceError latente.
+- #36: extracción de `ErrorBoundary` a `src/ErrorBoundary.jsx`.
+
 **16 may 2026 — Sesión masiva de decompile JSX (PRs #19-30)**
 - 12 PRs en una sesión. `main.js`: 15 330 → ~3 600 líneas.
 - 17 módulos JSX nuevos en `src/` y `src/lib/`.
-- Bundle prácticamente igual (~311 KB raw / ~71 KB gzip).
-- Lo único que queda compilado: el componente `App` (~2 800 líneas) y helpers de impresión/export.
+- Bundle prácticamente igual (~317 KB raw / ~73 KB gzip).
+- Lo único que queda compilado: el componente `App` (~2 700 líneas) y helpers de impresión/export.
 
 **Mayo 2026 — Migración backend (PRs #11-14)**
 - #11: flip backend de Apps Script → Postgres (PostgREST de Supabase).
@@ -153,16 +164,13 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Pendientes ordenados por valor/riesgo
 
-- [ ] **Banner de "Instalar app"** — detectar `beforeinstallprompt` para Android/Chrome; modal con instrucciones manuales para iOS Safari. Sube conversión a instalada.
-- [ ] **Indicador de modo offline + aviso de nueva versión** — banner cuando se pierde conexión; toast "hay nueva versión" cuando el SW detecta update (en vez de actualizar silenciosamente).
-- [ ] **Reintento automático en saves a Supabase** — wrapper de retry con backoff exponencial para `db.js` y `supabaseStorage.js`. El wifi del taller es inestable.
-- [ ] **Decompilar `App` a JSX** — ~2 800 líneas compiladas. Alto valor en mantenibilidad pero alto riesgo (toca todo). Postergado.
-- [ ] **Auditar las queries del Apps Script vestigial** — el `SCRIPT_URL` sigue en `api.js`. Si hace `SELECT *` sobre Sheets enteros y nadie lo usa, vale la pena dropearlo o limpiarlo.
-- [ ] **Update comentario "ALPHA" en `src/lib/db.js`** — ya no es alpha, es producción. Trivial.
+- [ ] **Decompilar `App` a JSX** — ~2 700 líneas compiladas en `main.js`. Alto valor en mantenibilidad pero alto riesgo (toca todo: state global, auth, realtime, navegación, sidebar/bottomnav). Estrategia recomendada: extraer subcomponentes (BottomNav, Sidebar, MasOpenSheet) uno por PR antes de tocar el return principal.
+- [ ] **Eliminar dependencia de React por CDN** — instalarlo vía npm para tener tree-shaking real. Bundle actual ~317 KB raw, podría bajar bastante.
+- [ ] **Tests** — el proyecto no tiene tests. Cualquier suite (vitest) sobre `lib/db.js`, `lib/retry.js`, `lib/dominio.js` ayudaría a moverse más rápido en futuros refactors.
+- [ ] **Diagnóstico de errores** — hoy `ErrorBoundary` muestra el mensaje al usuario pero no lo reporta. Plug a Sentry o un endpoint propio sería barato.
 
 ## Secrets
 
 - **Nunca** hardcodear API keys o tokens. La Claude API key se pide al usuario y vive en `localStorage`.
 - La **publishable key de Supabase** (`sb_publishable_...`) está hardcodeada en `src/lib/db.js` y `src/supabaseStorage.js`. Es la key pública (RLS la protege). No es secreta.
-- El `SCRIPT_URL` del Apps Script en `src/lib/api.js` es necesariamente público (corre con permisos del dueño del Apps Script). No es un secreto.
 - Si necesitás un PAT de GitHub para pushear: generálo con permisos mínimos (`Contents: Read and write`, y `Workflows: Read and write` solo si vas a modificar `.github/workflows/`).
