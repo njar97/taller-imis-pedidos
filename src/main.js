@@ -63,6 +63,9 @@ import SeccionCuellos from "./SeccionCuellos.jsx";
 // Indicador offline + prompt de nueva versión (PWA)
 import ConexionStatus from "./ConexionStatus.jsx";
 
+// Banner "Instalar como app" (PWA — Android/Chrome + iOS Safari)
+import InstallPrompt from "./InstallPrompt.jsx";
+
 // Modal genérico — usado en muchos sitios de main.js
 import { Modal } from "./lib/Modal.jsx";
 
@@ -3521,7 +3524,7 @@ function App() {
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: () => eliminar(confirmar),
     style: BTN("#E63946")
-  }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null), /*#__PURE__*/React.createElement(ConexionStatus, null));
+  }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null), /*#__PURE__*/React.createElement(ConexionStatus, null), /*#__PURE__*/React.createElement(InstallPrompt, null));
 }
 class ErrorBoundary extends React.Component {
   constructor(props) {
