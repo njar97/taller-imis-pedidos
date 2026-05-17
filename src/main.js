@@ -72,6 +72,9 @@ import ErrorBoundary from "./ErrorBoundary.jsx";
 // Barra inferior (mobile) — extraída del App
 import BottomNav from "./BottomNav.jsx";
 
+// Bottom-sheet "Más" (items que no entran en la barra inferior)
+import MasOpenSheet from "./MasOpenSheet.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -2102,102 +2105,14 @@ function App() {
     esAdmin: esAdmin,
     vencidosSinArchivar: vencidosSinArchivar,
     matAgotados: matAgotados
-  }), masOpen && /*#__PURE__*/React.createElement("div", {
-    onClick: () => setMasOpen(false),
-    style: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.55)",
-      display: "flex",
-      alignItems: "flex-end",
-      justifyContent: "center",
-      zIndex: 150
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    onClick: e => e.stopPropagation(),
-    style: {
-      background: "#2C1654",
-      borderRadius: "16px 16px 0 0",
-      width: "100%",
-      maxWidth: 480,
-      padding: "16px 8px",
-      paddingBottom: "calc(16px + env(safe-area-inset-bottom))",
-      boxShadow: "0 -8px 40px rgba(0,0,0,0.4)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 44,
-      height: 4,
-      background: "#9B59B6",
-      borderRadius: 2,
-      margin: "0 auto 14px"
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "repeat(4, 1fr)",
-      gap: 4
-    }
-  }, NAV.filter(item => !["pedidos", "bordados", "cuellos", "inventario"].includes(item.id)).map(item => {
-    const bloqueado = item.pronto || item.soloAdmin && !esAdmin;
-    const activo = seccion === item.id;
-    return /*#__PURE__*/React.createElement("button", {
-      key: item.id,
-      onClick: () => {
-        if (bloqueado) return;
-        setSec(item.id);
-        setMasOpen(false);
-      },
-      style: {
-        border: "none",
-        background: activo ? "rgba(155,89,182,0.25)" : "transparent",
-        cursor: bloqueado ? "default" : "pointer",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 4,
-        padding: "12px 4px",
-        borderRadius: 10,
-        opacity: bloqueado ? 0.3 : 1
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 26
-      }
-    }, item.icon), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 10,
-        fontWeight: 700,
-        color: activo ? "#CE93D8" : "#bbb"
-      }
-    }, item.label));
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setRol(null);
-      setMasOpen(false);
-    },
-    style: {
-      border: "none",
-      background: "transparent",
-      cursor: "pointer",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: 4,
-      padding: "12px 4px",
-      borderRadius: 10
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 26
-    }
-  }, "\uD83D\uDEAA"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      fontWeight: 700,
-      color: "#bbb"
-    }
-  }, "Salir")))))), modalArchivar && /*#__PURE__*/React.createElement("div", {
+  }), masOpen && /*#__PURE__*/React.createElement(MasOpenSheet, {
+    nav: NAV,
+    seccion: seccion,
+    setSec: setSec,
+    setMasOpen: setMasOpen,
+    setRol: setRol,
+    esAdmin: esAdmin
+  })), modalArchivar && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
       inset: 0,
