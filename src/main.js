@@ -78,6 +78,9 @@ import MasOpenSheet from "./MasOpenSheet.jsx";
 // Sidebar desktop (oculto en mobile via CSS)
 import SidebarDesktop from "./SidebarDesktop.jsx";
 
+// Topbar mobile (oculta en desktop via CSS)
+import TopbarMobile from "./TopbarMobile.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -1361,80 +1364,15 @@ function App() {
       overflow: "hidden",
       position: "relative"
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "topbar-mobile",
-    style: {
-      display: "none",
-      background: "#2C1654",
-      padding: "10px 16px",
-      alignItems: "center",
-      gap: 10,
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 13,
-      fontWeight: 800,
-      color: "#fff"
-    }
-  }, TALLER), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: "#9B59B6"
-    }
-  }, esAdmin ? "🔐 Admin" : "✂️ Operario", (sync === "ok" || sync === "error" || sync === "error_fotos") && syncInfo ? ` · ` + syncInfo.t : "")), esAdmin && /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: "right"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "#28A745",
-      fontWeight: 700
-    }
-  }, fmt$(porCobrar)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 9,
-      color: "#9B59B6"
-    }
-  }, "Por cobrar")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "rgba(255,255,255,0.1)",
-      borderRadius: 8,
-      padding: "6px 10px",
-      textAlign: "center"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 20,
-      fontWeight: 800,
-      color: "#CE93D8"
-    }
-  }, activos), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 9,
-      color: "#9B59B6"
-    }
-  }, "activos")), /*#__PURE__*/React.createElement("button", {
-    onClick: refrescar,
-    disabled: refrescando,
-    title: "Actualizar datos",
-    style: {
-      background: "rgba(255,255,255,0.1)",
-      border: "none",
-      color: "#CE93D8",
-      width: 40,
-      height: 40,
-      borderRadius: 8,
-      fontSize: 18,
-      cursor: refrescando ? "default" : "pointer",
-      opacity: refrescando ? 0.5 : 1
-    }
-  }, refrescando ? "⏳" : "🔄")), seccion === "estadisticas" && esAdmin && /*#__PURE__*/React.createElement(SeccionEstadisticas, {
+  }, /*#__PURE__*/React.createElement(TopbarMobile, {
+    esAdmin: esAdmin,
+    sync: sync,
+    syncInfo: syncInfo,
+    porCobrar: porCobrar,
+    activos: activos,
+    refrescar: refrescar,
+    refrescando: refrescando
+  }), seccion === "estadisticas" && esAdmin && /*#__PURE__*/React.createElement(SeccionEstadisticas, {
     pedidos: pedidos,
     bordados: bordados,
     cuellos: cuellos,
