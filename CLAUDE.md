@@ -6,8 +6,8 @@ Producción: https://njar97.github.io/taller-imis-pedidos/
 
 ## Arquitectura real
 
-- **Frontend:** React 18 cargado por **CDN** (no por npm). El código de la app vive principalmente en módulos `.jsx` decompilados, con `src/main.js` como orquestador (App + helpers de impresión/export).
-- **Build:** Vite 5 con `vite-plugin-pwa`. `index.html` es el shell; Vite empaqueta `src/main.js` y los módulos JSX, reescribe paths.
+- **Frontend:** React 18 via **npm** (PR #50, mayo 2026 — antes era CDN unpkg). Vite usa `jsx: 'automatic'` así que no hace falta `import React` en cada `.jsx`; sí hay que importar named (`useState`, `Component`, etc.) lo que se use. El código de la app vive principalmente en módulos `.jsx` decompilados, con `src/main.js` como orquestador (App + helpers de impresión/export).
+- **Build:** Vite 5 con `vite-plugin-pwa`. `index.html` es el shell; Vite empaqueta `src/main.js` y los módulos JSX, reescribe paths. Único CDN externo que queda: `cdn.sheetjs.com` (XLSX para exportar Excel — chunky y de uso esporádico).
 - **Hosting:** GitHub Pages. El workflow `.github/workflows/deploy.yml` corre `npm ci && npm run build` y publica `dist/`.
 - **PWA:** instalable, con service worker (workbox), manifest, e iconos. `registerType: 'prompt'` — cuando hay nueva versión se avisa al usuario con un banner en vez de actualizar silenciosamente (ver `ConexionStatus.jsx`). CDN libs cacheadas (`CacheFirst`), `api.anthropic.com` marcado como `NetworkOnly`. Config en `vite.config.js`.
 - **Resiliencia de red:** `src/lib/retry.js` envuelve fetches con backoff exponencial (300/800/2000ms) para errores transitorios (TypeError "Failed to fetch", 5xx, 408, 429). Usado en `lib/db.js` y `supabaseStorage.js`. Los 4xx no reintentan.
@@ -90,7 +90,7 @@ El return de App ya casi no tiene JSX inline — todo es `createElement(SeccionX
 ## Comandos
 
 ```bash
-npm install        # instalar deps (solo Vite + vite-plugin-pwa)
+npm install        # instalar deps (Vite + vite-plugin-pwa + react + react-dom)
 npm run dev        # dev server en http://localhost:5173/taller-imis-pedidos/
 npm run build      # genera dist/ con PWA assets
 npm run preview    # sirve dist/ como en prod
@@ -134,6 +134,12 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 - No commitear `node_modules/`, `dist/`, ni archivos con secretos.
 
 ## Historial reciente
+
+**17 may 2026 — npm React (PR #50)**
+- react@18 + react-dom@18 ahora vienen de `package.json`, no del CDN de unpkg.
+- Vite usa `jsx: 'automatic'` (esbuild auto-importa `jsx-runtime`).
+- 22 archivos JSX convertidos: `const { useState } = React;` → `import { useState } from "react";`.
+- Bundle total cold-load similar (~120 KB gzip vs ~116 KB antes con React CDN). Ganamos versión pinned, resiliencia y upgrade vía `npm`.
 
 **17 may 2026 — Decompile total del cuerpo del App (PRs #38-48)**
 - #38: `BottomNav` + `lib/navItems.js` (NAV compartido entre sidebar / bottom / sheet).
@@ -183,7 +189,6 @@ main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App 
 ## Pendientes ordenados por valor/riesgo
 
 - [ ] **Decompilar el return de `App` a JSX** — opcional. El return ya casi solo compone módulos extraídos; pasarlo a JSX legible reduce ~300 líneas pero el valor de mantenibilidad es modesto porque las decisiones interesantes ya viven en los módulos. Útil si vas a tocar mucho la orquestación de modales.
-- [ ] **Eliminar dependencia de React por CDN** — instalarlo vía npm para tener tree-shaking real. Bundle actual ~317 KB raw, podría bajar bastante.
 - [ ] **Tests** — el proyecto no tiene tests. Cualquier suite (vitest) sobre `lib/db.js`, `lib/retry.js`, `lib/dominio.js` ayudaría a moverse más rápido en futuros refactors.
 - [ ] **Diagnóstico de errores** — hoy `ErrorBoundary` muestra el mensaje al usuario pero no lo reporta. Plug a Sentry o un endpoint propio sería barato.
 
