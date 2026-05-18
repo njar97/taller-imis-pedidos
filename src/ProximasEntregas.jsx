@@ -5,7 +5,7 @@
 import { EC } from "./lib/constants.js";
 import { resumenTallas } from "./lib/dominio.js";
 
-const { useState } = React;
+import { useState } from "react";
 
 const colorDias = d =>
   d < 0

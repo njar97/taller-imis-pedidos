@@ -7,7 +7,7 @@ import { imgSrc } from "./lib/imagenes.js";
 import { copiarWA } from "./lib/whatsapp.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 
-const { useState } = React;
+import { useState } from "react";
 
 export default function CardPedido({
   p,

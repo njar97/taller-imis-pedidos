@@ -6,7 +6,7 @@ import { CATEGORIAS_INV } from "./lib/constants.js";
 import { fmt$ } from "./lib/dominio.js";
 import { leerDB } from "./lib/leerDB.js";
 
-const { useState, useRef } = React;
+import { useState, useRef } from "react";
 
 const INP = {
   width: "100%",

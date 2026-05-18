@@ -6,7 +6,7 @@
 import { TALLER } from "./lib/constants.js";
 import { pushToast } from "./lib/feedback.js";
 
-const { useState } = React;
+import { useState } from "react";
 
 // SHA-256 del PIN admin. Para cambiar, en una terminal:
 //   node -e "console.log(require('crypto').createHash('sha256').update('TU_NUEVO_PIN').digest('hex'))"

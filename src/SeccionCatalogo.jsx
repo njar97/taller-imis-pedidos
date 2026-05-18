@@ -5,7 +5,7 @@ import { Modal } from "./lib/Modal.jsx";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { dbCatalogoGuardar as gsCatalogoGuardar } from "./lib/db.js";
 
-const { useState } = React;
+import { useState } from "react";
 
 const INPS = {
   width: "100%",

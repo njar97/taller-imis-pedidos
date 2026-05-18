@@ -3,7 +3,7 @@
 
 import { EC } from "./lib/constants.js";
 
-const { useState } = React;
+import { useState } from "react";
 
 const INPS2 = {
   width: "100%",

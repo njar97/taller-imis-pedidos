@@ -6,7 +6,7 @@
 //
 // Se renderiza junto al ConexionStatus en App.
 
-const { useEffect, useState } = React;
+import { useEffect, useState } from "react";
 
 const DISMISS_KEY = "taller_install_dismissed";
 

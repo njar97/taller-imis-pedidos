@@ -13,7 +13,7 @@ import { subirArchivoSupabase, subirFotoSupabase } from "./supabaseStorage.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 
-const { useState } = React;
+import { useState, useRef } from "react";
 
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
 
@@ -97,9 +97,9 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
   const [errSubida, setErrSubida] = useState("");
   const [busqD, setBusqD] = useState("");
 
-  const embRef = React.useRef();
-  const dstRef = React.useRef();
-  const imgRef = React.useRef();
+  const embRef = useRef();
+  const dstRef = useRef();
+  const imgRef = useRef();
 
   function buscarClientesBord(q) {
     if (!q || q.length < 2) { setSugsB([]); return; }
