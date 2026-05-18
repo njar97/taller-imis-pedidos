@@ -96,6 +96,9 @@ import ModalErrorFotos from "./ModalErrorFotos.jsx";
 // Modal "¿eliminar pedido?" (confirm para soft-delete desde admin)
 import ModalConfirmarBorrar from "./ModalConfirmarBorrar.jsx";
 
+// Modal de detalle de un pedido (vista "ver pedido")
+import DetallePedidoModal from "./DetallePedidoModal.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -1961,587 +1964,83 @@ function App() {
     pedidosExistentes: pedidos,
     clientes: clientes,
     catalogo: catalogo
-  })), detalle && /*#__PURE__*/React.createElement(Modal, {
-    title: "📋 N°" + String(detalle.id).padStart(4, "0") + " — " + detalle.cliente,
-    onClose: () => setDet(null)
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 10,
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      fontWeight: 700,
-      color: "#888",
-      textTransform: "uppercase",
-      marginBottom: 4
-    }
-  }, "Estatus"), /*#__PURE__*/React.createElement("select", {
-    value: detalle.estatus,
-    onChange: e => {
-      const nuevo = {
-        ...detalle,
-        estatus: e.target.value
+  })), detalle && /*#__PURE__*/React.createElement(DetallePedidoModal, {
+    pedido: detalle,
+    esAdmin: esAdmin,
+    bordados: bordados,
+    cuellos: cuellos,
+    onClose: () => setDet(null),
+    onCambiarEstatus: nuevo => {
+      const actualizado = { ...detalle, estatus: nuevo };
+      setDet(actualizado);
+      cambiarEstatus(detalle.id, nuevo);
+    },
+    onCambiarCosturera: nuevo => {
+      const actualizado = { ...detalle, costurera: nuevo };
+      setDet(actualizado);
+      setPedidos(prev => prev.map(p => p.id === detalle.id ? actualizado : p));
+      gsGuardar(actualizado);
+    },
+    onVerFoto: (imgs, idx) => setVisor({ imgs, idx }),
+    onIrABordados: () => { setSec("bordados"); setDet(null); },
+    onIrACuellos: () => { setSec("cuellos"); setDet(null); },
+    onCrearBordadoVinc: () => {
+      const nb = {
+        id: nextBordId,
+        cliente: detalle.cliente,
+        telefono: detalle.telefono || "",
+        confRef: String(detalle.id),
+        soporte: detalle.tipoPrenda || "",
+        estatus: "Tomado",
+        fecha: new Date().toISOString().split("T")[0],
+        anticipo: "",
+        precioU: "",
+        precioT: "",
+        dise\u00F1o: "",
+        puntadas: "",
+        hilos: "",
+        posicion: "Pecho izquierdo",
+        estadoDise\u00F1o: "Pendiente dise\u00F1ar",
+        esNuevo: "nuevo",
+        abonos: [],
+        notas: "Creado desde confecci\u00F3n N\u00B0" + String(detalle.id).padStart(4, "0")
       };
-      setDet(nuevo);
-      cambiarEstatus(detalle.id, e.target.value);
-    },
-    style: {
-      width: "100%",
-      padding: "9px 10px",
-      borderRadius: 8,
-      border: "1.5px solid " + ((EC[detalle.estatus] || {}).bg || "#e0e0e0"),
-      background: (EC[detalle.estatus] || {}).bg || "#f5f5f5",
-      color: (EC[detalle.estatus] || {}).fg || "#333",
-      fontWeight: 700,
-      fontSize: 13,
-      cursor: "pointer",
-      outline: "none"
-    }
-  }, ESTATUS.map(e => /*#__PURE__*/React.createElement("option", {
-    key: e
-  }, e)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      fontWeight: 700,
-      color: "#888",
-      textTransform: "uppercase",
-      marginBottom: 4
-    }
-  }, "Costurera"), /*#__PURE__*/React.createElement("select", {
-    value: detalle.costurera || "(Sin asignar)",
-    onChange: e => {
-      const nuevo = {
-        ...detalle,
-        costurera: e.target.value
-      };
-      setDet(nuevo);
-      setPedidos(prev => prev.map(p => p.id === detalle.id ? nuevo : p));
-      gsGuardar(nuevo);
-    },
-    style: {
-      width: "100%",
-      padding: "9px 10px",
-      borderRadius: 8,
-      border: "1.5px solid #e0e0e0",
-      background: "#f8f4ff",
-      color: "#2C1654",
-      fontWeight: 700,
-      fontSize: 13,
-      cursor: "pointer",
-      outline: "none"
-    }
-  }, COLABORADORAS.map(c => /*#__PURE__*/React.createElement("option", {
-    key: c
-  }, c))))), [["Cliente", (detalle.tipoCliente === "escuela" ? "🏫 " : detalle.tipoCliente === "empresa" ? "🏢 " : "") + detalle.cliente], detalle.nombreContacto ? ["Contacto", detalle.nombreContacto] : null, ["Teléfono", detalle.telefono], ["Prenda", detalle.tipoPrenda], ["Tallas", detalle.tallasItems && detalle.tallasItems.length ? "§chips§" : resumenTallas(detalle)], detalle.personas && detalle.personas.length ? ["👥 Beneficiarios", detalle.personas.length + " persona" + (detalle.personas.length !== 1 ? "s" : "")] : null, ["Tela", detalle.tela], esAdmin ? ["Facturación", detalle.tipoDocumento] : null, esAdmin && detalle.nit ? ["NIT", detalle.nit] : null, esAdmin ? ["Precio", fmt$(detalle.precio)] : null, esAdmin ? ["Abonado", fmt$((detalle.abonos || []).length > 0 ? detalle.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0) : parseFloat(detalle.anticipo || 0))] : null, esAdmin ? ["Saldo", fmt$(parseFloat(detalle.precio || 0) - ((detalle.abonos || []).length > 0 ? detalle.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0) : parseFloat(detalle.anticipo || 0)))] : null, ["Entrega", detalle.fechaEntrega], ["Notas", detalle.notas]].filter(Boolean).map(([k, v]) => !v ? null : /*#__PURE__*/React.createElement("div", {
-    key: k,
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      padding: "9px 0",
-      borderBottom: "1px solid #f5f5f5",
-      gap: 10,
-      flexWrap: k === "Tallas" ? "wrap" : "nowrap",
-      flexDirection: k === "Tallas" ? "column" : "row"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 12,
-      color: "#aaa",
-      fontWeight: 700,
-      whiteSpace: "nowrap"
-    }
-  }, k), k === "Tallas" && v === "§chips§" ? /*#__PURE__*/React.createElement(TallasChips, {
-    items: detalle.tallasItems,
-    compact: false
-  }) : /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 13,
-      color: "#333",
-      textAlign: "right",
-      fontWeight: 600
-    }
-  }, v))), (detalle.abonos || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: "#27AE60",
-      fontWeight: 700,
-      textTransform: "uppercase",
-      marginBottom: 6
-    }
-  }, "\uD83D\uDCB5 Abonos registrados"), (detalle.abonos || []).map((a, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    style: {
-      display: "flex",
-      gap: 8,
-      padding: "5px 0",
-      borderBottom: "1px solid #f5f5f5",
-      alignItems: "center"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 13,
-      fontWeight: 800,
-      color: "#155724"
-    }
-  }, "$", parseFloat(a.monto).toFixed(2)), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      background: "#d4edda",
-      color: "#155724",
-      padding: "1px 7px",
-      borderRadius: 10,
-      fontWeight: 700
-    }
-  }, a.metodo), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: "#666",
-      flex: 1
-    }
-  }, a.nota), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      color: "#aaa"
-    }
-  }, a.fecha)))), (detalle.imagenes || []).filter(i => imgSrc(i)).length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: "#28A745",
-      fontWeight: 700,
-      textTransform: "uppercase",
-      marginBottom: 8
-    }
-  }, "\u2601\uFE0F Im\xE1genes"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 8
-    }
-  }, (detalle.imagenes || []).filter(i => imgSrc(i)).map((img, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    style: {
-      position: "relative"
-    }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: imgSrc(img),
-    alt: img.nombre,
-    style: {
-      width: 80,
-      height: 80,
-      borderRadius: 8,
-      objectFit: "cover",
-      border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e0e0e0"),
-      cursor: "zoom-in"
-    },
-    onClick: () => setVisor({
-      imgs: (detalle.imagenes || []).filter(x => imgSrc(x)).map(imgSrc),
-      idx: i
-    })
-  }), img.driveUrl && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "absolute",
-      bottom: 3,
-      right: 3,
-      background: "rgba(40,167,69,0.9)",
-      borderRadius: 4,
-      padding: "1px 4px",
-      fontSize: 9,
-      color: "#fff",
-      fontWeight: 700
-    }
-  }, "\u2601\uFE0F"))))), (detalle.personas || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: "#1A5276",
-      fontWeight: 700,
-      textTransform: "uppercase",
-      marginBottom: 6
-    }
-  }, "\uD83D\uDC65 Beneficiarios"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      overflowX: "auto"
-    }
-  }, /*#__PURE__*/React.createElement("table", {
-    style: {
-      width: "100%",
-      borderCollapse: "collapse",
-      fontSize: 12
-    }
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    style: {
-      background: "#EBF5FB"
-    }
-  }, ["#", "Nombre", "Cargo", "Gafete", "Talla"].map(h => /*#__PURE__*/React.createElement("th", {
-    key: h,
-    style: {
-      padding: "5px 8px",
-      textAlign: "left",
-      fontSize: 10,
-      fontWeight: 700,
-      color: "#1A5276",
-      textTransform: "uppercase"
-    }
-  }, h)))), /*#__PURE__*/React.createElement("tbody", null, (detalle.personas || []).map((p, i) => /*#__PURE__*/React.createElement("tr", {
-    key: p.id || i,
-    style: {
-      borderBottom: "1px solid #f0f8ff",
-      background: i % 2 === 0 ? "#fff" : "#f8fcff"
-    }
-  }, /*#__PURE__*/React.createElement("td", {
-    style: {
-      padding: "5px 8px",
-      color: "#aaa"
-    }
-  }, i + 1), /*#__PURE__*/React.createElement("td", {
-    style: {
-      padding: "5px 8px",
-      fontWeight: 700,
-      color: "#2C1654"
-    }
-  }, p.nombre || "—"), /*#__PURE__*/React.createElement("td", {
-    style: {
-      padding: "5px 8px",
-      color: "#555"
-    }
-  }, p.cargo || "—"), /*#__PURE__*/React.createElement("td", {
-    style: {
-      padding: "5px 8px",
-      textAlign: "center",
-      color: "#555"
-    }
-  }, p.gafete || "—"), /*#__PURE__*/React.createElement("td", {
-    style: {
-      padding: "5px 8px",
-      textAlign: "center"
-    }
-  }, p.talla ? /*#__PURE__*/React.createElement("span", {
-    style: {
-      background: "#1A5276",
-      color: "#fff",
-      borderRadius: 10,
-      padding: "2px 8px",
-      fontWeight: 700,
-      fontSize: 11
-    }
-  }, p.talla) : "—"))))))), (() => {
-    const bVinc = bordados.find(b => String(b.confRef) === String(detalle.id));
-    const cVinc = cuellos.find(cu => String(cu.confRef) === String(detalle.id));
-    const pConf = parseFloat(detalle.precio || 0);
-    const pBord = bVinc ? parseFloat(bVinc.precioT || 0) : 0;
-    const pCuel = cVinc ? parseFloat(cVinc.precioT || 0) : 0;
-    return /*#__PURE__*/React.createElement(React.Fragment, null, true && /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginBottom: 8
-      }
-    }, bVinc ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: "#f0fff8",
-        border: "1.5px solid #1A5F5A",
-        borderRadius: 10,
-        padding: "10px 14px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center"
-      }
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        fontWeight: 800,
-        color: "#1A5F5A"
-      }
-    }, "\uD83E\uDEA1 Bordado \u2014 BORD-", String(bVinc.id).padStart(3, "0")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: "#555",
-        marginTop: 2
-      }
-    }, bVinc.estatus, bVinc.precioT ? " · $" + parseFloat(bVinc.precioT).toFixed(2) : "")), /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        setSec("bordados");
-        setDet(null);
-      },
-      style: {
-        padding: "6px 12px",
-        borderRadius: 7,
-        border: "none",
-        background: "#1A5F5A",
-        color: "#fff",
-        cursor: "pointer",
-        fontWeight: 700,
-        fontSize: 11
-      }
-    }, "Ver \u2192")) : /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        background: "#f8f8f8",
-        border: "1.5px dashed #ccc",
-        borderRadius: 10,
-        padding: "10px 14px"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        color: "#888"
-      }
-    }, "\uD83E\uDEA1 Lleva bordado \u2014 sin registrar a\xFAn"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        const nb = {
-          id: nextBordId,
-          cliente: detalle.cliente,
-          telefono: detalle.telefono || "",
-          confRef: String(detalle.id),
-          soporte: detalle.tipoPrenda || "",
-          estatus: "Tomado",
-          fecha: new Date().toISOString().split("T")[0],
-          anticipo: "",
-          precioU: "",
-          precioT: "",
-          diseño: "",
-          puntadas: "",
-          hilos: "",
-          posicion: "Pecho izquierdo",
-          estadoDiseño: "Pendiente diseñar",
-          esNuevo: "nuevo",
-          abonos: [],
-          notas: "Creado desde confección N°" + String(detalle.id).padStart(4, "0")
-        };
-        setBordados(prev => [...prev, nb]);
-        setNextBordId(n => n + 1);
-        gsBordGuardar(nb);
-        setSec("bordados");
-        setDet(null);
-      },
-      style: {
-        padding: "7px 14px",
-        borderRadius: 8,
-        border: "none",
-        background: "#1A5F5A",
-        color: "#fff",
-        cursor: "pointer",
-        fontWeight: 700,
-        fontSize: 12
-      }
-    }, "+ Crear bordado"))), true && /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginBottom: 8
-      }
-    }, cVinc ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: "#fff4e6",
-        border: "1.5px solid #B85C00",
-        borderRadius: 10,
-        padding: "10px 14px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center"
-      }
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        fontWeight: 800,
-        color: "#B85C00"
-      }
-    }, "\uD83E\uDDF6 Cuello \u2014 CUEL-", String(cVinc.id).padStart(3, "0")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
-        color: "#555",
-        marginTop: 2
-      }
-    }, cVinc.estatus, cVinc.precioT ? " · $" + parseFloat(cVinc.precioT).toFixed(2) : "")), /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        setSec("cuellos");
-        setDet(null);
-      },
-      style: {
-        padding: "6px 12px",
-        borderRadius: 7,
-        border: "none",
-        background: "#B85C00",
-        color: "#fff",
-        cursor: "pointer",
-        fontWeight: 700,
-        fontSize: 11
-      }
-    }, "Ver \u2192")) : /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        background: "#f8f8f8",
-        border: "1.5px dashed #ccc",
-        borderRadius: 10,
-        padding: "10px 14px"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        color: "#888"
-      }
-    }, "\uD83E\uDDF6 Lleva cuello tejido \u2014 sin registrar a\xFAn"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        const nc = {
-          id: nextCuelId,
-          cliente: detalle.cliente,
-          telefono: detalle.telefono || "",
-          confRef: String(detalle.id),
-          cantidad: "1",
-          material: "Acrílico",
-          calibre: "Medio",
-          estatus: "Tomado",
-          fecha: new Date().toISOString().split("T")[0],
-          anticipo: "",
-          precioU: "",
-          precioT: "",
-          cuello: {
-            activa: true,
-            largo: "",
-            ancho: "",
-            colores: ""
-          },
-          puno: {
-            activa: false,
-            largo: "",
-            ancho: "",
-            colores: ""
-          },
-          banda: {
-            activa: false,
-            largo: "",
-            ancho: "",
-            colores: ""
-          },
-          abonos: [],
-          notas: "Creado desde confección N°" + String(detalle.id).padStart(4, "0")
-        };
-        setCuellos(prev => [...prev, nc]);
-        setNextCuelId(n => n + 1);
-        gsCuelGuardar(nc);
-        setSec("cuellos");
-        setDet(null);
-      },
-      style: {
-        padding: "7px 14px",
-        borderRadius: 8,
-        border: "none",
-        background: "#B85C00",
-        color: "#fff",
-        cursor: "pointer",
-        fontWeight: 700,
-        fontSize: 12
-      }
-    }, "+ Crear cuello"))), esAdmin && (pBord > 0 || pCuel > 0) && /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: "#f0ebff",
-        border: "1.5px solid #9B59B6",
-        borderRadius: 10,
-        padding: "10px 14px",
-        marginTop: 4,
-        marginBottom: 8
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 10,
-        fontWeight: 800,
-        color: "#9B59B6",
-        textTransform: "uppercase",
-        marginBottom: 6
-      }
-    }, "Resumen de precios"), pConf > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 12,
-        marginBottom: 3
-      }
-    }, /*#__PURE__*/React.createElement("span", null, "\u2702\uFE0F Confecci\xF3n"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontWeight: 700
-      }
-    }, "$", pConf.toFixed(2))), pBord > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 12,
-        marginBottom: 3
-      }
-    }, /*#__PURE__*/React.createElement("span", null, "\uD83E\uDEA1 Bordado"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontWeight: 700
-      }
-    }, "$", pBord.toFixed(2))), pCuel > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 12,
-        marginBottom: 3
-      }
-    }, /*#__PURE__*/React.createElement("span", null, "\uD83E\uDDF6 Cuello"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontWeight: 700
-      }
-    }, "$", pCuel.toFixed(2))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 14,
-        fontWeight: 900,
-        color: "#2C1654",
-        borderTop: "1px solid #ddd",
-        paddingTop: 6,
-        marginTop: 4
-      }
-    }, /*#__PURE__*/React.createElement("span", null, "Total"), /*#__PURE__*/React.createElement("span", null, "$", (pConf + pBord + pCuel).toFixed(2)))));
-  })(), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      justifyContent: "flex-end",
-      marginTop: 16
-    }
-  }, esAdmin && /*#__PURE__*/React.createElement("button", {
-    onClick: () => exportarPedidoPDF(detalle, "confeccion"),
-    style: {
-      padding: "9px 12px",
-      borderRadius: 8,
-      border: "none",
-      background: "#1D6A3A",
-      color: "#fff",
-      cursor: "pointer",
-      fontWeight: 700,
-      fontSize: 12
-    }
-  }, "\uD83D\uDCC4 PDF"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => imprimirPedido(detalle, esAdmin),
-    style: {
-      ...BTN("#6c3483"),
-      padding: "9px 16px",
-      fontSize: 13
-    }
-  }, "\uD83D\uDDA8\uFE0F Imprimir"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setModal(detalle);
+      setBordados(prev => [...prev, nb]);
+      setNextBordId(n => n + 1);
+      gsBordGuardar(nb);
+      setSec("bordados");
       setDet(null);
     },
-    style: BTN("#9B59B6")
-  }, "\u270F\uFE0F Editar"))), visor && /*#__PURE__*/React.createElement(VisorImagenes, {
+    onCrearCuelloVinc: () => {
+      const nc = {
+        id: nextCuelId,
+        cliente: detalle.cliente,
+        telefono: detalle.telefono || "",
+        confRef: String(detalle.id),
+        cantidad: "1",
+        material: "Acr\u00EDlico",
+        calibre: "Medio",
+        estatus: "Tomado",
+        fecha: new Date().toISOString().split("T")[0],
+        anticipo: "",
+        precioU: "",
+        precioT: "",
+        cuello: { activa: true, largo: "", ancho: "", colores: "" },
+        puno: { activa: false, largo: "", ancho: "", colores: "" },
+        banda: { activa: false, largo: "", ancho: "", colores: "" },
+        abonos: [],
+        notas: "Creado desde confecci\u00F3n N\u00B0" + String(detalle.id).padStart(4, "0")
+      };
+      setCuellos(prev => [...prev, nc]);
+      setNextCuelId(n => n + 1);
+      gsCuelGuardar(nc);
+      setSec("cuellos");
+      setDet(null);
+    },
+    onImprimir: () => imprimirPedido(detalle, esAdmin),
+    onExportarPDF: () => exportarPedidoPDF(detalle, "confeccion"),
+    onAbrirEdicion: () => { setModal(detalle); setDet(null); }
+  }), visor && /*#__PURE__*/React.createElement(VisorImagenes, {
     imgs: visor.imgs,
     idx: visor.idx,
     setIdx: i => setVisor(v => ({ ...v, idx: i })),
