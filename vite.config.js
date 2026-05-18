@@ -1,9 +1,26 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
+
+// Commit SHA corto inyectado como __APP_VERSION__ — se usa en reportes de error
+// para correlacionar una excepción con la versión exacta del bundle. Si por
+// alguna razón git no responde (build sin .git, sandbox raro), cae a "dev".
+const APP_VERSION = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim() || 'dev';
+  } catch {
+    return 'dev';
+  }
+})();
 
 // Deploy a GitHub Pages bajo el path /taller-imis-pedidos/
 export default defineConfig({
   base: '/taller-imis-pedidos/',
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   // React viene de npm. Usamos el JSX runtime automático — esbuild auto-importa
   // jsx-runtime para los archivos .jsx sin necesidad de `import React from 'react'`
   // en cada archivo. Solo hay que importar lo que usás (`useState`, `Component`, etc.).
