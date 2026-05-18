@@ -81,6 +81,9 @@ import SidebarDesktop from "./SidebarDesktop.jsx";
 // Topbar mobile (oculta en desktop via CSS)
 import TopbarMobile from "./TopbarMobile.jsx";
 
+// Modal "pedido vencido — ¿fue entregado?"
+import ModalArchivar from "./ModalArchivar.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -1893,155 +1896,17 @@ function App() {
     setMasOpen: setMasOpen,
     setRol: setRol,
     esAdmin: esAdmin
-  })), modalArchivar && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.65)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 300,
-      padding: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#fff",
-      borderRadius: 16,
-      padding: 28,
-      maxWidth: 420,
-      width: "100%",
-      boxShadow: "0 24px 60px rgba(0,0,0,0.3)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: "center",
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 40,
-      marginBottom: 8
-    }
-  }, "\uD83D\uDCE6"), /*#__PURE__*/React.createElement("h3", {
-    style: {
-      margin: "0 0 6px",
-      color: "#2C1654",
-      fontSize: 17
-    }
-  }, "Pedido vencido \u2014 \xBFfue entregado?"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#888",
-      fontSize: 13,
-      margin: "0 0 4px"
-    }
-  }, "El pedido de ", /*#__PURE__*/React.createElement("strong", null, modalArchivar.cliente), " ya venci\xF3 su fecha de entrega."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#888",
-      fontSize: 12
-    }
-  }, "Si fue entregado, se archivar\xE1 autom\xE1ticamente.")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#f8f4ff",
-      borderRadius: 10,
-      padding: 12,
-      marginBottom: 16,
-      fontSize: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 700,
-      color: "#2C1654"
-    }
-  }, "N\xB0", String(modalArchivar.id).padStart(4, "0"), " \u2014 ", modalArchivar.cliente), /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: "#666",
-      marginTop: 2
-    }
-  }, modalArchivar.tipoPrenda), /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: "#C0392B",
-      fontWeight: 700,
-      marginTop: 2
-    }
-  }, "Fecha pactada: ", modalArchivar.fechaEntrega)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("label", {
-    style: {
-      fontSize: 11,
-      fontWeight: 700,
-      color: "#888",
-      textTransform: "uppercase",
-      marginBottom: 4,
-      display: "block"
-    }
-  }, "\xBFCu\xE1ndo fue entregado?"), /*#__PURE__*/React.createElement("input", {
-    type: "date",
-    id: "fecha-entrega-real",
-    defaultValue: hoy(),
-    style: {
-      width: "100%",
-      padding: "9px 12px",
-      borderRadius: 8,
-      border: "1.5px solid #e0e0e0",
-      fontSize: 14,
-      outline: "none"
-    }
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      const f = document.getElementById("fecha-entrega-real") ? document.getElementById("fecha-entrega-real").value : hoy();
-      archivarPedido(modalArchivar, f);
-    },
-    style: {
-      padding: "11px",
-      borderRadius: 8,
-      border: "none",
-      background: "#28A745",
-      color: "#fff",
-      cursor: "pointer",
-      fontWeight: 800,
-      fontSize: 14
-    }
-  }, "\u2705 S\xED, fue entregado \u2014 archivar"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      const actualizado = {
-        ...modalArchivar,
-        estatus: "Listo"
-      };
+  })), modalArchivar && /*#__PURE__*/React.createElement(ModalArchivar, {
+    pedido: modalArchivar,
+    onConfirmarArchivar: f => archivarPedido(modalArchivar, f),
+    onCambiarAListo: () => {
+      const actualizado = { ...modalArchivar, estatus: "Listo" };
       setPedidos(prev => prev.map(x => x.id === modalArchivar.id ? actualizado : x));
       gsGuardar(actualizado);
       setModalArchivar(null);
     },
-    style: {
-      padding: "11px",
-      borderRadius: 8,
-      border: "1.5px solid #E67E22",
-      background: "#fff",
-      color: "#E67E22",
-      cursor: "pointer",
-      fontWeight: 700,
-      fontSize: 13
-    }
-  }, "\uD83D\uDD50 Todav\xEDa no \u2014 cambiar a \"Listo\""), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setModalArchivar(null),
-    style: {
-      padding: "9px",
-      borderRadius: 8,
-      border: "1.5px solid #e0e0e0",
-      background: "#fff",
-      color: "#aaa",
-      cursor: "pointer",
-      fontSize: 12
-    }
-  }, "Recordar despu\xE9s")))), modalIA && /*#__PURE__*/React.createElement(ModalAsistenteIA, {
+    onCerrar: () => setModalArchivar(null)
+  }), modalIA && /*#__PURE__*/React.createElement(ModalAsistenteIA, {
     rol: rol,
     onCrearPedido: p => {
       setModalIA(false);
