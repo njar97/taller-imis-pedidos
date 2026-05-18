@@ -44,15 +44,15 @@ Producción: https://njar97.github.io/taller-imis-pedidos/
 
 ### Módulos JSX extraídos
 
-Después de tres sesiones de decompile (mayo 2026), `main.js` bajó de **15 330 → ~2 570 líneas**. Lo que queda en `main.js`: imports, helpers de impresión/exportación (`imprimirPedido`, `exportarExcelMes`, `exportarPedidoPDF`), y el componente `App` raíz que orquesta state global, lazy loading y realtime — la mayor parte de su JSX ya está extraído, lo que queda es el cuerpo del return + handlers + la sección "pedidos" inline.
+Después de cuatro sesiones de decompile (mayo 2026), `main.js` bajó de **15 330 → ~1 640 líneas** (-89%). Lo que queda en `main.js`: imports, helpers de impresión/exportación (`imprimirPedido`, `exportarExcelMes`, `exportarPedidoPDF`), y el componente `App` raíz que orquesta state global, lazy loading y realtime. El return principal compone módulos extraídos; la mayor parte del JSX inline desapareció.
 
 Módulos extraídos en `src/`:
 
-- **Pantallas/secciones:** `PantallaLogin`, `SeccionEstadisticas`, `SeccionClientes`, `SeccionCatalogo`, `SeccionInventario`, `SeccionBordados` (+ `BordadoModal`), `SeccionCuellos` (+ `CuelloModal`), `SeccionPapelera` (lazy)
+- **Pantallas/secciones:** `PantallaLogin`, `SeccionEstadisticas`, `SeccionClientes`, `SeccionCatalogo`, `SeccionInventario`, `SeccionBordados` (+ `BordadoModal`), `SeccionCuellos` (+ `CuelloModal`), `SeccionPedidos`, `SeccionPapelera` (lazy)
 - **Formularios:** `FormPedido` (~700 líneas), `RegistroAbonos`, `ModalAsistenteIA`
 - **Componentes reutilizables:** `CardPedido`, `ProximasEntregas`, `ListaPrendas` (+ `TablaPersonasInternas`), `SelectorTallas` (+ `TallasChips`), `BuscadorConfRef`
 - **Shell / PWA / Nav:** `ErrorBoundary`, `ConexionStatus` (offline + new-version), `InstallPrompt`, `SidebarDesktop`, `TopbarMobile`, `BottomNav`, `MasOpenSheet` (+ `lib/navItems.js`)
-- **Modales globales:** `VisorImagenes` (lightbox), `ModalArchivar` (pedido vencido), `ModalActMedidas`, `ModalErrorFotos`, `ModalConfirmarBorrar`
+- **Modales globales:** `DetallePedidoModal` (vista "ver pedido"), `VisorImagenes` (lightbox), `ModalArchivar` (pedido vencido), `ModalActMedidas`, `ModalErrorFotos`, `ModalConfirmarBorrar`
 - **Helpers UI (`src/lib/ui.jsx`):** `Toaster`, `ConfirmDialog`, `Check`, `UploaderImagenes`, `BarraProgreso`, `Chips`, `FechasRapidas`, `SeccionOpcional`, `BannerMedidas`, `WABtn`
 
 ### Módulos de soporte en `src/lib/`
@@ -75,15 +75,17 @@ Módulos extraídos en `src/`:
 
 ### Componente App (en main.js)
 
-Sigue como `React.createElement(...)` compilado pero ya bastante adelgazado (~2 570 líneas, antes 3 521). Hace orquestación de:
+Sigue como `React.createElement(...)` compilado pero ya muy adelgazado (~1 640 líneas, antes 3 521). Hace orquestación de:
 - State global (pedidos, bordados, cuellos, clientes, catálogo, inventario)
 - Auth/rol (PIN admin guardado en localStorage)
 - Navegación entre secciones
 - Suscripción realtime + reconexión
 - Carga inicial + reintentos
-- Renderizado de la shell (compone SidebarDesktop/TopbarMobile/BottomNav/MasOpenSheet)
+- Composición de la shell (compone SidebarDesktop/TopbarMobile/BottomNav/MasOpenSheet) y de los modales globales
 
-Lo que queda compilado por decompilar: el return principal del cuerpo (que ya solo arma la composición) y todo el contenido inline de la sección "pedidos" (toolbar + cards + tabla). Detalle y formularios ya están extraídos.
+El return de App ya casi no tiene JSX inline — todo es `createElement(SeccionX, {...})` o `createElement(ModalX, {...})`. Decompilarlo a JSX sería trivial pero de bajo valor (los componentes ya están extraídos). Lo único que queda inline es la cadena de imports + state hooks + effects + callbacks (`cambiarEstatus`, `guardarPedido`, `archivarPedido`, etc.) que el App distribuye como props.
+
+**Estructura clave del return:** todo (sidebar, main, bottom-nav, modales, toaster) son hijos de un único `<div root>`. EXCEPTO BottomNav, MasOpenSheet, modalArchivar, modalIA, modal-form, detalle, visor, errorFotos, modalActMedidas, ModalConfirmarBorrar, Toaster, ConfirmDialog, ConexionStatus, InstallPrompt — esos son **hijos del `<main>`**, no del root. Es contraintuitivo: si extraés algo cerca del cierre del pedidos Fragment, NO cierres `main` ahí. Main cierra muy al final, en el último `)` antes del `;` del return.
 
 ## Comandos
 
@@ -133,7 +135,7 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
-**17 may 2026 — Decompile de shell + modales del App (PRs #38-45)**
+**17 may 2026 — Decompile total del cuerpo del App (PRs #38-48)**
 - #38: `BottomNav` + `lib/navItems.js` (NAV compartido entre sidebar / bottom / sheet).
 - #39: `MasOpenSheet` (bottom-sheet "Más" con items que no caben en la barra).
 - #40: `SidebarDesktop` (header + nav + métricas + cerrar sesión).
@@ -142,8 +144,10 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 - #43: `ModalActMedidas` (¿actualizar medidas del cliente?).
 - #44: `VisorImagenes` (lightbox fullscreen con swipe + thumbnails).
 - #45: `ModalErrorFotos` + `ModalConfirmarBorrar`.
+- #47: `DetallePedidoModal` (vista "ver pedido", −500 líneas).
+- #48: `SeccionPedidos` (toolbar + tabs + tabla/cards, −430 líneas).
 
-main.js: 3 521 → ~2 570 líneas (-27%). Lo que queda compilado en App es el return principal (orquestación + sección "pedidos" inline).
+main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App ya casi no tiene JSX inline.
 
 **17 may 2026 — Cierre de mantenimiento + features (PRs #31-36)**
 - #31: actualización completa de `CLAUDE.md` al estado real.
@@ -178,7 +182,7 @@ main.js: 3 521 → ~2 570 líneas (-27%). Lo que queda compilado en App es el re
 
 ## Pendientes ordenados por valor/riesgo
 
-- [ ] **Terminar el decompile del cuerpo de `App`** — la shell (sidebar/topbar/bottom/sheet) y los modales globales ya están extraídos (PRs #38-45). Queda el return principal compilado y la sección "pedidos" inline (~700 líneas compiladas con toolbar/filtros/cards/tabla). Próximo paso natural: extraer `SeccionPedidos.jsx` y el `DetallePedidoModal`.
+- [ ] **Decompilar el return de `App` a JSX** — opcional. El return ya casi solo compone módulos extraídos; pasarlo a JSX legible reduce ~300 líneas pero el valor de mantenibilidad es modesto porque las decisiones interesantes ya viven en los módulos. Útil si vas a tocar mucho la orquestación de modales.
 - [ ] **Eliminar dependencia de React por CDN** — instalarlo vía npm para tener tree-shaking real. Bundle actual ~317 KB raw, podría bajar bastante.
 - [ ] **Tests** — el proyecto no tiene tests. Cualquier suite (vitest) sobre `lib/db.js`, `lib/retry.js`, `lib/dominio.js` ayudaría a moverse más rápido en futuros refactors.
 - [ ] **Diagnóstico de errores** — hoy `ErrorBoundary` muestra el mensaje al usuario pero no lo reporta. Plug a Sentry o un endpoint propio sería barato.
