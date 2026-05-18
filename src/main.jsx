@@ -221,6 +221,13 @@ import {
   useCallback,
 } from "react";
 import { createRoot } from "react-dom/client";
+import { installGlobalErrorHandlers } from "./lib/reportError.js";
+
+// Captura errores async (handlers, fetches sin await, throws en timers,
+// promesas rechazadas) que no llegan al ErrorBoundary. Hay que instalarlo
+// antes de montar React para no perder los que ocurran durante el primer
+// render.
+installGlobalErrorHandlers();
 function imprimirPedido(p, esAdmin) {
   if (esAdmin) imprimirRecibo(p);else imprimirProduccion(p);
 }
