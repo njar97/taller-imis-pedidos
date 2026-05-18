@@ -70,6 +70,7 @@ Módulos extraídos en `src/`:
 - `catalogoBase.js` — catálogo de 8 productos default (fallback cuando la BD está vacía)
 - `leerDB.js` — lector SQLite para archivos DTE (`.db`)
 - `retry.js` — `withRetry` con backoff exponencial para errores transitorios
+- `reportError.js` — fire-and-forget POST de excepciones a la tabla `taller_errores` en Supabase (lo invoca `ErrorBoundary.componentDidCatch`)
 - `sw.js` — registro del service worker + bus de "nueva versión disponible"
 - `navItems.js` — `getNavItems(rol, esAdmin)` + `NAV_IDS_VISIBLES`, compartido por Sidebar/BottomNav/MasOpenSheet
 
@@ -135,6 +136,12 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
+**18 may 2026 — Reporte de errores a Supabase (PR #58)**
+- Tabla nueva `taller_errores` (sólo INSERT desde `anon`, sin SELECT/UPDATE/DELETE — se lee desde el dashboard).
+- `src/lib/reportError.js`: fire-and-forget POST con mensaje, stack, component_stack, url, user_agent, app_version. Sin retry, sin toasts, sin throws — vive en `componentDidCatch`. `keepalive: true` para sobrevivir al botón "Recargar app".
+- `vite.config.js` inyecta `__APP_VERSION__` = commit SHA corto en build time.
+- Cubre sólo errores de render. Los async (handlers, fetches) quedan como pendiente.
+
 **17 may 2026 — Decompile del return de App (PR #54)**
 - `src/main.js` → `src/main.jsx`. Vite procesa JSX en `.jsx` por defecto.
 - El return de App pasa de cadena de `createElement(...)` a JSX legible.
@@ -197,7 +204,7 @@ main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App 
 
 ## Pendientes ordenados por valor/riesgo
 
-- [ ] **Diagnóstico de errores** — hoy `ErrorBoundary` muestra el mensaje al usuario pero no lo reporta. Plug a Sentry o un endpoint propio sería barato.
+- [ ] **Capturar errores async** — `ErrorBoundary` solo agarra excepciones de render. Los errores en handlers (clicks, fetches no awaited) caen al `window.onerror` / `window.onunhandledrejection` global. Cablear esos dos al mismo `reportError` daría cobertura completa.
 
 ## Secrets
 
