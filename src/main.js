@@ -90,6 +90,12 @@ import ModalActMedidas from "./ModalActMedidas.jsx";
 // Lightbox de imágenes (fullscreen + swipe + thumbnails)
 import VisorImagenes from "./VisorImagenes.jsx";
 
+// Modal "fotos no subidas" (después de guardar un pedido con uploads fallidos)
+import ModalErrorFotos from "./ModalErrorFotos.jsx";
+
+// Modal "¿eliminar pedido?" (confirm para soft-delete desde admin)
+import ModalConfirmarBorrar from "./ModalConfirmarBorrar.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -2540,72 +2546,10 @@ function App() {
     idx: visor.idx,
     setIdx: i => setVisor(v => ({ ...v, idx: i })),
     onCerrar: () => setVisor(null)
-  }), errorFotos.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.55)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 300,
-      padding: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#fff",
-      borderRadius: 14,
-      padding: 28,
-      maxWidth: 380,
-      width: "100%",
-      boxShadow: "0 20px 50px rgba(0,0,0,0.3)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 36,
-      marginBottom: 8,
-      textAlign: "center"
-    }
-  }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("h3", {
-    style: {
-      margin: "0 0 8px",
-      color: "#2C1654",
-      textAlign: "center"
-    }
-  }, "Fotos no subidas a Drive"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#888",
-      fontSize: 13,
-      margin: "0 0 14px",
-      textAlign: "center"
-    }
-  }, "El pedido se guard\xF3, pero estas fotos no pudieron subirse. Solo se ver\xE1n en este dispositivo."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#FFF3CD",
-      borderRadius: 8,
-      padding: "10px 14px",
-      marginBottom: 16
-    }
-  }, errorFotos.map((e, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    style: {
-      fontSize: 12,
-      color: "#856404",
-      marginBottom: 2
-    }
-  }, /*#__PURE__*/React.createElement("strong", null, e.nombre), ": ", e.err))), /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#888",
-      fontSize: 12,
-      marginBottom: 16
-    }
-  }, "Para subirlas, edita el pedido y vuelve a guardar."), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setErrorFotos([]),
-    style: {
-      ...BTN("#9B59B6"),
-      width: "100%"
-    }
-  }, "Entendido"))), modalActMedidas && /*#__PURE__*/React.createElement(ModalActMedidas, {
+  }), errorFotos.length > 0 && /*#__PURE__*/React.createElement(ModalErrorFotos, {
+    errores: errorFotos,
+    onCerrar: () => setErrorFotos([])
+  }), modalActMedidas && /*#__PURE__*/React.createElement(ModalActMedidas, {
     pedido: modalActMedidas.pedido,
     cliente: modalActMedidas.cliente,
     onActualizar: () => {
@@ -2621,55 +2565,10 @@ function App() {
       setModalActMedidas(null);
     },
     onCerrar: () => setModalActMedidas(null)
-  }), confirmar && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 200,
-      padding: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#fff",
-      borderRadius: 14,
-      padding: 28,
-      maxWidth: 340,
-      textAlign: "center",
-      width: "100%"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 44,
-      marginBottom: 10
-    }
-  }, "\uD83D\uDDD1\uFE0F"), /*#__PURE__*/React.createElement("h3", {
-    style: {
-      margin: "0 0 8px",
-      color: "#2C1654"
-    }
-  }, "\xBFEliminar pedido?"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#888",
-      fontSize: 14,
-      margin: "0 0 20px"
-    }
-  }, "Esta acci\xF3n no se puede deshacer."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 10,
-      justifyContent: "center"
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setConf(null),
-    style: BTN("#aaa")
-  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => eliminar(confirmar),
-    style: BTN("#E63946")
-  }, "S\xED, eliminar")))), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null), /*#__PURE__*/React.createElement(ConexionStatus, null), /*#__PURE__*/React.createElement(InstallPrompt, null));
+  }), confirmar && /*#__PURE__*/React.createElement(ModalConfirmarBorrar, {
+    onCancelar: () => setConf(null),
+    onConfirmar: () => eliminar(confirmar)
+  }), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null), /*#__PURE__*/React.createElement(ConexionStatus, null), /*#__PURE__*/React.createElement(InstallPrompt, null));
 }
 ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(ErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
 
