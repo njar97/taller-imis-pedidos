@@ -87,6 +87,9 @@ import ModalArchivar from "./ModalArchivar.jsx";
 // Modal "¿actualizar medidas del cliente?"
 import ModalActMedidas from "./ModalActMedidas.jsx";
 
+// Lightbox de imágenes (fullscreen + swipe + thumbnails)
+import VisorImagenes from "./VisorImagenes.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -2532,173 +2535,12 @@ function App() {
       setDet(null);
     },
     style: BTN("#9B59B6")
-  }, "\u270F\uFE0F Editar"))), visor && (() => {
-    const vImgs = visor.imgs;
-    const vIdx = visor.idx;
-    const prev = () => setVisor(v => ({
-      ...v,
-      idx: (v.idx - 1 + vImgs.length) % vImgs.length
-    }));
-    const next = () => setVisor(v => ({
-      ...v,
-      idx: (v.idx + 1) % vImgs.length
-    }));
-    const src = vImgs[vIdx];
-    let touchX = null;
-    const onTouchStart = e => {
-      touchX = e.touches[0].clientX;
-    };
-    const onTouchEnd = e => {
-      if (touchX === null) return;
-      const dx = e.changedTouches[0].clientX - touchX;
-      if (Math.abs(dx) > 40) {
-        dx < 0 ? next() : prev();
-      }
-      touchX = null;
-    };
-    return /*#__PURE__*/React.createElement("div", {
-      style: {
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.95)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 400,
-        padding: "16px 8px"
-      },
-      onTouchStart: onTouchStart,
-      onTouchEnd: onTouchEnd
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: "100%",
-        maxWidth: 700,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 10,
-        padding: "0 8px"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: "#fff",
-        fontSize: 13,
-        fontWeight: 700,
-        opacity: .7
-      }
-    }, vIdx + 1, " / ", vImgs.length), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 8
-      }
-    }, /*#__PURE__*/React.createElement("a", {
-      href: src,
-      target: "_blank",
-      rel: "noreferrer",
-      style: {
-        padding: "7px 14px",
-        borderRadius: 8,
-        background: "rgba(155,89,182,0.8)",
-        color: "#fff",
-        fontWeight: 700,
-        fontSize: 12,
-        textDecoration: "none"
-      }
-    }, "\uD83D\uDD17 Drive"), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setVisor(null),
-      style: {
-        padding: "7px 14px",
-        borderRadius: 8,
-        border: "none",
-        background: "rgba(255,255,255,0.15)",
-        color: "#fff",
-        fontWeight: 700,
-        fontSize: 12,
-        cursor: "pointer"
-      }
-    }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        position: "relative",
-        width: "100%",
-        maxWidth: 700,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flex: 1,
-        minHeight: 0
-      }
-    }, vImgs.length > 1 && /*#__PURE__*/React.createElement("button", {
-      onClick: prev,
-      style: {
-        position: "absolute",
-        left: 0,
-        zIndex: 10,
-        background: "rgba(255,255,255,0.15)",
-        border: "none",
-        color: "#fff",
-        fontSize: 28,
-        fontWeight: 700,
-        cursor: "pointer",
-        borderRadius: 8,
-        padding: "12px 14px",
-        backdropFilter: "blur(4px)"
-      }
-    }, "\u2039"), /*#__PURE__*/React.createElement("img", {
-      src: src,
-      style: {
-        maxWidth: "calc(100% - 80px)",
-        maxHeight: "75vh",
-        borderRadius: 10,
-        objectFit: "contain",
-        userSelect: "none",
-        pointerEvents: "none"
-      }
-    }), vImgs.length > 1 && /*#__PURE__*/React.createElement("button", {
-      onClick: next,
-      style: {
-        position: "absolute",
-        right: 0,
-        zIndex: 10,
-        background: "rgba(255,255,255,0.15)",
-        border: "none",
-        color: "#fff",
-        fontSize: 28,
-        fontWeight: 700,
-        cursor: "pointer",
-        borderRadius: 8,
-        padding: "12px 14px",
-        backdropFilter: "blur(4px)"
-      }
-    }, "\u203A")), vImgs.length > 1 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 6,
-        marginTop: 12,
-        overflowX: "auto",
-        padding: "4px 8px",
-        maxWidth: "100%"
-      }
-    }, vImgs.map((s, i) => /*#__PURE__*/React.createElement("img", {
-      key: i,
-      src: s,
-      onClick: () => setVisor(v => ({
-        ...v,
-        idx: i
-      })),
-      style: {
-        width: 52,
-        height: 52,
-        borderRadius: 6,
-        objectFit: "cover",
-        cursor: "pointer",
-        border: i === vIdx ? "2.5px solid #9B59B6" : "2px solid transparent",
-        opacity: i === vIdx ? 1 : 0.55,
-        flexShrink: 0,
-        transition: "opacity .2s"
-      }
-    }))));
-  })(), errorFotos.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u270F\uFE0F Editar"))), visor && /*#__PURE__*/React.createElement(VisorImagenes, {
+    imgs: visor.imgs,
+    idx: visor.idx,
+    setIdx: i => setVisor(v => ({ ...v, idx: i })),
+    onCerrar: () => setVisor(null)
+  }), errorFotos.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
       inset: 0,
