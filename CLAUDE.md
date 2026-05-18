@@ -90,10 +90,12 @@ El return de App ya casi no tiene JSX inline — todo es `createElement(SeccionX
 ## Comandos
 
 ```bash
-npm install        # instalar deps (Vite + vite-plugin-pwa + react + react-dom)
+npm install        # instalar deps (Vite + vite-plugin-pwa + react + react-dom + vitest)
 npm run dev        # dev server en http://localhost:5173/taller-imis-pedidos/
 npm run build      # genera dist/ con PWA assets
 npm run preview    # sirve dist/ como en prod
+npm run test:run   # corre la suite de vitest una vez (39 tests sobre lib/)
+npm test           # vitest en watch mode
 ```
 
 ## Slash commands (Claude Code)
@@ -134,6 +136,10 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 - No commitear `node_modules/`, `dist/`, ni archivos con secretos.
 
 ## Historial reciente
+
+**17 may 2026 — Tests con vitest (PR #52)**
+- 39 tests sobre `lib/dominio.js`, `lib/retry.js`, `lib/db.js`. Cobertura de las funciones puras + comportamiento de retry + mocks de fetch para verificar conversión camelCase ↔ snake_case y soft-delete.
+- `npm run test:run` para correr una vez, `npm test` en watch mode.
 
 **17 may 2026 — npm React (PR #50)**
 - react@18 + react-dom@18 ahora vienen de `package.json`, no del CDN de unpkg.
@@ -189,7 +195,6 @@ main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App 
 ## Pendientes ordenados por valor/riesgo
 
 - [ ] **Decompilar el return de `App` a JSX** — opcional. El return ya casi solo compone módulos extraídos; pasarlo a JSX legible reduce ~300 líneas pero el valor de mantenibilidad es modesto porque las decisiones interesantes ya viven en los módulos. Útil si vas a tocar mucho la orquestación de modales.
-- [ ] **Tests** — el proyecto no tiene tests. Cualquier suite (vitest) sobre `lib/db.js`, `lib/retry.js`, `lib/dominio.js` ayudaría a moverse más rápido en futuros refactors.
 - [ ] **Diagnóstico de errores** — hoy `ErrorBoundary` muestra el mensaje al usuario pero no lo reporta. Plug a Sentry o un endpoint propio sería barato.
 
 ## Secrets
