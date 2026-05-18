@@ -4,6 +4,7 @@
 // guardados en Postgres, así que recargar es seguro.
 
 import { Component } from "react";
+import { reportError } from "./lib/reportError.js";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -17,6 +18,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error("ErrorBoundary catch:", error, info);
+    reportError(error, info);
   }
 
   render() {
