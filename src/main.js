@@ -84,6 +84,9 @@ import TopbarMobile from "./TopbarMobile.jsx";
 // Modal "pedido vencido — ¿fue entregado?"
 import ModalArchivar from "./ModalArchivar.jsx";
 
+// Modal "¿actualizar medidas del cliente?"
+import ModalActMedidas from "./ModalActMedidas.jsx";
+
 // Items de navegación (admin vs operario) compartidos por sidebar + bottom + sheet
 import { getNavItems } from "./lib/navItems.js";
 
@@ -2760,87 +2763,10 @@ function App() {
       ...BTN("#9B59B6"),
       width: "100%"
     }
-  }, "Entendido"))), modalActMedidas && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 300,
-      padding: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#fff",
-      borderRadius: 16,
-      padding: 28,
-      maxWidth: 400,
-      width: "100%",
-      boxShadow: "0 24px 60px rgba(0,0,0,0.3)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: "center",
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 36,
-      marginBottom: 8
-    }
-  }, "\uD83D\uDCD0"), /*#__PURE__*/React.createElement("h3", {
-    style: {
-      margin: "0 0 6px",
-      color: "#1A5276",
-      fontSize: 17
-    }
-  }, "\xBFActualizar medidas del cliente?"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#888",
-      fontSize: 13,
-      margin: 0
-    }
-  }, "Las medidas de este pedido son diferentes a las guardadas para ", /*#__PURE__*/React.createElement("strong", null, modalActMedidas.cliente.nombre), ".")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#f0f4ff",
-      borderRadius: 10,
-      padding: "10px 14px",
-      marginBottom: 16,
-      fontSize: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 6
-    }
-  }, MEDIDAS_DEF.filter(m => modalActMedidas.pedido.medidas && modalActMedidas.pedido.medidas[m.k]).map(m => /*#__PURE__*/React.createElement("div", {
-    key: m.k,
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#888",
-      fontWeight: 700
-    }
-  }, m.l, ":"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#1A5276",
-      fontWeight: 800
-    }
-  }, modalActMedidas.pedido.medidas[m.k], " cm"))))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
+  }, "Entendido"))), modalActMedidas && /*#__PURE__*/React.createElement(ModalActMedidas, {
+    pedido: modalActMedidas.pedido,
+    cliente: modalActMedidas.cliente,
+    onActualizar: () => {
       const cli = {
         ...modalActMedidas.cliente,
         medidas: {
@@ -2852,28 +2778,8 @@ function App() {
       gsClientesGuardar(cli);
       setModalActMedidas(null);
     },
-    style: {
-      padding: "11px",
-      borderRadius: 8,
-      border: "none",
-      background: "#1A5276",
-      color: "#fff",
-      cursor: "pointer",
-      fontWeight: 800,
-      fontSize: 14
-    }
-  }, "\u2705 S\xED, actualizar medidas del cliente"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setModalActMedidas(null),
-    style: {
-      padding: "10px",
-      borderRadius: 8,
-      border: "1.5px solid #e0e0e0",
-      background: "#fff",
-      color: "#888",
-      cursor: "pointer",
-      fontSize: 13
-    }
-  }, "No, solo para este pedido")))), confirmar && /*#__PURE__*/React.createElement("div", {
+    onCerrar: () => setModalActMedidas(null)
+  }), confirmar && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
       inset: 0,
