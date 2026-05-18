@@ -136,11 +136,16 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
+**18 may 2026 — Captura de errores async (PR #60)**
+- `installGlobalErrorHandlers()` instala listeners de `window.error` y `unhandledrejection` que postean a la misma tabla `taller_errores` con `tipo='window.error'` o `'unhandledrejection'`.
+- Se llama desde `main.jsx` antes de `createRoot` para no perder errores del primer render.
+- Filtra errores de carga de recursos (img.onerror sin `.error`) para no llenar la tabla de ruido.
+- ALTER: `taller_errores` ahora tiene columna `tipo text not null default 'render'`.
+
 **18 may 2026 — Reporte de errores a Supabase (PR #58)**
 - Tabla nueva `taller_errores` (sólo INSERT desde `anon`, sin SELECT/UPDATE/DELETE — se lee desde el dashboard).
 - `src/lib/reportError.js`: fire-and-forget POST con mensaje, stack, component_stack, url, user_agent, app_version. Sin retry, sin toasts, sin throws — vive en `componentDidCatch`. `keepalive: true` para sobrevivir al botón "Recargar app".
 - `vite.config.js` inyecta `__APP_VERSION__` = commit SHA corto en build time.
-- Cubre sólo errores de render. Los async (handlers, fetches) quedan como pendiente.
 
 **17 may 2026 — Decompile del return de App (PR #54)**
 - `src/main.js` → `src/main.jsx`. Vite procesa JSX en `.jsx` por defecto.
@@ -204,7 +209,7 @@ main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App 
 
 ## Pendientes ordenados por valor/riesgo
 
-- [ ] **Capturar errores async** — `ErrorBoundary` solo agarra excepciones de render. Los errores en handlers (clicks, fetches no awaited) caen al `window.onerror` / `window.onunhandledrejection` global. Cablear esos dos al mismo `reportError` daría cobertura completa.
+_Lista vacía por ahora._
 
 ## Secrets
 
