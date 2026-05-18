@@ -2,7 +2,7 @@
 // Antes vivía como RegistroAbonos compilado en main.js (~408 líneas).
 // Usado en FormPedido, BordadoModal y CuelloModal (modos admin y no-admin).
 
-const { useState } = React;
+import { useState } from "react";
 
 const METODOS = ["Efectivo", "Transferencia", "Depósito", "Cheque", "Otro"];
 

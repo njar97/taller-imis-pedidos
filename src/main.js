@@ -4,7 +4,7 @@
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
 
 // Vista de Papelera (admin, lazy)
-const SeccionPapeleraLazy = React.lazy(() => import("./SeccionPapelera.jsx"));
+const SeccionPapeleraLazy = lazy(() => import("./SeccionPapelera.jsx"));
 
 // Pantalla de login (decompilada a JSX legible)
 import PantallaLogin from "./PantallaLogin.jsx";
@@ -211,13 +211,18 @@ import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
 // Suscripción a cambios en Postgres (WebSocket, sin SDK)
 import { suscribirCambios } from "./lib/realtime.js";
 
-const {
+import {
+  lazy,
+  Fragment,
+  Suspense,
+  createElement,
   useState,
   useEffect,
   useRef,
   useMemo,
-  useCallback
-} = React;
+  useCallback,
+} from "react";
+import { createRoot } from "react-dom/client";
 function imprimirPedido(p, esAdmin) {
   if (esAdmin) imprimirRecibo(p);else imprimirProduccion(p);
 }
@@ -1350,20 +1355,20 @@ function App() {
       t: "⚠️ Fotos no subidas"
     }
   }[sync];
-  if (!rolBase) return /*#__PURE__*/React.createElement(PantallaLogin, {
+  if (!rolBase) return /*#__PURE__*/createElement(PantallaLogin, {
     onLogin: setRol
   });
   const NAV = getNavItems(rol, esAdmin);
-  return /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/createElement("div", {
     style: {
       display: "flex",
       height: "100vh"
     }
-  }, progreso && /*#__PURE__*/React.createElement(BarraProgreso, {
+  }, progreso && /*#__PURE__*/createElement(BarraProgreso, {
     actual: progreso.actual,
     total: progreso.total,
     errores: progreso.errores || 0
-  }), /*#__PURE__*/React.createElement(SidebarDesktop, {
+  }), /*#__PURE__*/createElement(SidebarDesktop, {
     esAdmin: esAdmin,
     sync: sync,
     syncInfo: syncInfo,
@@ -1377,7 +1382,7 @@ function App() {
     refrescar: refrescar,
     refrescando: refrescando,
     setRol: setRol
-  }), /*#__PURE__*/React.createElement("main", {
+  }), /*#__PURE__*/createElement("main", {
     style: {
       flex: 1,
       display: "flex",
@@ -1385,7 +1390,7 @@ function App() {
       overflow: "hidden",
       position: "relative"
     }
-  }, /*#__PURE__*/React.createElement(TopbarMobile, {
+  }, /*#__PURE__*/createElement(TopbarMobile, {
     esAdmin: esAdmin,
     sync: sync,
     syncInfo: syncInfo,
@@ -1393,19 +1398,19 @@ function App() {
     activos: activos,
     refrescar: refrescar,
     refrescando: refrescando
-  }), seccion === "estadisticas" && esAdmin && /*#__PURE__*/React.createElement(SeccionEstadisticas, {
+  }), seccion === "estadisticas" && esAdmin && /*#__PURE__*/createElement(SeccionEstadisticas, {
     pedidos: pedidos,
     bordados: bordados,
     cuellos: cuellos,
     onExportarExcel: exportarExcelMes
-  }), seccion === "inventario" && /*#__PURE__*/React.createElement(SeccionInventario, {
+  }), seccion === "inventario" && /*#__PURE__*/createElement(SeccionInventario, {
     pedidos: pedidos,
     inventario: inventario,
     setInventario: setInventario,
     asignaciones: asignaciones,
     setAsignaciones: setAsignaciones,
     esAdmin: esAdmin
-  }), seccion === "bordados" && /*#__PURE__*/React.createElement(SeccionBordados, {
+  }), seccion === "bordados" && /*#__PURE__*/createElement(SeccionBordados, {
     bordados: bordados,
     setBordados: setBordados,
     nextBordId: nextBordId,
@@ -1415,7 +1420,7 @@ function App() {
     clientes: clientes,
     upsertClienteLocal: upsertClienteLocal,
     exportarPedidoPDF: exportarPedidoPDF
-  }), seccion === "cuellos" && /*#__PURE__*/React.createElement(SeccionCuellos, {
+  }), seccion === "cuellos" && /*#__PURE__*/createElement(SeccionCuellos, {
     cuellos: cuellos,
     setCuellos: setCuellos,
     nextCuelId: nextCuelId,
@@ -1425,22 +1430,22 @@ function App() {
     clientes: clientes,
     upsertClienteLocal: upsertClienteLocal,
     exportarPedidoPDF: exportarPedidoPDF
-  }), seccion === "catalogo" && /*#__PURE__*/React.createElement(SeccionCatalogo, {
+  }), seccion === "catalogo" && /*#__PURE__*/createElement(SeccionCatalogo, {
     catalogo: catalogo,
     setCatalogo: setCatalogo,
     esAdmin: esAdmin
-  }), seccion === "clientes" && esAdmin && /*#__PURE__*/React.createElement(SeccionClientes, {
+  }), seccion === "clientes" && esAdmin && /*#__PURE__*/createElement(SeccionClientes, {
     clientes: clientes,
     setClientes: setClientes,
     pedidos: pedidos,
     bordados: bordados,
     cuellos: cuellos,
     esAdmin: esAdmin
-  }), seccion === "papelera" && esAdmin && /*#__PURE__*/React.createElement(React.Suspense, {
-    fallback: /*#__PURE__*/React.createElement("div", { style: { padding: 32, textAlign: "center", color: "#999" } }, "⏳ Cargando papelera...")
-  }, /*#__PURE__*/React.createElement(SeccionPapeleraLazy, {
+  }), seccion === "papelera" && esAdmin && /*#__PURE__*/createElement(Suspense, {
+    fallback: /*#__PURE__*/createElement("div", { style: { padding: 32, textAlign: "center", color: "#999" } }, "⏳ Cargando papelera...")
+  }, /*#__PURE__*/createElement(SeccionPapeleraLazy, {
     onRestaurado: refrescar
-  })), seccion === "pedidos" && /*#__PURE__*/React.createElement(SeccionPedidos, {
+  })), seccion === "pedidos" && /*#__PURE__*/createElement(SeccionPedidos, {
     pedidos: pedidos,
     filtrados: filtrados,
     conteos: conteos,
@@ -1466,7 +1471,7 @@ function App() {
     cambiarEstatus: cambiarEstatus,
     onImprimir: p => imprimirPedido(p, esAdmin),
     onCopiarWA: p => copiarWA(p, esAdmin)
-  }), /*#__PURE__*/React.createElement(BottomNav, {
+  }), /*#__PURE__*/createElement(BottomNav, {
     nav: NAV,
     seccion: seccion,
     setSec: setSec,
@@ -1476,14 +1481,14 @@ function App() {
     esAdmin: esAdmin,
     vencidosSinArchivar: vencidosSinArchivar,
     matAgotados: matAgotados
-  }), masOpen && /*#__PURE__*/React.createElement(MasOpenSheet, {
+  }), masOpen && /*#__PURE__*/createElement(MasOpenSheet, {
     nav: NAV,
     seccion: seccion,
     setSec: setSec,
     setMasOpen: setMasOpen,
     setRol: setRol,
     esAdmin: esAdmin
-  })), modalArchivar && /*#__PURE__*/React.createElement(ModalArchivar, {
+  })), modalArchivar && /*#__PURE__*/createElement(ModalArchivar, {
     pedido: modalArchivar,
     onConfirmarArchivar: f => archivarPedido(modalArchivar, f),
     onCambiarAListo: () => {
@@ -1493,7 +1498,7 @@ function App() {
       setModalArchivar(null);
     },
     onCerrar: () => setModalArchivar(null)
-  }), modalIA && /*#__PURE__*/React.createElement(ModalAsistenteIA, {
+  }), modalIA && /*#__PURE__*/createElement(ModalAsistenteIA, {
     rol: rol,
     onCrearPedido: p => {
       setModalIA(false);
@@ -1504,10 +1509,10 @@ function App() {
       setModal(p || "nuevo");
     },
     onCerrar: () => setModalIA(false)
-  }), modal && /*#__PURE__*/React.createElement(Modal, {
+  }), modal && /*#__PURE__*/createElement(Modal, {
     title: modal === "nuevo" ? "✂️ Nuevo Pedido" : "✏️ Editar N°" + String(modal.id).padStart(4, "0"),
     onClose: () => setModal(null)
-  }, modal === "nuevo" && /*#__PURE__*/React.createElement("button", {
+  }, modal === "nuevo" && /*#__PURE__*/createElement("button", {
     onClick: () => {
       setModal(null);
       setModalIA(true);
@@ -1528,7 +1533,7 @@ function App() {
       justifyContent: "center",
       gap: 8
     }
-  }, "\uD83E\uDD16 Registrar con Asistente IA (voz o texto)"), /*#__PURE__*/React.createElement(FormPedido, {
+  }, "\uD83E\uDD16 Registrar con Asistente IA (voz o texto)"), /*#__PURE__*/createElement(FormPedido, {
     initial: modal !== "nuevo" ? modal : null,
     onSave: guardarPedido,
     onCancel: () => setModal(null),
@@ -1536,7 +1541,7 @@ function App() {
     pedidosExistentes: pedidos,
     clientes: clientes,
     catalogo: catalogo
-  })), detalle && /*#__PURE__*/React.createElement(DetallePedidoModal, {
+  })), detalle && /*#__PURE__*/createElement(DetallePedidoModal, {
     pedido: detalle,
     esAdmin: esAdmin,
     bordados: bordados,
@@ -1612,15 +1617,15 @@ function App() {
     onImprimir: () => imprimirPedido(detalle, esAdmin),
     onExportarPDF: () => exportarPedidoPDF(detalle, "confeccion"),
     onAbrirEdicion: () => { setModal(detalle); setDet(null); }
-  }), visor && /*#__PURE__*/React.createElement(VisorImagenes, {
+  }), visor && /*#__PURE__*/createElement(VisorImagenes, {
     imgs: visor.imgs,
     idx: visor.idx,
     setIdx: i => setVisor(v => ({ ...v, idx: i })),
     onCerrar: () => setVisor(null)
-  }), errorFotos.length > 0 && /*#__PURE__*/React.createElement(ModalErrorFotos, {
+  }), errorFotos.length > 0 && /*#__PURE__*/createElement(ModalErrorFotos, {
     errores: errorFotos,
     onCerrar: () => setErrorFotos([])
-  }), modalActMedidas && /*#__PURE__*/React.createElement(ModalActMedidas, {
+  }), modalActMedidas && /*#__PURE__*/createElement(ModalActMedidas, {
     pedido: modalActMedidas.pedido,
     cliente: modalActMedidas.cliente,
     onActualizar: () => {
@@ -1636,10 +1641,10 @@ function App() {
       setModalActMedidas(null);
     },
     onCerrar: () => setModalActMedidas(null)
-  }), confirmar && /*#__PURE__*/React.createElement(ModalConfirmarBorrar, {
+  }), confirmar && /*#__PURE__*/createElement(ModalConfirmarBorrar, {
     onCancelar: () => setConf(null),
     onConfirmar: () => eliminar(confirmar)
-  }), /*#__PURE__*/React.createElement(Toaster, null), /*#__PURE__*/React.createElement(ConfirmDialog, null), /*#__PURE__*/React.createElement(ConexionStatus, null), /*#__PURE__*/React.createElement(InstallPrompt, null));
+  }), /*#__PURE__*/createElement(Toaster, null), /*#__PURE__*/createElement(ConfirmDialog, null), /*#__PURE__*/createElement(ConexionStatus, null), /*#__PURE__*/createElement(InstallPrompt, null));
 }
-ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(ErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
+createRoot(document.getElementById("root")).render( /*#__PURE__*/createElement(ErrorBoundary, null, /*#__PURE__*/createElement(App, null)));
 

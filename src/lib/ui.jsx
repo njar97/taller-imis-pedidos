@@ -7,7 +7,7 @@ import { _subscribeToasts, _getToasts, _subscribeConfirm, _getConfirm, _clearCon
 import { comprimirImagen, imgSrc } from "./imagenes.js";
 import { copiarWA } from "./whatsapp.js";
 
-const { useState, useEffect, useRef } = React;
+import { useState, useEffect, useRef } from "react";
 
 // Estilo de header de sección — duplicado del SEC de main.js para no acoplar.
 const SEC = (c = "#9B59B6") => ({

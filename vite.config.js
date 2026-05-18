@@ -4,11 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Deploy a GitHub Pages bajo el path /taller-imis-pedidos/
 export default defineConfig({
   base: '/taller-imis-pedidos/',
-  // React se carga por CDN como window.React — usar el classic transform sin
-  // import explícito. Permite escribir JSX en .jsx sin tener que importar React.
+  // React viene de npm. Usamos el JSX runtime automático — esbuild auto-importa
+  // jsx-runtime para los archivos .jsx sin necesidad de `import React from 'react'`
+  // en cada archivo. Solo hay que importar lo que usás (`useState`, `Component`, etc.).
   esbuild: {
-    jsxFactory: 'React.createElement',
-    jsxFragment: 'React.Fragment',
+    jsx: 'automatic',
   },
   build: {
     outDir: 'dist',
@@ -60,7 +60,6 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>
-              url.origin === 'https://unpkg.com' ||
               url.origin === 'https://cdn.sheetjs.com' ||
               url.origin === 'https://cdnjs.cloudflare.com',
             handler: 'CacheFirst',
@@ -72,10 +71,6 @@ export default defineConfig({
               },
               cacheableResponse: { statuses: [0, 200] },
             },
-          },
-          {
-            urlPattern: ({ url }) => url.hostname === 'script.google.com',
-            handler: 'NetworkOnly',
           },
           {
             urlPattern: ({ url }) => url.hostname === 'api.anthropic.com',

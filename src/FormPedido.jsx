@@ -19,7 +19,7 @@ import { ListaPrendas } from "./ListaPrendas.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
 
-const { useState, useEffect } = React;
+import { useState, useEffect } from "react";
 
 // Estilos (duplicados de main.js para no acoplar)
 const INP = {

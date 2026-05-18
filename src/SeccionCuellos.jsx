@@ -11,7 +11,7 @@ import { subirArchivoSupabase } from "./supabaseStorage.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 
-const { useState } = React;
+import { useState, useRef } from "react";
 
 const hoyC = () => new Date().toISOString().split("T")[0];
 const diasC = f => (f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null);
@@ -146,7 +146,7 @@ function CuelloModal({ initial, esAdmin, onSave, onCancel, pedidosConf, clientes
   const [sugsC, setSugsC] = useState([]);
   const [showSugsC, setShowSugsC] = useState(false);
   const [subiendoArch, setSubiendoArch] = useState(false);
-  const archRef = React.useRef();
+  const archRef = useRef();
 
   function buscarClientesCuel(q) {
     if (!q || q.length < 2) { setSugsC([]); return; }

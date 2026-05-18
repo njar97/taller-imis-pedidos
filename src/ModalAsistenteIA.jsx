@@ -6,7 +6,7 @@ import { ANTHROPIC_KEY } from "./lib/constants.js";
 import { PEDIDO_BASE } from "./lib/dominio.js";
 import { pushToast } from "./lib/feedback.js";
 
-const { useState, useEffect, useRef } = React;
+import { useState, useEffect, useRef } from "react";
 
 // Helper de estilos (duplicado de main.js para no acoplar)
 const BTN = (bg = "#9B59B6", disabled = false) => ({

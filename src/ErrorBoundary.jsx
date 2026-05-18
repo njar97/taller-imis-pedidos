@@ -3,7 +3,7 @@
 // con el mensaje del error y un botón de recargar. Los datos quedan
 // guardados en Postgres, así que recargar es seguro.
 
-const { Component } = React;
+import { Component } from "react";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {

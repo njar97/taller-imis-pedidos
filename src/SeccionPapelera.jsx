@@ -11,7 +11,7 @@ import {
 } from "./lib/db.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 
-const { useState, useEffect, useCallback } = React;
+import { useState, useEffect, useCallback } from "react";
 
 const TABS = [
   { id: "pedidos",  label: "Confección", icon: "✂️", leer: dbPapelera,         restaurar: dbRestaurar,         purgar: dbPurgar         },

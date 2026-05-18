@@ -5,7 +5,7 @@
 
 import { EC, BORD_EC, CUEL_EC } from "./lib/constants.js";
 
-const { useState } = React;
+import { useState } from "react";
 
 const COLORS = {
   Confección: "#9B59B6",

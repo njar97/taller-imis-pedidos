@@ -2,7 +2,7 @@
 // Antes vivían como SelectorTallas + TallasChips + constante GRUPOS_TALLAS
 // compilados en main.js (~660 líneas).
 
-const { useState } = React;
+import { useState } from "react";
 
 const GRUPOS_TALLAS = {
   adulto:  { label: "Adulto",  tallas: ["XS", "S", "M", "L", "XL", "2XL", "3XL"] },

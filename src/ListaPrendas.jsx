@@ -5,7 +5,7 @@
 
 import { pushConfirm } from "./lib/feedback.js";
 
-const { useState } = React;
+import { useState } from "react";
 
 // Constantes de tallas y medidas (eran top-level en main.js).
 // Las dos listas de tallas eran idénticas, las reusamos.

@@ -9,7 +9,7 @@ import {
   dbClientesBorrar  as gsClientesBorrar,
 } from "./lib/db.js";
 
-const { useState } = React;
+import { useState } from "react";
 
 const INPS = {
   width: "100%",

@@ -6,7 +6,7 @@
 
 import { aplicarUpdate, subscribirseUpdate } from "./lib/sw.js";
 
-const { useEffect, useState } = React;
+import { useEffect, useState } from "react";
 
 function useOnline() {
   const [online, setOnline] = useState(() =>

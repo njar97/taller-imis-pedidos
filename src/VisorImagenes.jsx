@@ -2,7 +2,7 @@
 // Recibe la lista de URLs y el índice actual; el cambio de índice y el cierre
 // se propagan al padre vía callbacks.
 
-const { useRef } = React;
+import { useRef } from "react";
 
 export default function VisorImagenes({ imgs, idx, setIdx, onCerrar }) {
   const touchX = useRef(null);

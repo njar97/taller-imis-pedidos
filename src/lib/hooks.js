@@ -1,7 +1,7 @@
 // Hooks compartidos entre módulos.
 // Antes vivían en main.js.
 
-const { useRef, useCallback } = React;
+import { useRef, useCallback } from "react";
 
 // Devuelve una versión "debounced" de la función — solo se invoca después
 // de `delay` ms sin nuevas llamadas. Útil para búsquedas as-you-type.
