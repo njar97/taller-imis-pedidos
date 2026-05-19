@@ -1,0 +1,22 @@
+name: Backup diario a Gist
+
+on:
+  schedule:
+    # 09:00 UTC = 03:00 hora El Salvador (UTC-6). Diario.
+    - cron: '0 9 * * *'
+  # Permite correrlo manualmente desde la pestaña Actions del repo.
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Correr backup
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+        run: node scripts/backup-to-gist.mjs
