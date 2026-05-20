@@ -18,7 +18,13 @@
 const SUPA_URL = "https://kszdievqesveluzcnzsh.supabase.co";
 const SUPA_ANON = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
 
-const TABLAS = ["pedidos", "bordados", "cuellos", "clientes", "catalogo"];
+const TABLAS = [
+  "taller_pedidos",
+  "taller_bordados",
+  "taller_cuellos",
+  "taller_clientes",
+  "taller_catalogo",
+];
 
 const GITHUB_API = "https://api.github.com";
 
