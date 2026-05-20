@@ -118,7 +118,9 @@ export function mensajeWA(p, esAdmin = false) {
   if (p.descripcion) msg += `\n📝 ${p.descripcion}\n`;
   // "Lleva bordado" sí va al cliente; estatusDiseno (info Wilcom) NO.
   if (p.tieneBordado) msg += `\n🪡 Lleva bordado`;
-  msg += `\n\n📅 *Entrega: ${p.fechaEntrega || "—"}*${diasStr}`;
+  // 📅 muestra "FEB 24" en Android, confunde con la fecha real. Usamos
+  // 📌 (pin) que es neutro y mantiene el énfasis visual.
+  msg += `\n\n📌 *Entrega: ${p.fechaEntrega || "—"}*${diasStr}`;
   if (p.estatus) msg += `\n   Estado: ${p.estatus}`;
   if (esAdmin) {
     const totalPzas = itemsAgr.reduce((s, it) => s + it.qty, 0);

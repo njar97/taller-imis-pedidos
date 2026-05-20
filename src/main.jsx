@@ -391,7 +391,7 @@ function imprimirRecibo(p) {
       ${p.telefono ? `<div style="font-size:12px;color:#555;margin-top:2px;">📱 ${p.telefono}</div>` : ""}
     </div>
     <div style="background:#f0fff4;border-radius:10px;padding:14px;border-left:4px solid #27AE60;">
-      <div style="font-size:10px;font-weight:800;color:#27AE60;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📅 Fechas</div>
+      <div style="font-size:10px;font-weight:800;color:#27AE60;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📌 Fechas</div>
       <div style="font-size:13px;color:#C0392B;font-weight:800;">Entrega: ${p.fechaEntrega || "Por confirmar"}</div>
     </div>
   </div>
@@ -546,7 +546,7 @@ function imprimirProduccion(p) {
       <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Orden</div>
       <div style="font-size:40px;font-weight:900;color:#1A5276;line-height:1;">N°${num}</div>
       <div style="margin-top:6px;font-size:15px;font-weight:800;color:#E67E22;">
-        📅 Entregar: ${p.fechaEntrega || "⚠️ Sin fecha"}
+        📌 Entregar: ${p.fechaEntrega || "⚠️ Sin fecha"}
       </div>
     </div>
   </div>

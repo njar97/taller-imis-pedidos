@@ -12,7 +12,7 @@ export const SECCIONES_FORM = [
   { id: "sec-prenda",    icon: "✂️", label: "Prenda",    color: "#9B59B6" },
   { id: "sec-tallas",    icon: "👕", label: "Tallas",    color: "#E67E22" },
   { id: "sec-tela",      icon: "🧵", label: "Tela",      color: "#1A5276" },
-  { id: "sec-fecha",     icon: "📅", label: "Fecha",     color: "#27AE60" },
+  { id: "sec-fecha",     icon: "📌", label: "Fecha",     color: "#27AE60" },
   { id: "sec-costurera", icon: "✂️", label: "Costurera", color: "#007BFF" },
   { id: "sec-desc",      icon: "📝", label: "Bordado",   color: "#9B59B6", opcional: true },
   { id: "sec-precio",    icon: "💰", label: "Precio",    color: "#27AE60", opcional: true },

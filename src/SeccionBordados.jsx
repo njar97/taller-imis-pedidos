@@ -1217,7 +1217,7 @@ function CardsBordados({ lista, esAdmin, setDetalle, setModal, setConfirm, cambi
             {b.fechaEntrega && (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, color: urg ? "#E63946" : "#555", fontWeight: urg ? 700 : 400 }}>
-                  {urg ? "⚠️ " : "📅 "}{b.fechaEntrega}
+                  {urg ? "⚠️ " : "📌 "}{b.fechaEntrega}
                 </span>
                 {dias !== null && !["Entregado", "Cancelado"].includes(b.estatus) && (
                   <span style={{
