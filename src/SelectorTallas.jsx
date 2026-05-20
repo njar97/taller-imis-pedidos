@@ -26,8 +26,8 @@ function ordenarTallas(items) {
 }
 
 // Vista "resumen del pedido" en chips grandes — decorativa, complementa la
-// tabla interactiva de arriba. Antes vivía inline en SelectorTallas con
-// ~150 líneas de estilos.
+// tabla interactiva de arriba. Si los items tienen `tipo` distinto, los
+// chips muestran el tipo encima de la talla.
 function ResumenTallas({ lista, totalPzas, totalMonto }) {
   return (
     <div
@@ -103,6 +103,26 @@ function ResumenTallas({ lista, totalPzas, totalMonto }) {
                 gap: 3,
               }}
             >
+              {it.tipo && (
+                <div
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: "#9B59B6",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.3,
+                    lineHeight: 1,
+                    marginBottom: 1,
+                    maxWidth: 80,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={it.tipo}
+                >
+                  {it.tipo}
+                </div>
+              )}
               <div
                 style={{
                   background: "#E67E22",
@@ -163,7 +183,7 @@ function ResumenTallas({ lista, totalPzas, totalMonto }) {
 
 // ── SelectorTallas ───────────────────────────────────────
 
-export function SelectorTallas({ items, onChange, esAdmin }) {
+export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "" }) {
   const [grupo, setGrupo] = useState("adulto");
   const [talla, setTalla] = useState("");
   const [qty, setQty] = useState("");
@@ -181,6 +201,11 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
       {
         id: Date.now(),
         grupo,
+        // Cada talla guarda el tipo de prenda actual del form. Si el user
+        // cambia el tipo de prenda y agrega otra talla, la nueva queda con
+        // el tipo nuevo y la anterior conserva el suyo. Así un pedido
+        // puede mezclar tipos (3 Camisas M + 2 Pantalones 32 + 1 Cortina).
+        tipo: tipoPrendaDefault,
         talla,
         qty: parseInt(qty) || 1,
         spec: spec.trim(),
@@ -490,18 +515,39 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
                       padding: "6px 10px",
                     }}
                   >
-                    <div
-                      style={{
-                        background: "#E67E22",
-                        color: "#fff",
-                        borderRadius: 6,
-                        padding: "3px 0",
-                        fontSize: 13,
-                        fontWeight: 800,
-                        textAlign: "center",
-                      }}
-                    >
-                      {it.talla}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {it.tipo && (
+                        <div
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 700,
+                            color: "#9B59B6",
+                            textAlign: "center",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.3,
+                            lineHeight: 1,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={it.tipo}
+                        >
+                          {it.tipo}
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          background: "#E67E22",
+                          color: "#fff",
+                          borderRadius: 6,
+                          padding: "3px 0",
+                          fontSize: 13,
+                          fontWeight: 800,
+                          textAlign: "center",
+                        }}
+                      >
+                        {it.talla}
+                      </div>
                     </div>
                     <input
                       type="number"

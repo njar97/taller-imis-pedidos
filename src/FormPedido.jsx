@@ -263,8 +263,8 @@ export default function FormPedido({
   const erroresIds = intentoGuardar
     ? [
         !validez.cliente      && "sec-cliente",
-        !validez.tipoPrenda   && "sec-prenda",
-        !validez.cantidad     && "sec-tallas",
+        !validez.tipoPrenda   && "sec-producto",
+        !validez.cantidad     && "sec-producto",
         !validez.fechaEntrega && "sec-fecha",
       ].filter(Boolean)
     : [];
@@ -497,8 +497,26 @@ export default function FormPedido({
 
       </SeccionOpcional>
 
-      {/* ── Prenda ──────────────────────────────────── */}
-      <SeccionOpcional id="sec-prenda" titulo="Prenda" icon="✂️" color="#9B59B6" defaultOpen={llenoPrenda} textoCerrado={validez.tipoPrenda ? "▼" : "▼ Llenar"}>
+      {/* ── Producto y cantidades (fusión Prenda + Tallas/Lista) ─── */}
+      <SeccionOpcional
+        id="sec-producto"
+        titulo={
+          f.tipoPrenda
+            ? `Producto: ${f.tipoPrenda}`
+            : "Producto y cantidades"
+        }
+        icon="📦"
+        color="#9B59B6"
+        defaultOpen={llenoPrenda || llenoTallas}
+        textoCerrado={validez.tipoPrenda && validez.cantidad ? "▼" : "▼ Llenar"}
+      >
+      {/* Chips de tipo de prenda — el tipo seleccionado se aplica a las
+          nuevas tallas/personas que se agreguen abajo. Si querés mezclar
+          tipos en un mismo pedido, cambiá el chip y agregá otra talla:
+          la anterior conserva su tipo, la nueva queda con el nuevo. */}
+      <div style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>
+        Tipo de prenda
+      </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
         {catlist
           .filter(p => p.nombre !== "Bordado independiente")
@@ -546,14 +564,12 @@ export default function FormPedido({
             );
           })}
       </div>
-      {!catlist.some(p => p.nombre === f.tipoPrenda) && (
-        <input
-          style={{ ...INP, marginBottom: 6 }}
-          value={f.tipoPrenda}
-          placeholder="O escribe el tipo de prenda..."
-          onChange={e => s("tipoPrenda", e.target.value)}
-        />
-      )}
+      <input
+        style={{ ...INP, marginBottom: 6 }}
+        value={catlist.some(p => p.nombre === f.tipoPrenda) ? "" : f.tipoPrenda}
+        placeholder="O escribe un tipo libre (cortina, bandera, etc.)..."
+        onChange={e => s("tipoPrenda", e.target.value)}
+      />
       {prodSel && prodSel.requiereCuello && (
         <div
           style={{
@@ -571,10 +587,11 @@ export default function FormPedido({
         </div>
       )}
 
-      </SeccionOpcional>
-
-      {/* ── Tallas / Lista ──────────────────────────── */}
-      <SeccionOpcional id="sec-tallas" titulo="Tallas y cantidades" icon="👕" color="#E67E22" defaultOpen={llenoTallas} textoCerrado={validez.cantidad ? "▼" : "▼ Llenar"}>
+      {/* Selector de tallas/lista. La talla agregada hereda el tipo de
+          prenda actual y se preserva si después cambiás el chip. */}
+      <div style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4, marginTop: 8 }}>
+        Cantidades
+      </div>
       <div
         style={{
           display: "flex",
@@ -615,7 +632,11 @@ export default function FormPedido({
         })}
       </div>
       {(!f.modoRegistro || f.modoRegistro === "tallas") && (
-        <SelectorTallas items={f.tallasItems} onChange={v => s("tallasItems", v)} />
+        <SelectorTallas
+          items={f.tallasItems}
+          onChange={v => s("tallasItems", v)}
+          tipoPrendaDefault={f.tipoPrenda || ""}
+        />
       )}
       {f.modoRegistro === "lista" && (
         <ListaPrendas
