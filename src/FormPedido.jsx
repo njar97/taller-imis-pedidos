@@ -72,9 +72,117 @@ const TIPOS_CLIENTE = [
 // y cantidades". (No borrar: en el commit 7a9a856 lo eliminé por error
 // porque mi grep de uso me dio solo el archivo, no las líneas.)
 const MODOS_REGISTRO = [
-  ["tallas", "📦 Por tallas", "S, M, L... con cantidades"],
-  ["lista", "📋 Lista de prendas", "Por nombre con medidas opcionales"],
+  ["tallas", "📦 Por tallas",       "S, M, L... con cantidades"],
+  ["lista",  "📋 Lista de prendas", "Por nombre con medidas opcionales"],
+  ["item",   "✏️ Item personalizado","Sin tallas — cortina, mantel, banda…"],
 ];
+
+// Mini-selector para el modo "Item personalizado" — pedidos no-prenda
+// (cortina, mantel, bandera, etc.). Guarda en tallasItems[] como una única
+// entrada con talla="Único" para que el resto del sistema (validación
+// `tieneCantidad`, totales, PDF, WhatsApp) lo trate igual que el resto.
+function ItemUnico({ tallasItems, onChange, tipoPrendaDefault }) {
+  const item = (tallasItems || [])[0] || {};
+  const setCampo = (k, v) => {
+    const base = item.id
+      ? item
+      : { id: Date.now(), talla: "Único", qty: 1, spec: "", precio: null, grupo: "adulto" };
+    onChange([{ ...base, [k]: v }]);
+  };
+  const qty = item.qty || 1;
+  const precio = item.precio != null ? item.precio : "";
+  const subtotal = precio !== "" && Number.isFinite(parseFloat(precio))
+    ? parseFloat(precio) * qty
+    : null;
+  return (
+    <div
+      style={{
+        border: "1.5px solid #fde0b8",
+        borderRadius: 10,
+        padding: "12px 14px",
+        background: "#FFFBF6",
+      }}
+    >
+      <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
+        Pedido no-prenda — sin tallas. Para detalles, usá la sección
+        "Descripción y bordado".
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", display: "block", marginBottom: 3 }}>
+            Cantidad
+          </label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="1"
+            value={qty}
+            onChange={e => setCampo("qty", Math.max(1, parseInt(e.target.value) || 1))}
+            style={{
+              width: "100%",
+              padding: "8px 10px",
+              borderRadius: 7,
+              border: "1.5px solid #E67E22",
+              fontSize: 15,
+              fontWeight: 800,
+              textAlign: "center",
+              color: "#2C1654",
+              outline: "none",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", display: "block", marginBottom: 3 }}>
+            Precio c/u ($)
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={precio}
+            onChange={e => {
+              const v = e.target.value.trim();
+              if (v === "") { setCampo("precio", null); return; }
+              const n = parseFloat(v);
+              setCampo("precio", Number.isFinite(n) ? n : null);
+            }}
+            placeholder="0.00"
+            style={{
+              width: "100%",
+              padding: "8px 10px",
+              borderRadius: 7,
+              border: "1.5px solid #a8d8a8",
+              fontSize: 15,
+              fontWeight: 700,
+              textAlign: "center",
+              color: "#27AE60",
+              outline: "none",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+      </div>
+      {subtotal != null && (
+        <div
+          style={{
+            background: "#f0fff4",
+            border: "1px solid #a8d8a8",
+            borderRadius: 8,
+            padding: "8px 12px",
+            textAlign: "center",
+            color: "#155724",
+            fontWeight: 800,
+            fontSize: 15,
+          }}
+        >
+          Total: ${subtotal.toFixed(2)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FormPedido({
   initial,
@@ -621,6 +729,13 @@ export default function FormPedido({
         <ListaPrendas
           items={f.personas || []}
           onChange={handlePersonas}
+          tipoPrendaDefault={f.tipoPrenda || ""}
+        />
+      )}
+      {f.modoRegistro === "item" && (
+        <ItemUnico
+          tallasItems={f.tallasItems}
+          onChange={v => s("tallasItems", v)}
           tipoPrendaDefault={f.tipoPrenda || ""}
         />
       )}
