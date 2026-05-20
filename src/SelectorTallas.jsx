@@ -4,10 +4,14 @@
 
 import { useState } from "react";
 
+// Grupos de tallas. "sintalla" es para productos que no aplican (cortina,
+// mantel, banner bordado, etc.) — oculta los chips de tallas y deja solo
+// cantidad + precio + especificación.
 const GRUPOS_TALLAS = {
-  adulto:  { label: "Adulto",  tallas: ["XS", "S", "M", "L", "XL", "2XL", "3XL"] },
-  nino:    { label: "Niño",    tallas: ["2", "4", "6", "8", "10", "12", "14", "16"] },
-  numeros: { label: "Núm.",    tallas: ["34", "36", "38", "40", "42", "44", "46", "48"] },
+  adulto:   { label: "Adulto",     tallas: ["XS", "S", "M", "L", "XL", "2XL", "3XL"] },
+  nino:     { label: "Niño",       tallas: ["2", "4", "6", "8", "10", "12", "14", "16"] },
+  numeros:  { label: "Núm.",       tallas: ["34", "36", "38", "40", "42", "44", "46", "48"] },
+  sintalla: { label: "Sin talla",  tallas: [] },
 };
 
 // Orden lógico para mostrar tallas en pedidos (sin mutar el orden en que
@@ -255,7 +259,7 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
               fontWeight: 700,
               background: grupo === g ? "#FFF3E0" : "transparent",
               color: grupo === g ? "#E67E22" : "#bbb",
-              borderRight: g !== "numeros" ? "1px solid #fde0b8" : "none",
+              borderRight: g !== "sintalla" ? "1px solid #fde0b8" : "none",
               transition: "all .15s",
             }}
           >
@@ -265,7 +269,32 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
       </div>
 
       <div style={{ padding: "12px 14px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+        {grupo === "sintalla" && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "#888",
+              background: "#FFFBF6",
+              border: "1px dashed #fde0b8",
+              borderRadius: 8,
+              padding: "8px 12px",
+              marginBottom: 12,
+              textAlign: "center",
+              lineHeight: 1.4,
+            }}
+          >
+            <strong style={{ color: "#E67E22" }}>Producto sin talla</strong> — ideal para cortinas,
+            manteles, banners bordados, etc. Solo necesita cantidad y precio.
+          </div>
+        )}
+        <div
+          style={{
+            display: grupo === "sintalla" ? "none" : "flex",
+            flexWrap: "wrap",
+            gap: 6,
+            marginBottom: 12,
+          }}
+        >
           {tGrupo.map(t => {
             const usada = lista.filter(it => it.talla === t).length;
             const sel = talla === t;
@@ -460,7 +489,7 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
                 whiteSpace: "nowrap",
               }}
             >
-              + Agregar{talla ? ` ${talla}` : " (sin talla)"}
+              + Agregar{talla ? ` ${talla}` : grupo === "sintalla" ? "" : " (sin talla)"}
             </button>
           </div>
         </div>
