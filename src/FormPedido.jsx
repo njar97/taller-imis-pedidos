@@ -72,8 +72,8 @@ const TIPOS_CLIENTE = [
 // y cantidades". (No borrar: en el commit 7a9a856 lo eliminé por error
 // porque mi grep de uso me dio solo el archivo, no las líneas.)
 const MODOS_REGISTRO = [
-  ["tallas", "📦 Por tallas",   "S, M, L... con cantidades"],
-  ["lista",  "📋 Lista detallada", "Por persona o item — con o sin talla"],
+  ["tallas", "📦 Pedido masivo",    "Para uniformes / lotes — solo importan tallas y cantidad"],
+  ["lista",  "📋 Pedido individual", "Cada persona con su nombre, prendas y medidas"],
 ];
 
 export default function FormPedido({
