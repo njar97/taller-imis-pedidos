@@ -2,8 +2,25 @@
 // Antes vivía como mensajeWA + copiarWA en main.js.
 // Usado por WABtn (lib/ui.jsx), CardPedido y App.
 
-import { resumenTallas } from "./dominio.js";
+import { resumenTallas, resumenAgregadoPorTipo } from "./dominio.js";
 import { agruparPrendas } from "../ListaPrendas.jsx";
+
+// Formato de cada línea del resumen agregado (cuando es por persona o por
+// tallas planas). Muestra tipo (si lo hay), cantidad, talla, y subtotal si
+// hay precios y el usuario es admin.
+function lineaResumen(it, esAdmin) {
+  const tipo = it.tipo ? `${it.tipo} ` : "";
+  const tieneP =
+    esAdmin && it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0;
+  const precioUnit = tieneP
+    ? ` · $${parseFloat(it.precio).toFixed(2)} c/u`
+    : "";
+  const sub = tieneP
+    ? ` = *$${(parseFloat(it.precio) * it.qty).toFixed(2)}*`
+    : "";
+  const spec = it.spec ? ` (${it.spec})` : "";
+  return `  • ${it.qty}× ${tipo}${it.talla}${spec}${precioUnit}${sub}`;
+}
 
 // Agrupa las prendas de una persona y devuelve un bloque de texto multi-línea.
 // `mostrarPrecios` oculta subtotales para vistas no-admin (operarios).
@@ -52,16 +69,11 @@ export function mensajeWA(p, esAdmin = false) {
     : ` (${dias} días)`;
 
   const tallas = resumenTallas(p);
-  const tallasDetalle = p.tallasItems && p.tallasItems.length
-    ? p.tallasItems
-        .map(it => {
-          const pr =
-            it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0
-              ? ` · $${parseFloat(it.precio).toFixed(2)} c/u`
-              : "";
-          return `  • ${it.talla}: ${it.qty} ${it.qty === 1 ? "prenda" : "prendas"}${pr}${it.spec ? " (" + it.spec + ")" : ""}`;
-        })
-        .join("\n")
+  // Resumen agregado: cuando hay personas con prendas, agrupa por tipo+talla
+  // (Pantalón 32, Camisa M, etc.). Cuando no, cae a tallasItems planos.
+  const itemsAgr = resumenAgregadoPorTipo(p);
+  const tallasDetalle = itemsAgr.length
+    ? itemsAgr.map(it => lineaResumen(it, esAdmin)).join("\n")
     : tallas
     ? `  • ${tallas}`
     : "";
@@ -105,7 +117,7 @@ export function mensajeWA(p, esAdmin = false) {
   msg += `\n\n📅 *Entrega: ${p.fechaEntrega || "—"}*${diasStr}`;
   if (p.estatus) msg += `\n   Estado: ${p.estatus}`;
   if (esAdmin) {
-    const totalPzas = (p.tallasItems || []).reduce((s, it) => s + it.qty, 0);
+    const totalPzas = itemsAgr.reduce((s, it) => s + it.qty, 0);
     if (totalPzas > 0) msg += `\n\n📦 *Total piezas: ${totalPzas}*`;
     if (p.precio) {
       msg += `\n💰 *Total: $${parseFloat(p.precio).toFixed(2)}*`;

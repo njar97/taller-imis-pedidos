@@ -13,6 +13,52 @@ export const sumarAbonos = p =>
     ? p.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0)
     : parseFloat(p.anticipo || 0);
 
+// Resumen agregado de TODAS las prendas del pedido, conservando el tipo
+// (Pantalón, Camisa, etc.) cuando viene en personas[].prendas[]. Cada item
+// resultante: { tipo, talla, precio, qty, spec }.
+//
+// - Si hay personas con prendas, agrupa por tipo+talla+precio+spec global
+//   (sumando entre personas).
+// - Si no, devuelve tallasItems (modo "Por tallas") en el mismo shape pero
+//   con tipo vacío (cae al tipo del pedido principal en el render).
+export function resumenAgregadoPorTipo(p) {
+  const personasConPrendas = (p.personas || []).filter(per =>
+    Array.isArray(per.prendas) && per.prendas.some(pr => pr.tipo || pr.talla)
+  );
+  if (personasConPrendas.length > 0) {
+    const mapa = new Map();
+    for (const per of personasConPrendas) {
+      for (const pr of per.prendas) {
+        if (!pr.tipo && !pr.talla) continue;
+        const key = JSON.stringify([
+          pr.tipo || "",
+          pr.talla || "",
+          pr.precio,
+          pr.spec || "",
+        ]);
+        if (!mapa.has(key)) {
+          mapa.set(key, {
+            tipo: pr.tipo || "",
+            talla: pr.talla || "",
+            precio: pr.precio,
+            spec: pr.spec || "",
+            qty: 0,
+          });
+        }
+        mapa.get(key).qty++;
+      }
+    }
+    return [...mapa.values()];
+  }
+  return (p.tallasItems || []).map(it => ({
+    tipo: "",
+    talla: it.talla,
+    precio: it.precio,
+    spec: it.spec || "",
+    qty: it.qty,
+  }));
+}
+
 export const tallasTexto = (qty = {}) =>
   Object.entries(qty).filter(([, c]) => parseInt(c) > 0).map(([t, c]) => c + "×" + t).join(" · ");
 
