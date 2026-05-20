@@ -556,14 +556,23 @@ function TablaYCards({
             onCambiarEstatus={cambiarEstatus}
             onEliminar={setConf}
             onDuplicar={p => {
-              const copia = Object.assign({}, p, {
+              // El pedido nuevo arranca limpio en todo lo que no aplica:
+              // sin fotos del original (apuntaban a Drive del viejo), sin
+              // costurera heredada, sin días calculados que correspondan
+              // a las fechas antiguas.
+              const copia = {
+                ...p,
                 id: nextId,
                 fecha: new Date().toISOString().split("T")[0],
+                fechaInicio: "",
+                fechaEntrega: "",
                 estatus: "Tomado",
                 anticipo: "",
                 abonos: [],
-                fechaEntrega: "",
-              });
+                imagenes: [],
+                costurera: "(Sin asignar)",
+              };
+              delete copia.dias;
               setModal(copia);
             }}
             onImprimir={p => onImprimir(p)}
