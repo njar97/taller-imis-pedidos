@@ -603,11 +603,11 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
                         />
                       </div>
                       <div>
-                        <label style={MLAB}>Gafete / ID (opcional)</label>
+                        <label style={MLAB}>Talla taller (opcional)</label>
                         <input
                           value={p.gafete || ""}
                           onChange={e => editar(p.id, "gafete", e.target.value)}
-                          placeholder="N° o código"
+                          placeholder="Ej: 20, 24..."
                           style={{ ...INP_LP, textAlign: "center" }}
                         />
                       </div>

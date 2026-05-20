@@ -278,7 +278,7 @@ function Personas({ personas }) {
         >
           <thead>
             <tr style={{ background: "#EBF5FB" }}>
-              {["#", "Nombre", "Cargo", "Gafete", "Prendas"].map(h => (
+              {["#", "Nombre", "Cargo", "Talla taller", "Prendas"].map(h => (
                 <th
                   key={h}
                   style={{
