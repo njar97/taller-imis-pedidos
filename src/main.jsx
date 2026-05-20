@@ -1104,7 +1104,7 @@ function App() {
     if (!rolBase) return;
     const refetchTabla = async (tabla) => {
       try {
-        if (tabla === "pedidos" || tabla === "*") {
+        if (tabla === "taller_pedidos" || tabla === "*") {
           const data = await gsLeer();
           if (data) setPedidos(prev => data.length > 0 ? data.map(p => ({
             ...p,
@@ -1117,19 +1117,19 @@ function App() {
             modoRegistro: p.modoRegistro || "tallas"
           })) : prev);
         }
-        if (tabla === "bordados" || tabla === "*") {
+        if (tabla === "taller_bordados" || tabla === "*") {
           const data = await gsBordLeer();
           if (data) setBordados(data);
         }
-        if (tabla === "cuellos" || tabla === "*") {
+        if (tabla === "taller_cuellos" || tabla === "*") {
           const data = await gsCuelLeer();
           if (data) setCuellos(data);
         }
-        if (tabla === "clientes" || tabla === "*") {
+        if (tabla === "taller_clientes" || tabla === "*") {
           const data = await gsClientesLeer();
           if (data) setClientes(data);
         }
-        if (tabla === "catalogo" || tabla === "*") {
+        if (tabla === "taller_catalogo" || tabla === "*") {
           const data = await gsCatalogoLeer();
           if (data && data.length > 0) setCatalogo(data);
         }
@@ -1138,7 +1138,7 @@ function App() {
       }
     };
     const sub = suscribirCambios(
-      ["pedidos","bordados","cuellos","clientes","catalogo"],
+      ["taller_pedidos","taller_bordados","taller_cuellos","taller_clientes","taller_catalogo"],
       refetchTabla
     );
     return () => sub.cerrar();

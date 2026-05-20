@@ -106,7 +106,7 @@ describe("dbGuardar", () => {
     fetch.mockResolvedValue(emptyResponse(204));
     await dbGuardar({ id: 1, cliente: "x" });
     const [url, opts] = fetch.mock.calls[0];
-    expect(url).toContain("/pedidos?on_conflict=id");
+    expect(url).toContain("/taller_pedidos?on_conflict=id");
     expect(opts.method).toBe("POST");
     expect(opts.headers.Prefer).toContain("resolution=merge-duplicates");
   });
@@ -145,7 +145,7 @@ describe("dbBorrar (soft-delete)", () => {
     await dbBorrar(42);
 
     const [url, opts] = fetch.mock.calls[0];
-    expect(url).toContain("/pedidos?id=eq.42");
+    expect(url).toContain("/taller_pedidos?id=eq.42");
     expect(opts.method).toBe("PATCH");
     const body = JSON.parse(opts.body);
     expect(body.deleted_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -159,7 +159,7 @@ describe("dbRestaurar", () => {
     await dbRestaurar(42);
 
     const [url, opts] = fetch.mock.calls[0];
-    expect(url).toContain("/pedidos?id=eq.42");
+    expect(url).toContain("/taller_pedidos?id=eq.42");
     expect(opts.method).toBe("PATCH");
     const body = JSON.parse(opts.body);
     expect(body.deleted_at).toBeNull();

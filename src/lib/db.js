@@ -155,12 +155,12 @@ async function purgarPorId(tabla, id) {
 
 // ── Pedidos ──────────────────────────────────────────────────
 
-export const dbLeer        = () => leerTabla("pedidos");
-export const dbGuardar     = p => upsertTabla("pedidos", limpiarPedido(p));
-export const dbBorrar      = id => borrarPorId("pedidos", id);
-export const dbPapelera    = () => leerPapelera("pedidos");
-export const dbRestaurar   = id => restaurarPorId("pedidos", id);
-export const dbPurgar      = id => purgarPorId("pedidos", id);
+export const dbLeer        = () => leerTabla("taller_pedidos");
+export const dbGuardar     = p => upsertTabla("taller_pedidos", limpiarPedido(p));
+export const dbBorrar      = id => borrarPorId("taller_pedidos", id);
+export const dbPapelera    = () => leerPapelera("taller_pedidos");
+export const dbRestaurar   = id => restaurarPorId("taller_pedidos", id);
+export const dbPurgar      = id => purgarPorId("taller_pedidos", id);
 
 function limpiarPedido(p) {
   return {
@@ -178,52 +178,52 @@ function limpiarPedido(p) {
 
 // ── Bordados ─────────────────────────────────────────────────
 
-export const dbBordLeer      = () => leerTabla("bordados");
-export const dbBordGuardar   = b  => upsertTabla("bordados", b);
-export const dbBordBorrar    = id => borrarPorId("bordados", id);
-export const dbBordPapelera  = () => leerPapelera("bordados");
-export const dbBordRestaurar = id => restaurarPorId("bordados", id);
-export const dbBordPurgar    = id => purgarPorId("bordados", id);
+export const dbBordLeer      = () => leerTabla("taller_bordados");
+export const dbBordGuardar   = b  => upsertTabla("taller_bordados", b);
+export const dbBordBorrar    = id => borrarPorId("taller_bordados", id);
+export const dbBordPapelera  = () => leerPapelera("taller_bordados");
+export const dbBordRestaurar = id => restaurarPorId("taller_bordados", id);
+export const dbBordPurgar    = id => purgarPorId("taller_bordados", id);
 
 // ── Cuellos ──────────────────────────────────────────────────
 
-export const dbCuelLeer      = () => leerTabla("cuellos");
-export const dbCuelGuardar   = c  => upsertTabla("cuellos", c);
-export const dbCuelBorrar    = id => borrarPorId("cuellos", id);
-export const dbCuelPapelera  = () => leerPapelera("cuellos");
-export const dbCuelRestaurar = id => restaurarPorId("cuellos", id);
-export const dbCuelPurgar    = id => purgarPorId("cuellos", id);
+export const dbCuelLeer      = () => leerTabla("taller_cuellos");
+export const dbCuelGuardar   = c  => upsertTabla("taller_cuellos", c);
+export const dbCuelBorrar    = id => borrarPorId("taller_cuellos", id);
+export const dbCuelPapelera  = () => leerPapelera("taller_cuellos");
+export const dbCuelRestaurar = id => restaurarPorId("taller_cuellos", id);
+export const dbCuelPurgar    = id => purgarPorId("taller_cuellos", id);
 
 // ── Clientes ─────────────────────────────────────────────────
 
-export const dbClientesLeer      = () => leerTabla("clientes");
-export const dbClientesGuardar   = cli => upsertTabla("clientes", cli);
-export const dbClientesBorrar    = id  => borrarPorId("clientes", id);
-export const dbClientesPapelera  = () => leerPapelera("clientes");
-export const dbClientesRestaurar = id  => restaurarPorId("clientes", id);
-export const dbClientesPurgar    = id  => purgarPorId("clientes", id);
+export const dbClientesLeer      = () => leerTabla("taller_clientes");
+export const dbClientesGuardar   = cli => upsertTabla("taller_clientes", cli);
+export const dbClientesBorrar    = id  => borrarPorId("taller_clientes", id);
+export const dbClientesPapelera  = () => leerPapelera("taller_clientes");
+export const dbClientesRestaurar = id  => restaurarPorId("taller_clientes", id);
+export const dbClientesPurgar    = id  => purgarPorId("taller_clientes", id);
 
 // ── Catálogo ─────────────────────────────────────────────────
 
-export const dbCatalogoLeer    = () => leerTabla("catalogo");
+export const dbCatalogoLeer    = () => leerTabla("taller_catalogo");
 export const dbCatalogoGuardar = async lista => {
   // El catálogo se guarda como lista completa (reemplaza todo).
   // Estrategia: borrar todo lo no incluido y upsert del resto.
   try {
     const ids = lista.map(i => i.id).filter(Boolean);
     if (ids.length) {
-      await rest(`/catalogo?id=not.in.(${ids.join(",")})`, {
+      await rest(`/taller_catalogo?id=not.in.(${ids.join(",")})`, {
         method: "DELETE",
         headers: { Prefer: "return=minimal" },
       });
     } else {
-      await rest("/catalogo?id=gte.0", {
+      await rest("/taller_catalogo?id=gte.0", {
         method: "DELETE",
         headers: { Prefer: "return=minimal" },
       });
     }
     if (lista.length) {
-      await rest("/catalogo?on_conflict=id", {
+      await rest("/taller_catalogo?on_conflict=id", {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify(lista.map(keysToSnake)),
