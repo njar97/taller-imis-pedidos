@@ -342,20 +342,31 @@ export default function FormPedido({
 
   const handlePersonas = v => {
     s("personas", v);
+    // Cada persona puede tener N prendas, cada una con su talla. Sumamos
+    // todas para alimentar tallasItems (resumen agregado del pedido).
+    // Compat: si la persona viene con shape viejo {talla} sin prendas[],
+    // contamos esa talla también.
     const tallaMap = {};
-    v.forEach(p => {
-      if (!p.talla) return;
-      if (!tallaMap[p.talla]) {
-        tallaMap[p.talla] = {
+    const bump = talla => {
+      if (!talla) return;
+      if (!tallaMap[talla]) {
+        tallaMap[talla] = {
           id: Date.now() + Math.random(),
-          talla: p.talla,
+          talla,
           qty: 0,
           spec: "",
           precio: null,
           grupo: "adulto",
         };
       }
-      tallaMap[p.talla].qty++;
+      tallaMap[talla].qty++;
+    };
+    v.forEach(p => {
+      if (Array.isArray(p.prendas) && p.prendas.length > 0) {
+        p.prendas.forEach(pr => bump(pr.talla));
+      } else if (p.talla) {
+        bump(p.talla);
+      }
     });
     s("tallasItems", Object.values(tallaMap));
   };
