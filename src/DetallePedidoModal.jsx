@@ -485,7 +485,6 @@ export default function DetallePedidoModal({
   onImprimir,
   onExportarPDF,
   onAbrirEdicion,
-  onCrearSimilar,
 }) {
   const bVinc = bordados.find(b => String(b.confRef) === String(pedido.id));
   const cVinc = cuellos.find(cu => String(cu.confRef) === String(pedido.id));
@@ -573,23 +572,6 @@ export default function DetallePedidoModal({
         >
           🖨️ Imprimir
         </button>
-        {onCrearSimilar && (
-          <button
-            onClick={onCrearSimilar}
-            style={{
-              padding: "9px 12px",
-              borderRadius: 8,
-              border: "1.5px solid #9B59B6",
-              background: "#fff",
-              color: "#9B59B6",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: 12,
-            }}
-          >
-            📋 Crear similar
-          </button>
-        )}
         <button
           onClick={onAbrirEdicion}
           style={{
