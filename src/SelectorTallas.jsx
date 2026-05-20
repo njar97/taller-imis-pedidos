@@ -184,7 +184,11 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
         talla,
         qty: parseInt(qty) || 1,
         spec: spec.trim(),
-        precio: precio !== "" ? parseFloat(precio) : null,
+        precio: (() => {
+          if (precio === "") return null;
+          const n = parseFloat(precio);
+          return Number.isFinite(n) ? n : null;
+        })(),
       },
     ]);
     setSpec("");
@@ -541,13 +545,15 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
                         min="0"
                         step="0.01"
                         value={it.precio != null ? it.precio : ""}
-                        onChange={e =>
-                          editField(
-                            it.id,
-                            "precio",
-                            e.target.value !== "" ? parseFloat(e.target.value) : null
-                          )
-                        }
+                        onChange={e => {
+                          const v = e.target.value.trim();
+                          if (v === "") {
+                            editField(it.id, "precio", null);
+                            return;
+                          }
+                          const n = parseFloat(v);
+                          editField(it.id, "precio", Number.isFinite(n) ? n : null);
+                        }}
                         placeholder="—"
                         style={{
                           width: "100%",

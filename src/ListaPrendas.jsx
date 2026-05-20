@@ -556,14 +556,18 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
                                 min="0"
                                 step="0.01"
                                 value={g.precio != null ? g.precio : ""}
-                                onChange={e =>
-                                  editarGrupo(
-                                    p.id,
-                                    g.ids,
-                                    "precio",
-                                    e.target.value !== "" ? parseFloat(e.target.value) : null
-                                  )
-                                }
+                                onChange={e => {
+                                  // Sanitizar: si parseFloat da NaN (input
+                                  // raro), guardar null. Evita "$NaN" en los
+                                  // totales del PDF/WhatsApp.
+                                  const v = e.target.value.trim();
+                                  if (v === "") {
+                                    editarGrupo(p.id, g.ids, "precio", null);
+                                    return;
+                                  }
+                                  const n = parseFloat(v);
+                                  editarGrupo(p.id, g.ids, "precio", Number.isFinite(n) ? n : null);
+                                }}
                                 placeholder="—"
                                 style={{
                                   ...INP_LP,
