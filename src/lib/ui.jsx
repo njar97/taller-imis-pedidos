@@ -582,7 +582,7 @@ export function SeccionOpcional({ titulo, icon, color = "#888", children, id }) 
 
 // ── BannerMedidas ─────────────────────────────────────────
 
-export function BannerMedidas({ meds, onCargar }) {
+export function BannerMedidas({ meds, onCargar, origen }) {
   const resumen = Object.entries(meds)
     .filter(([, v]) => v)
     .slice(0, 4)
@@ -603,7 +603,9 @@ export function BannerMedidas({ meds, onCargar }) {
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "#1A5276" }}>
-          📐 Este cliente tiene medidas guardadas
+          {origen
+            ? `📐 Medidas disponibles ${origen}`
+            : "📐 Este cliente tiene medidas guardadas"}
         </div>
         <div
           style={{

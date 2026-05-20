@@ -20,7 +20,7 @@ import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
 import FormNav from "./FormNav.jsx";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 // Estilos (duplicados de main.js para no acoplar)
 const INP = {
@@ -222,6 +222,28 @@ export default function FormPedido({
   );
   const tieneMedsCliente =
     clienteMatch && clienteMatch.medidas && Object.values(clienteMatch.medidas).some(Boolean);
+
+  // Fallback: si el cliente no tiene medidas en su registro (la tabla
+  // clientes hoy no las guarda), buscar el último pedido suyo con medidas
+  // no vacías y ofrecerlas como sugerencia. Excluye el pedido que se está
+  // editando.
+  const medidasPedidoPrevio = useMemo(() => {
+    if (tieneMedsCliente) return null;
+    const nombre = (f.cliente || "").trim().toLowerCase();
+    if (!nombre) return null;
+    const ultimo = (pedidosExistentes || [])
+      .filter(p =>
+        p.cliente &&
+        p.cliente.trim().toLowerCase() === nombre &&
+        (!initial || p.id !== initial.id) &&
+        p.medidas &&
+        Object.values(p.medidas).some(Boolean)
+      )
+      .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")))[0];
+    return ultimo
+      ? { meds: ultimo.medidas, pedidoId: ultimo.id, fecha: ultimo.fecha }
+      : null;
+  }, [f.cliente, pedidosExistentes, tieneMedsCliente, initial]);
 
   const [intentoGuardar, setIntentoGuardar] = useState(false);
   // Mapeo validez → ids de FormNav. Solo se muestran como error tras el
@@ -610,9 +632,22 @@ export default function FormPedido({
       </div>
 
       {/* ── Banner medidas guardadas ────────────────── */}
-      {tieneMedsCliente && !f._medCliente && (
+      {!f._medCliente && tieneMedsCliente && (
         <BannerMedidas
           meds={clienteMatch.medidas}
+          onCargar={meds =>
+            setF(p => ({
+              ...p,
+              medidas: { ...p.medidas, ...meds },
+              _medCliente: meds,
+            }))
+          }
+        />
+      )}
+      {!f._medCliente && !tieneMedsCliente && medidasPedidoPrevio && (
+        <BannerMedidas
+          meds={medidasPedidoPrevio.meds}
+          origen={`del pedido N°${String(medidasPedidoPrevio.pedidoId).padStart(4, "0")}`}
           onCargar={meds =>
             setF(p => ({
               ...p,
