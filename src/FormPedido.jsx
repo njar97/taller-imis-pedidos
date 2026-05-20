@@ -68,6 +68,14 @@ const TIPOS_CLIENTE = [
   ["escuela", "🏫 Escuela/Inst."],
 ];
 
+// Modos de registro de tallas — se usa en el selector dentro de "Tallas
+// y cantidades". (No borrar: en el commit 7a9a856 lo eliminé por error
+// porque mi grep de uso me dio solo el archivo, no las líneas.)
+const MODOS_REGISTRO = [
+  ["tallas", "📦 Por tallas", "S, M, L... con cantidades"],
+  ["lista", "📋 Lista de prendas", "Por nombre con medidas opcionales"],
+];
+
 export default function FormPedido({
   initial,
   onSave,
