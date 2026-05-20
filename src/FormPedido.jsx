@@ -22,10 +22,11 @@ import FormNav from "./FormNav.jsx";
 
 import { useState, useEffect, useMemo } from "react";
 
-// Estilos (duplicados de main.js para no acoplar)
+// Estilos (duplicados de main.js para no acoplar). Compactados para
+// reducir altura del formulario en móvil.
 const INP = {
   width: "100%",
-  padding: "9px 12px",
+  padding: "7px 10px",
   borderRadius: 8,
   border: "1.5px solid #e0e0e0",
   fontSize: 14,
@@ -39,7 +40,7 @@ const LBL = {
   fontSize: 10,
   fontWeight: 700,
   color: "#888",
-  marginBottom: 3,
+  marginBottom: 2,
   display: "block",
   textTransform: "uppercase",
   letterSpacing: 0.4,
@@ -51,9 +52,9 @@ const SEC = (c = "#9B59B6") => ({
   color: c,
   textTransform: "uppercase",
   letterSpacing: 1,
-  margin: "14px 0 8px",
+  margin: "10px 0 5px",
   borderBottom: "1px solid " + c + "33",
-  paddingBottom: 3,
+  paddingBottom: 2,
 });
 
 const BTN = (bg = "#9B59B6", disabled = false) => ({

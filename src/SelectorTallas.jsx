@@ -10,6 +10,21 @@ const GRUPOS_TALLAS = {
   numeros: { label: "Núm.",    tallas: ["34", "36", "38", "40", "42", "44", "46", "48"] },
 };
 
+// Orden lógico para mostrar tallas en pedidos (sin mutar el orden en que
+// se ingresaron — se ordenan al renderizar).
+//   adulto: XS < S < M < L < XL < 2XL < 3XL
+//   niño / núm: orden numérico natural
+const RANK_TALLAS = { XS: 1, S: 2, M: 3, L: 4, XL: 5, "2XL": 6, "3XL": 7 };
+function rankTalla(t) {
+  if (RANK_TALLAS[t]) return RANK_TALLAS[t];
+  const n = parseInt(t, 10);
+  if (Number.isFinite(n)) return 1000 + n;
+  return 9999;
+}
+function ordenarTallas(items) {
+  return [...(items || [])].sort((a, b) => rankTalla(a.talla) - rankTalla(b.talla));
+}
+
 // ── SelectorTallas ───────────────────────────────────────
 
 export function SelectorTallas({ items, onChange, esAdmin }) {
@@ -20,7 +35,7 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
   const [precio, setPrecio] = useState("");
 
   const tGrupo = GRUPOS_TALLAS[grupo].tallas;
-  const lista = items || [];
+  const lista = ordenarTallas(items);
   const puedeAgregar = talla && qty !== "" && parseInt(qty) >= 1;
 
   const agregar = () => {
@@ -638,9 +653,10 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
 
 export function TallasChips({ items, compact = false }) {
   if (!items || !items.length) return null;
+  const ordenados = ordenarTallas(items);
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: compact ? 4 : 6 }}>
-      {items.map(it => {
+      {ordenados.map(it => {
         const tieneP = it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0;
         const sub = tieneP ? parseFloat(it.precio) * it.qty : null;
         return (
