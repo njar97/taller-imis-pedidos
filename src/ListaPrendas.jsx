@@ -57,20 +57,25 @@ const MLAB = {
 
 // ── ListaPrendas ─────────────────────────────────────────
 
-// Una prenda dentro de una persona.
-const PRENDA_BASE = () => ({
+// Una prenda dentro de una persona. `tipoDefault` viene del tipoPrenda
+// elegido en la sección "Prenda" del form (Traje/Conjunto, Filipina, etc).
+// Se pre-rellena para evitar tipear el mismo tipo en cada prenda nueva.
+// El user puede editarlo libremente después (ej. Saco / Pantalón / Quepi).
+const PRENDA_BASE = (tipoDefault = "") => ({
   id: Date.now() + Math.random(),
-  tipo: "",
+  tipo: tipoDefault,
   talla: "",
   precio: null,
   spec: "",
 });
 
-// Una persona (alumno, empleado, beneficiario).
-const PERSONA_BASE = () => ({
+// Una persona (alumno, empleado, beneficiario). Su primera prenda hereda
+// el tipoDefault — la idea es que al "+ Persona" la prenda ya viene con
+// el tipo correcto en la mayoría de los casos.
+const PERSONA_BASE = (tipoDefault = "") => ({
   id: Date.now() + Math.random(),
   nombre: "",
-  prendas: [PRENDA_BASE()],
+  prendas: [PRENDA_BASE(tipoDefault)],
   medidas: {},
   cargo: "",
   gafete: "",
@@ -104,7 +109,7 @@ function persistible(p) {
   };
 }
 
-export function ListaPrendas({ items, onChange }) {
+export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
   const [expandida, setExp] = useState(null);
 
   // Normaliza al render — items pueden venir en shape viejo o nuevo.
@@ -114,7 +119,7 @@ export function ListaPrendas({ items, onChange }) {
   const escribir = nuevaLista => onChange(nuevaLista.map(persistible));
 
   const agregar = () => {
-    const nueva = PERSONA_BASE();
+    const nueva = PERSONA_BASE(tipoPrendaDefault);
     escribir([...lista, nueva]);
     setExp(nueva.id);
   };
@@ -135,7 +140,9 @@ export function ListaPrendas({ items, onChange }) {
   const agregarPrenda = personaId =>
     escribir(
       lista.map(p =>
-        p.id === personaId ? { ...p, prendas: [...p.prendas, PRENDA_BASE()] } : p
+        p.id === personaId
+          ? { ...p, prendas: [...p.prendas, PRENDA_BASE(tipoPrendaDefault)] }
+          : p
       )
     );
   const quitarPrenda = (personaId, prendaId) =>

@@ -598,7 +598,11 @@ export default function FormPedido({
         <SelectorTallas items={f.tallasItems} onChange={v => s("tallasItems", v)} />
       )}
       {f.modoRegistro === "lista" && (
-        <ListaPrendas items={f.personas || []} onChange={handlePersonas} />
+        <ListaPrendas
+          items={f.personas || []}
+          onChange={handlePersonas}
+          tipoPrendaDefault={f.tipoPrenda || ""}
+        />
       )}
 
       </SeccionOpcional>
