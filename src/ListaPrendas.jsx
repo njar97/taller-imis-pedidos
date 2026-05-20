@@ -530,7 +530,7 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
                                 color: g.talla ? "#2C1654" : "#aaa",
                               }}
                             >
-                              <option value="">Talla</option>
+                              <option value="">Talla (opc.)</option>
                               {TODAS_TALLAS.map(t => (
                                 <option key={t}>{t}</option>
                               ))}
