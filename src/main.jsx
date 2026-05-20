@@ -1383,9 +1383,19 @@ function App() {
   }
   const filtrados = useMemo(() => {
     const q = busqueda.toLowerCase();
+    const hoyStr = new Date().toISOString().split("T")[0];
     return pedidos.filter(p => {
       const match = !q || [p.cliente, p.tipoPrenda, p.tela, p.color, p.costurera, p.notas, p.descripcion, p.nombreContacto, p.estatus, String(p.id || ""), p.fechaEntrega, p.tipoDocumento].some(v => v && String(v).toLowerCase().includes(q));
-      return match && (filtro === "Todos" || p.estatus === filtro);
+      if (!match) return false;
+      if (filtro !== "Todos") return p.estatus === filtro;
+      // Filtro "Todos" = activos en taller. Oculta:
+      // - Estados terminales (Entregado, Cancelado): ya cerraron.
+      // - Vencidos sin entregar (fechaEntrega < hoy): el cartel
+      //   "vencidos sin archivar" los sigue mostrando arriba para
+      //   procesarlos, pero ya no ensucian la lista principal.
+      if (["Entregado", "Cancelado"].includes(p.estatus)) return false;
+      if (p.fechaEntrega && p.fechaEntrega < hoyStr) return false;
+      return true;
     });
   }, [pedidos, busqueda, filtro]);
   const conteos = useMemo(() => ESTATUS.reduce((a, e) => ({
