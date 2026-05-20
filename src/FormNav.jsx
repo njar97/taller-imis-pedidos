@@ -9,8 +9,7 @@ import { useEffect, useRef, useState } from "react";
 
 export const SECCIONES_FORM = [
   { id: "sec-cliente",   icon: "👤", label: "Cliente",   color: "#2C1654" },
-  { id: "sec-prenda",    icon: "✂️", label: "Prenda",    color: "#9B59B6" },
-  { id: "sec-tallas",    icon: "👕", label: "Tallas",    color: "#E67E22" },
+  { id: "sec-producto", icon: "📦", label: "Producto", color: "#9B59B6" },
   { id: "sec-tela",      icon: "🧵", label: "Tela",      color: "#1A5276" },
   { id: "sec-fecha",     icon: "📌", label: "Fecha",     color: "#27AE60" },
   { id: "sec-costurera", icon: "✂️", label: "Costurera", color: "#007BFF" },
