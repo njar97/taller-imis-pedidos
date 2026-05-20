@@ -1384,24 +1384,36 @@ function App() {
   const filtrados = useMemo(() => {
     const q = busqueda.toLowerCase();
     const hoyStr = new Date().toISOString().split("T")[0];
+    const esVencidoActivo = p =>
+      !["Entregado", "Cancelado"].includes(p.estatus) &&
+      p.fechaEntrega &&
+      p.fechaEntrega < hoyStr;
     return pedidos.filter(p => {
       const match = !q || [p.cliente, p.tipoPrenda, p.tela, p.color, p.costurera, p.notas, p.descripcion, p.nombreContacto, p.estatus, String(p.id || ""), p.fechaEntrega, p.tipoDocumento].some(v => v && String(v).toLowerCase().includes(q));
       if (!match) return false;
+      // Tab "Vencidos": solo los que pasaron la fecha y NO están cerrados.
+      if (filtro === "Vencidos") return esVencidoActivo(p);
+      // Tab por estatus específico: muestra ese estatus tal cual.
       if (filtro !== "Todos") return p.estatus === filtro;
-      // Filtro "Todos" = activos en taller. Oculta:
-      // - Estados terminales (Entregado, Cancelado): ya cerraron.
-      // - Vencidos sin entregar (fechaEntrega < hoy): el cartel
-      //   "vencidos sin archivar" los sigue mostrando arriba para
-      //   procesarlos, pero ya no ensucian la lista principal.
+      // Filtro "Todos" = activos en taller. Oculta terminales y vencidos.
       if (["Entregado", "Cancelado"].includes(p.estatus)) return false;
-      if (p.fechaEntrega && p.fechaEntrega < hoyStr) return false;
+      if (esVencidoActivo(p)) return false;
       return true;
     });
   }, [pedidos, busqueda, filtro]);
-  const conteos = useMemo(() => ESTATUS.reduce((a, e) => ({
-    ...a,
-    [e]: pedidos.filter(p => p.estatus === e).length
-  }), {}), [pedidos]);
+  const conteos = useMemo(() => {
+    const hoyStr = new Date().toISOString().split("T")[0];
+    const base = ESTATUS.reduce((a, e) => ({
+      ...a,
+      [e]: pedidos.filter(p => p.estatus === e).length,
+    }), {});
+    base.Vencidos = pedidos.filter(p =>
+      !["Entregado", "Cancelado"].includes(p.estatus) &&
+      p.fechaEntrega &&
+      p.fechaEntrega < hoyStr
+    ).length;
+    return base;
+  }, [pedidos]);
   const parseMonto = v => {
     const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
     return isNaN(n) ? 0 : n;

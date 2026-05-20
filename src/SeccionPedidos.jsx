@@ -82,6 +82,8 @@ function Toolbar({ pedidos, busqueda, setBusqueda, onNuevo }) {
 }
 
 function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
+  // Lista de tabs: Todos + Vencidos (especial, rojo si tiene items) + estatus.
+  const tabs = ["Todos", "Vencidos", ...ESTATUS];
   return (
     <div
       style={{
@@ -93,9 +95,14 @@ function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
         flexShrink: 0,
       }}
     >
-      {["Todos", ...ESTATUS].map(s => {
+      {tabs.map(s => {
         const count = s === "Todos" ? pedidos.length : (conteos[s] || 0);
         const active = filtro === s;
+        const esVencidos = s === "Vencidos";
+        // El tab Vencidos se ve en rojo cuando hay items pendientes —
+        // sutil llamada de atención. Cuando no hay, se pinta apagado.
+        const colorActivo = esVencidos ? "#E63946" : "#9B59B6";
+        const tieneAlerta = esVencidos && count > 0;
         return (
           <button
             key={s}
@@ -105,10 +112,10 @@ function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
               border: "none",
               background: "none",
               borderBottom: active
-                ? "2.5px solid #9B59B6"
+                ? "2.5px solid " + colorActivo
                 : "2.5px solid transparent",
-              color: active ? "#9B59B6" : "#999",
-              fontWeight: active ? 700 : 400,
+              color: active ? colorActivo : tieneAlerta ? "#E63946" : "#999",
+              fontWeight: active || tieneAlerta ? 700 : 400,
               cursor: "pointer",
               fontSize: 10,
               display: "flex",
@@ -117,11 +124,11 @@ function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
               whiteSpace: "nowrap",
             }}
           >
-            {s}
+            {esVencidos && tieneAlerta ? "⚠️ " : ""}{s}
             <span
               style={{
-                background: active ? "#9B59B6" : "#eee",
-                color: active ? "#fff" : "#aaa",
+                background: active ? colorActivo : tieneAlerta ? "#FDECEA" : "#eee",
+                color: active ? "#fff" : tieneAlerta ? "#E63946" : "#aaa",
                 borderRadius: 20,
                 padding: "1px 5px",
                 fontSize: 10,
