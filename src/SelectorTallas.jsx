@@ -192,7 +192,9 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
 
   const tGrupo = GRUPOS_TALLAS[grupo].tallas;
   const lista = ordenarTallas(items);
-  const puedeAgregar = talla && qty !== "" && parseInt(qty) >= 1;
+  // Se puede agregar si hay cantidad >= 1. La talla es OPCIONAL — para
+  // items como "Cortina bordada" o "Mantel" no aplica seleccionarla.
+  const puedeAgregar = qty !== "" && parseInt(qty) >= 1;
 
   const agregar = () => {
     if (!puedeAgregar) return;
@@ -356,7 +358,7 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
                   padding: "7px 4px",
                   textAlign: "center",
                   borderRadius: 6,
-                  border: "1.5px solid " + (talla ? "#E67E22" : "#e0e0e0"),
+                  border: "1.5px solid #E67E22",
                   fontSize: 14,
                   fontWeight: 800,
                   outline: "none",
@@ -384,18 +386,17 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
                 value={precio}
                 onChange={e => setPrecio(e.target.value)}
                 placeholder="0.00"
-                disabled={!talla}
                 style={{
                   width: "100%",
                   padding: "7px 6px",
                   textAlign: "center",
                   borderRadius: 6,
-                  border: "1.5px solid " + (talla ? "#a8d8a8" : "#e0e0e0"),
+                  border: "1.5px solid #a8d8a8",
                   fontSize: 13,
                   fontWeight: 700,
                   outline: "none",
                   color: "#27AE60",
-                  background: talla ? "#fff" : "#f9f9f9",
+                  background: "#fff",
                 }}
               />
             </div>
@@ -415,20 +416,15 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
                 value={spec}
                 onChange={e => setSpec(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && agregar()}
-                placeholder={
-                  talla
-                    ? "Ej: manga larga, azul marino, bordado…"
-                    : "← Selecciona una talla primero"
-                }
-                disabled={!talla}
+                placeholder="Ej: manga larga, azul marino, bordado…"
                 style={{
                   width: "100%",
                   padding: "7px 10px",
                   borderRadius: 6,
-                  border: "1.5px solid " + (talla ? "#e0e0e0" : "#f0f0f0"),
+                  border: "1.5px solid #e0e0e0",
                   fontSize: 13,
                   outline: "none",
-                  background: talla ? "#fff" : "#f9f9f9",
+                  background: "#fff",
                   color: "#444",
                 }}
               />
@@ -444,8 +440,8 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
             }}
           >
             <div style={{ fontSize: 11, color: "#27AE60", fontWeight: 700, minHeight: 16 }}>
-              {talla && precio !== "" && parseFloat(precio) > 0
-                ? `Subtotal: $${(parseFloat(precio) * qty).toFixed(2)} (${qty}×$${parseFloat(precio).toFixed(2)})`
+              {precio !== "" && parseFloat(precio) > 0
+                ? `Subtotal: $${(parseFloat(precio) * (qty || 1)).toFixed(2)} (${qty || 1}×$${parseFloat(precio).toFixed(2)})`
                 : ""}
             </div>
             <button
@@ -464,7 +460,7 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
                 whiteSpace: "nowrap",
               }}
             >
-              + Agregar{talla ? ` ${talla}` : ""}
+              + Agregar{talla ? ` ${talla}` : " (sin talla)"}
             </button>
           </div>
         </div>
@@ -537,16 +533,18 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
                       )}
                       <div
                         style={{
-                          background: "#E67E22",
+                          background: it.talla ? "#E67E22" : "#bbb",
                           color: "#fff",
                           borderRadius: 6,
                           padding: "3px 0",
-                          fontSize: 13,
+                          fontSize: it.talla ? 13 : 10,
                           fontWeight: 800,
                           textAlign: "center",
+                          letterSpacing: it.talla ? 0 : 0.3,
                         }}
+                        title={it.talla ? `Talla ${it.talla}` : "Sin talla"}
                       >
-                        {it.talla}
+                        {it.talla || "S/T"}
                       </div>
                     </div>
                     <input
