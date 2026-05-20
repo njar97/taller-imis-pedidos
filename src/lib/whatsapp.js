@@ -3,6 +3,34 @@
 // Usado por WABtn (lib/ui.jsx), CardPedido y App.
 
 import { resumenTallas } from "./dominio.js";
+import { agruparPrendas } from "../ListaPrendas.jsx";
+
+// Agrupa las prendas de una persona y devuelve un bloque de texto multi-línea.
+function bloqueDePersona(per) {
+  const grupos = agruparPrendas(per.prendas);
+  if (!grupos.length) return "";
+  const lineas = grupos
+    .filter(g => g.tipo || g.talla)
+    .map(g => {
+      const label = [g.tipo, g.talla].filter(Boolean).join(" ");
+      const sub =
+        g.precio != null && g.precio !== "" && parseFloat(g.precio) > 0
+          ? ` — $${(parseFloat(g.precio) * g.qty).toFixed(2)}`
+          : "";
+      const nota = g.spec ? ` (${g.spec})` : "";
+      return `   • ${g.qty}× ${label}${nota}${sub}`;
+    });
+  const total = grupos.reduce(
+    (s, g) => s + (parseFloat(g.precio || 0) || 0) * g.qty,
+    0
+  );
+  const subStr = total > 0 ? ` — *$${total.toFixed(2)}*` : "";
+  const meta = [];
+  if (per.gafete) meta.push(`Talla taller: ${per.gafete}`);
+  if (per.cargo) meta.push(per.cargo);
+  const metaStr = meta.length ? ` _(${meta.join(", ")})_` : "";
+  return `🔸 *${per.nombre || "Sin nombre"}*${metaStr}${subStr}\n${lineas.join("\n")}`;
+}
 
 export function mensajeWA(p, esAdmin = false) {
   const num = String(p.id).padStart(4, "0");
@@ -34,6 +62,12 @@ export function mensajeWA(p, esAdmin = false) {
     ? `  • ${tallas}`
     : "";
 
+  // ¿Hay personas con prendas reales (no solo placeholder vacío)?
+  const personasConPrendas = (p.personas || []).filter(per =>
+    Array.isArray(per.prendas) &&
+    per.prendas.some(pr => pr.tipo || pr.talla)
+  );
+
   const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
   const tipoIcon = p.tipoCliente === "escuela" ? "🏫" : p.tipoCliente === "empresa" ? "🏢" : "👤";
 
@@ -46,9 +80,21 @@ export function mensajeWA(p, esAdmin = false) {
   msg += `✂️ *${p.tipoPrenda || "(sin especificar)"}*`;
   if (p.tela) msg += `\n   Tela: ${p.tela}${p.color ? " · " + p.color : ""}`;
   msg += `\n`;
-  if (tallasDetalle) {
+
+  // Si hay personas con prendas, mostrar desglose por persona en vez del
+  // resumen agregado por talla — más informativo para uniformes.
+  if (personasConPrendas.length > 0) {
+    msg += `\n👥 *Desglose por persona:*\n`;
+    personasConPrendas.forEach((per, i) => {
+      msg += `\n${bloqueDePersona(per)}\n`;
+    });
+    if (tallasDetalle) {
+      msg += `\n📦 *Resumen de tallas:*\n${tallasDetalle}\n`;
+    }
+  } else if (tallasDetalle) {
     msg += `\n📦 *Tallas y cantidades:*\n${tallasDetalle}\n`;
   }
+
   if (p.descripcion) msg += `\n📝 ${p.descripcion}\n`;
   if (p.tieneBordado) msg += `\n🪡 Lleva bordado${p.estatusDiseno ? " — " + p.estatusDiseno : ""}`;
   msg += `\n\n📅 *Entrega: ${p.fechaEntrega || "—"}*${diasStr}`;
