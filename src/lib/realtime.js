@@ -61,11 +61,23 @@ export function suscribirCambios(tablas, onChange) {
       return;
     }
 
+    // Helper defensivo: a veces el browser dispara 'open' y para cuando
+    // ejecutamos send el WS ya pasó a CLOSING (timeout, error temprano).
+    // Sin este check el send tira "Still in CONNECTING state" (visto en
+    // taller_errores 20-may-2026).
+    const sendSafe = obj => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify(obj)); } catch (e) {
+          console.warn("Realtime: send falló:", e && e.message);
+        }
+      }
+    };
+
     ws.addEventListener("open", () => {
       reconnectDelay = RECONNECT_INITIAL_MS;
       // Suscribir a cada tabla.
       tablas.forEach(t => {
-        ws.send(JSON.stringify({
+        sendSafe({
           topic: `realtime:public:${t}`,
           event: "phx_join",
           payload: {
@@ -75,18 +87,16 @@ export function suscribirCambios(tablas, onChange) {
             access_token: SUPA_ANON,
           },
           ref: nextRef(),
-        }));
+        });
       });
       // Heartbeat.
       heartbeat = setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            topic: "phoenix",
-            event: "heartbeat",
-            payload: {},
-            ref: nextRef(),
-          }));
-        }
+        sendSafe({
+          topic: "phoenix",
+          event: "heartbeat",
+          payload: {},
+          ref: nextRef(),
+        });
       }, HEARTBEAT_MS);
     });
 

@@ -485,6 +485,7 @@ function TablaYCards({
   nextId,
   setDet,
   setModal,
+  setSeedDuplicar,
   setConf,
   setVisor,
   cambiarEstatus,
@@ -559,10 +560,11 @@ function TablaYCards({
               // El pedido nuevo arranca limpio en todo lo que no aplica:
               // sin fotos del original (apuntaban a Drive del viejo), sin
               // costurera heredada, sin días calculados que correspondan
-              // a las fechas antiguas.
+              // a las fechas antiguas. Sin id — FormPedido lo asigna como
+              // nuevo y nextId avanza correctamente.
+              const { id: _x, dias: _y, ...resto } = p;
               const copia = {
-                ...p,
-                id: nextId,
+                ...resto,
                 fecha: new Date().toISOString().split("T")[0],
                 fechaInicio: "",
                 fechaEntrega: "",
@@ -572,8 +574,8 @@ function TablaYCards({
                 imagenes: [],
                 costurera: "(Sin asignar)",
               };
-              delete copia.dias;
-              setModal(copia);
+              setSeedDuplicar(copia);
+              setModal("nuevo");
             }}
             onImprimir={p => onImprimir(p)}
             onVerFoto={v => setVisor(v)}
@@ -605,6 +607,7 @@ export default function SeccionPedidos({
   nextId,
   setDet,
   setModal,
+  setSeedDuplicar,
   setConf,
   setVisor,
   cambiarEstatus,
@@ -662,6 +665,7 @@ export default function SeccionPedidos({
             nextId={nextId}
             setDet={setDet}
             setModal={setModal}
+            setSeedDuplicar={setSeedDuplicar}
             setConf={setConf}
             setVisor={setVisor}
             cambiarEstatus={cambiarEstatus}
