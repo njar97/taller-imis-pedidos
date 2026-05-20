@@ -14,6 +14,7 @@ import {
   FechasRapidas,
   SeccionOpcional,
   UploaderImagenes,
+  chipActiveStyle,
 } from "./lib/ui.jsx";
 import { ListaPrendas } from "./ListaPrendas.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
@@ -45,17 +46,6 @@ const LBL = {
   textTransform: "uppercase",
   letterSpacing: 0.4,
 };
-
-const SEC = (c = "#9B59B6") => ({
-  fontSize: 11,
-  fontWeight: 800,
-  color: c,
-  textTransform: "uppercase",
-  letterSpacing: 1,
-  margin: "10px 0 5px",
-  borderBottom: "1px solid " + c + "33",
-  paddingBottom: 2,
-});
 
 const BTN = (bg = "#9B59B6", disabled = false) => ({
   padding: "10px 20px",
@@ -332,6 +322,16 @@ export default function FormPedido({
     onCancel();
   };
 
+  // Cuando cambian los abonos, recalcula y guarda el anticipo total.
+  // Antes esta lógica vivía duplicada en dos <RegistroAbonos> distintos.
+  const handleAbonosChange = v => {
+    s("abonos", v);
+    s(
+      "anticipo",
+      v.reduce((sum, a) => sum + parseFloat(a.monto || 0), 0).toFixed(2)
+    );
+  };
+
   const handlePersonas = v => {
     s("personas", v);
     const tallaMap = {};
@@ -432,13 +432,10 @@ export default function FormPedido({
               flex: 1,
               padding: "7px 6px",
               borderRadius: 8,
-              border: "1.5px solid " + (f.tipoCliente === val ? "#9B59B6" : "#e0e0e0"),
-              background: f.tipoCliente === val ? "#9B59B6" : "#fff",
-              color: f.tipoCliente === val ? "#fff" : "#666",
               cursor: "pointer",
               fontSize: 12,
-              fontWeight: f.tipoCliente === val ? 700 : 400,
               textAlign: "center",
+              ...chipActiveStyle(f.tipoCliente === val, "#9B59B6"),
             }}
           >
             {lbl}
@@ -674,24 +671,32 @@ export default function FormPedido({
       {/* ── Costurera ───────────────────────────────── */}
       <SeccionOpcional id="sec-costurera" titulo="Costurera" icon="✂️" color="#007BFF" defaultOpen={llenoCosturera} textoCerrado="▼">
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-        {COLABORADORAS.map(c => (
-          <button
-            key={c}
-            onClick={() => s("costurera", c)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 20,
-              border: "1.5px solid " + (f.costurera === c ? "#007BFF" : "#e0e0e0"),
-              background: f.costurera === c ? "#007BFF" : "#fff",
-              color: f.costurera === c ? "#fff" : "#666",
-              cursor: "pointer",
-              fontSize: 12,
-              fontWeight: f.costurera === c ? 700 : 400,
-            }}
-          >
-            {c === "(Sin asignar)" ? "— Sin asignar" : c}
-          </button>
-        ))}
+        {COLABORADORAS.map(c => {
+          const activo = f.costurera === c;
+          const esSinAsignar = c === "(Sin asignar)";
+          return (
+            <button
+              key={c}
+              onClick={() => s("costurera", c)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 20,
+                cursor: "pointer",
+                fontSize: 12,
+                ...chipActiveStyle(activo, "#007BFF"),
+                // "(Sin asignar)" se distingue visualmente de las costureras
+                // reales cuando no está seleccionado — estilo dashed gris.
+                ...(esSinAsignar && !activo && {
+                  borderStyle: "dashed",
+                  color: "#aaa",
+                  background: "#fafafa",
+                }),
+              }}
+            >
+              {esSinAsignar ? "— Sin asignar" : c}
+            </button>
+          );
+        })}
       </div>
 
       </SeccionOpcional>
@@ -723,20 +728,6 @@ export default function FormPedido({
         />
       )}
 
-      {/* ── Detalles adicionales ─────────────────────── */}
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: "#aaa",
-          textTransform: "uppercase",
-          letterSpacing: 1,
-          margin: "14px 0 8px",
-        }}
-      >
-        Detalles adicionales (opcional)
-      </div>
-
       <SeccionOpcional id="sec-desc" titulo="Descripción y bordado" icon="📝" color="#9B59B6" defaultOpen={llenoDesc}>
         <textarea
           style={{ ...INP, resize: "vertical", minHeight: 60, marginBottom: 8 }}
@@ -762,29 +753,20 @@ export default function FormPedido({
 
       {/* ── Pagos (no admin) ────────────────────────── */}
       {!esAdmin && (
-        <div style={{ marginTop: 4 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#aaa",
-              textTransform: "uppercase",
-              letterSpacing: 1,
-              margin: "14px 0 6px",
-            }}
-          >
-            💵 Pagos recibidos (opcional)
-          </div>
+        <SeccionOpcional
+          id="sec-pagos"
+          titulo="Pagos recibidos"
+          icon="💵"
+          color="#27AE60"
+          defaultOpen={llenoPrecio}
+        >
           <RegistroAbonos
             abonos={f.abonos || []}
             precioTotal={f.precio}
-            onChange={v => {
-              s("abonos", v);
-              s("anticipo", v.reduce((sum, a) => sum + parseFloat(a.monto || 0), 0).toFixed(2));
-            }}
+            onChange={handleAbonosChange}
             esAdmin={false}
           />
-        </div>
+        </SeccionOpcional>
       )}
 
       {/* ── Precio y adelanto (admin) ────────────────── */}
@@ -851,6 +833,7 @@ export default function FormPedido({
             <input
               style={INP}
               type="number"
+              inputMode="decimal"
               placeholder="0.00"
               value={f.precio}
               onChange={e => s("precio", e.target.value)}
@@ -860,10 +843,7 @@ export default function FormPedido({
           <RegistroAbonos
             abonos={f.abonos || []}
             precioTotal={f.precio}
-            onChange={v => {
-              s("abonos", v);
-              s("anticipo", v.reduce((sum, a) => sum + parseFloat(a.monto || 0), 0).toFixed(2));
-            }}
+            onChange={handleAbonosChange}
             esAdmin
           />
 
