@@ -134,9 +134,12 @@ export default function FormPedido({
   const tieneCantidad =
     (f.tallasItems || []).some(it => Number(it.qty) > 0) || (f.personas || []).length > 0;
 
+  // Coercion defensiva: si el draft del localStorage o un pedido legacy
+  // tienen cliente/tipoPrenda como null/undefined, .trim() reventaría al
+  // renderizar. String(x || "") garantiza un string sin perder semántica.
   const validez = {
-    cliente: !!f.cliente.trim(),
-    tipoPrenda: !!f.tipoPrenda.trim(),
+    cliente: !!String(f.cliente || "").trim(),
+    tipoPrenda: !!String(f.tipoPrenda || "").trim(),
     cantidad: tieneCantidad,
     fechaEntrega: !!f.fechaEntrega,
   };
@@ -342,6 +345,11 @@ export default function FormPedido({
 
   const handlePersonas = v => {
     s("personas", v);
+    // Solo recalcular tallasItems/precio si estamos en modo "lista" — si
+    // no, el admin puede tener tallasItems manuales que NO deben pisarse
+    // por edits a personas (que pueden ser de un pedido viejo).
+    if (f.modoRegistro !== "lista") return;
+
     // Cada persona puede tener N prendas, cada una con su talla. Sumamos
     // todas para alimentar tallasItems (resumen agregado del pedido).
     // Compat: si la persona viene con shape viejo {talla} sin prendas[],
@@ -377,8 +385,9 @@ export default function FormPedido({
     // suma — más confiable que un manual que no se actualiza al
     // agregar/quitar prendas. Si no hay precios (todas en null), no toco
     // f.precio para preservar un total manual que el admin haya puesto.
+    // toFixed(2) para evitar artefactos float (16.799999... → 16.80).
     if (totalPersonas > 0) {
-      s("precio", String(totalPersonas));
+      s("precio", totalPersonas.toFixed(2));
     }
   };
 

@@ -189,6 +189,7 @@ import {
 import {
   medInit,
   hoy,
+  sumarAbonos,
   fmt$,
   tallasTexto,
   tallasItemsTexto,
@@ -301,7 +302,8 @@ function imprimirPedido(p, esAdmin) {
   if (esAdmin) imprimirRecibo(p);else imprimirProduccion(p);
 }
 function imprimirRecibo(p) {
-  const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
+  const abonado = sumarAbonos(p);
+  const saldo = parseFloat(p.precio || 0) - abonado;
   const tallas = resumenTallas(p);
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", {
@@ -411,7 +413,7 @@ function imprimirRecibo(p) {
       </div>
       <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #eee;">
         <div style="font-size:10px;color:#aaa;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Anticipo recibido</div>
-        <div style="font-size:22px;font-weight:900;color:#27AE60;">$${parseFloat(p.anticipo || 0).toFixed(2)}</div>
+        <div style="font-size:22px;font-weight:900;color:#27AE60;">$${abonado.toFixed(2)}</div>
       </div>
       <div style="background:${saldo > 0 ? "#FFF5F5" : "#F0FFF4"};border-radius:8px;padding:12px;border:2px solid ${saldo > 0 ? "#E74C3C" : "#27AE60"};">
         <div style="font-size:10px;color:#aaa;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Saldo pendiente</div>
@@ -421,10 +423,10 @@ function imprimirRecibo(p) {
   </div>` : ""}
 
   <!-- CRÉDITO FISCAL -->
-  ${p.tipoDocumento !== "Consumidor Final" ? `
+  ${(p.tipoDocumento || "Consumidor Final") !== "Consumidor Final" ? `
   <div class="sec">🧾 Datos fiscales</div>
   <div style="background:#f0f8ff;border:1.5px solid #cce5ff;border-radius:10px;padding:14px;margin-bottom:16px;">
-    ${p.tipoDocumento.includes("pendiente") ? `<div style="color:#856404;font-weight:700;margin-bottom:8px;">⚠️ Pendiente recibir datos fiscales completos</div>` : ""}
+    ${(p.tipoDocumento || "").includes("pendiente") ? `<div style="color:#856404;font-weight:700;margin-bottom:8px;">⚠️ Pendiente recibir datos fiscales completos</div>` : ""}
     ${p.razonSocial ? `<div style="font-weight:700;font-size:14px;margin-bottom:4px;">${p.razonSocial}</div>` : ""}
     <div style="display:flex;gap:20px;font-size:12px;color:#555;">
       ${p.nit ? `<span>NIT: <strong>${p.nit}</strong></span>` : ""}
@@ -936,6 +938,10 @@ function App() {
   const [progreso, setProgreso] = useState(null);
   const [errorFotos, setErrorFotos] = useState([]);
   const [visor, setVisor] = useState(null); // {imgs:[], idx:0}
+  // Semilla de duplicación: el FormPedido la usa como `initial` cuando
+  // modal === "nuevo". Permite "Duplicar pedido" con flow correcto
+  // (esNuevo = true, nextId avanza, state local se actualiza).
+  const [seedDuplicar, setSeedDuplicar] = useState(null);
   const [modalIA, setModalIA] = useState(false);
   const [modalArchivar, setModalArchivar] = useState(null);
   const [modalActMedidas, setModalActMedidas] = useState(null);
@@ -1560,6 +1566,7 @@ function App() {
             nextId={nextId}
             setDet={setDet}
             setModal={setModal}
+            setSeedDuplicar={setSeedDuplicar}
             setConf={setConf}
             setVisor={setVisor}
             cambiarEstatus={cambiarEstatus}
@@ -1654,9 +1661,10 @@ function App() {
             </button>
           )}
           <FormPedido
-            initial={modal !== "nuevo" ? modal : null}
-            onSave={guardarPedido}
-            onCancel={() => setModal(null)}
+            key={modal === "nuevo" && seedDuplicar ? `seed-${seedDuplicar.id || Date.now()}` : (modal === "nuevo" ? "nuevo" : (modal && modal.id) || "blank")}
+            initial={modal !== "nuevo" ? modal : seedDuplicar}
+            onSave={f => { setSeedDuplicar(null); guardarPedido(f); }}
+            onCancel={() => { setSeedDuplicar(null); setModal(null); }}
             rol={rol}
             pedidosExistentes={pedidos}
             clientes={clientes}

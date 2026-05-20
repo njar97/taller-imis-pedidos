@@ -6,6 +6,13 @@ export const medInit = () => Object.fromEntries(MEDIDAS_DEF.map(m => [m.k, ""]))
 export const hoy = () => new Date().toISOString().split("T")[0];
 export const fmt$ = n => "$" + parseFloat(n || 0).toFixed(2);
 
+// Suma real de abonos. Si el pedido tiene abonos[], usa eso (fuente de
+// verdad). Si no, cae a p.anticipo. Es el "total ya pagado".
+export const sumarAbonos = p =>
+  (p.abonos || []).length > 0
+    ? p.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0)
+    : parseFloat(p.anticipo || 0);
+
 export const tallasTexto = (qty = {}) =>
   Object.entries(qty).filter(([, c]) => parseInt(c) > 0).map(([t, c]) => c + "×" + t).join(" · ");
 
