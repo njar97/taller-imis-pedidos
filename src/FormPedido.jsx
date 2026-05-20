@@ -18,6 +18,7 @@ import {
 import { ListaPrendas } from "./ListaPrendas.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
+import FormNav from "./FormNav.jsx";
 
 import { useState, useEffect } from "react";
 
@@ -222,7 +223,20 @@ export default function FormPedido({
   const tieneMedsCliente =
     clienteMatch && clienteMatch.medidas && Object.values(clienteMatch.medidas).some(Boolean);
 
+  const [intentoGuardar, setIntentoGuardar] = useState(false);
+  // Mapeo validez → ids de FormNav. Solo se muestran como error tras el
+  // primer click en Guardar — antes el form se ve limpio.
+  const erroresIds = intentoGuardar
+    ? [
+        !validez.cliente      && "sec-cliente",
+        !validez.tipoPrenda   && "sec-prenda",
+        !validez.cantidad     && "sec-tallas",
+        !validez.fechaEntrega && "sec-fecha",
+      ].filter(Boolean)
+    : [];
+
   const handleGuardar = () => {
+    setIntentoGuardar(true);
     if (!validez.cliente) {
       pushToast("Falta el nombre del cliente", "error");
       return;
@@ -265,8 +279,9 @@ export default function FormPedido({
 
   return (
     <div>
+      <FormNav erroresIds={erroresIds} />
       {/* ── Cliente ─────────────────────────────────── */}
-      <div style={SEC("#2C1654")}>👤 Cliente</div>
+      <div id="sec-cliente" style={{ ...SEC("#2C1654"), scrollMarginTop: 80 }}>👤 Cliente</div>
       <div style={{ position: "relative", marginBottom: 10 }}>
         <input
           style={INP}
@@ -370,7 +385,7 @@ export default function FormPedido({
       )}
 
       {/* ── Prenda ──────────────────────────────────── */}
-      <div style={SEC("#9B59B6")}>✂️ Prenda</div>
+      <div id="sec-prenda" style={{ ...SEC("#9B59B6"), scrollMarginTop: 80 }}>✂️ Prenda</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
         {catlist
           .filter(p => p.nombre !== "Bordado independiente")
@@ -444,7 +459,7 @@ export default function FormPedido({
       )}
 
       {/* ── Tallas / Lista ──────────────────────────── */}
-      <div style={SEC("#E67E22")}>👕 Tallas y cantidades</div>
+      <div id="sec-tallas" style={{ ...SEC("#E67E22"), scrollMarginTop: 80 }}>👕 Tallas y cantidades</div>
       <div
         style={{
           display: "flex",
@@ -492,7 +507,7 @@ export default function FormPedido({
       )}
 
       {/* ── Tela y color ────────────────────────────── */}
-      <div style={SEC("#1A5276")}>🧵 Tela y color</div>
+      <div id="sec-tela" style={{ ...SEC("#1A5276"), scrollMarginTop: 80 }}>🧵 Tela y color</div>
       <div style={{ marginBottom: 6 }}>
         <div
           style={{
@@ -544,7 +559,7 @@ export default function FormPedido({
       </div>
 
       {/* ── Fecha entrega ───────────────────────────── */}
-      <div style={SEC("#27AE60")}>📅 Fecha de entrega</div>
+      <div id="sec-fecha" style={{ ...SEC("#27AE60"), scrollMarginTop: 80 }}>📅 Fecha de entrega</div>
       <FechasRapidas onChange={v => s("fechaEntrega", v)} />
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <input
@@ -572,7 +587,7 @@ export default function FormPedido({
       </div>
 
       {/* ── Costurera ───────────────────────────────── */}
-      <div style={SEC("#007BFF")}>✂️ Costurera</div>
+      <div id="sec-costurera" style={{ ...SEC("#007BFF"), scrollMarginTop: 80 }}>✂️ Costurera</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
         {COLABORADORAS.map(c => (
           <button
@@ -622,7 +637,7 @@ export default function FormPedido({
         Detalles adicionales (opcional)
       </div>
 
-      <SeccionOpcional titulo="Descripción y bordado" icon="📝" color="#9B59B6">
+      <SeccionOpcional id="sec-desc" titulo="Descripción y bordado" icon="📝" color="#9B59B6">
         <textarea
           style={{ ...INP, resize: "vertical", minHeight: 60, marginBottom: 8 }}
           value={f.descripcion}
@@ -675,6 +690,7 @@ export default function FormPedido({
       {/* ── Precio y adelanto (admin) ────────────────── */}
       {esAdmin && (
         <SeccionOpcional
+          id="sec-precio"
           titulo={
             totalTallasAuto > 0
               ? `💰 Precio y adelanto — Total: $${totalTallasAuto.toFixed(2)} (${totalPzasAuto} pzas)`
@@ -818,7 +834,7 @@ export default function FormPedido({
 
       {/* ── Facturación (admin) ─────────────────────── */}
       {esAdmin && (
-        <SeccionOpcional titulo="Facturación / Crédito fiscal" icon="🧾" color="#E67E22">
+        <SeccionOpcional id="sec-factura" titulo="Facturación / Crédito fiscal" icon="🧾" color="#E67E22">
           <select
             style={{ ...INP, marginBottom: 10 }}
             value={f.tipoDocumento}
@@ -858,7 +874,7 @@ export default function FormPedido({
       )}
 
       {/* ── Observaciones y fotos ───────────────────── */}
-      <SeccionOpcional titulo="Observaciones y vendedor" icon="📌" color="#888">
+      <SeccionOpcional id="sec-obs" titulo="Observaciones y vendedor" icon="📌" color="#888">
         <textarea
           style={{ ...INP, resize: "vertical", minHeight: 50, marginBottom: 8 }}
           value={f.notas}
@@ -873,7 +889,7 @@ export default function FormPedido({
         />
       </SeccionOpcional>
 
-      <SeccionOpcional titulo="Fotos de referencia" icon="📸" color="#E91E8C">
+      <SeccionOpcional id="sec-fotos" titulo="Fotos de referencia" icon="📸" color="#E91E8C">
         <UploaderImagenes imagenes={f.imagenes} onChange={imgs => s("imagenes", imgs)} />
       </SeccionOpcional>
 
