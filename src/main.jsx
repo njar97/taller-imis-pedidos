@@ -237,7 +237,9 @@ installGlobalErrorHandlers();
 //
 // `mostrarPrecios`: si false (operario), oculta columna Subtotal y los
 // montos por línea — el operario no necesita ver $ para confeccionar.
-function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false) {
+// `mostrarInternos`: si false (cliente), oculta info interna del taller
+// (talla taller / gafete). Cliente solo ve nombre + cargo + prendas.
+function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false, mostrarInternos = false) {
   const personasConPrendas = (p.personas || []).filter(per =>
     Array.isArray(per.prendas) &&
     per.prendas.some(pr => pr.tipo || pr.talla)
@@ -264,7 +266,9 @@ function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false) {
         </div>`;
       })
       .join("");
-    const tallaTaller = per.gafete ? `<span style="font-size:10px;color:#666;background:#eef;padding:1px 6px;border-radius:8px;margin-left:6px;">Talla taller ${per.gafete}</span>` : "";
+    const tallaTaller = mostrarInternos && per.gafete
+      ? `<span style="font-size:10px;color:#666;background:#eef;padding:1px 6px;border-radius:8px;margin-left:6px;">Talla taller ${per.gafete}</span>`
+      : "";
     const cargo = per.cargo ? `<div style="font-size:10px;color:#888;margin-top:1px;">${per.cargo}</div>` : "";
     return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f9fa"};border-bottom:1px solid #eee;">
       <td style="padding:8px 10px;color:#aaa;font-size:11px;width:24px;vertical-align:top;">${i + 1}</td>
@@ -388,7 +392,6 @@ function imprimirRecibo(p) {
     </div>
     <div style="background:#f0fff4;border-radius:10px;padding:14px;border-left:4px solid #27AE60;">
       <div style="font-size:10px;font-weight:800;color:#27AE60;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📅 Fechas</div>
-      ${p.fechaInicio ? `<div style="font-size:12px;color:#555;margin-bottom:3px;">Inicio: <strong>${p.fechaInicio}</strong></div>` : ""}
       <div style="font-size:13px;color:#C0392B;font-weight:800;">Entrega: ${p.fechaEntrega || "Por confirmar"}</div>
     </div>
   </div>
@@ -399,7 +402,7 @@ function imprimirRecibo(p) {
     <div style="font-size:16px;font-weight:800;color:#2C1654;margin-bottom:6px;">✂️ ${p.tipoPrenda || "(sin especificar)"}</div>
     ${p.tela || p.color ? `<div style="font-size:13px;color:#555;margin-bottom:4px;">🧵 ${[p.tela, p.color].filter(Boolean).join(" — ")}</div>` : ""}
     ${p.descripcion ? `<div style="font-size:12px;color:#666;margin-top:6px;padding:8px 10px;background:#fff;border-radius:6px;border-left:3px solid #9B59B6;">${p.descripcion}</div>` : ""}
-    ${tablaPorPersonaHTML(p, "#2C1654", true) || itemsHTML}
+    ${tablaPorPersonaHTML(p, "#2C1654", true, false) || itemsHTML}
   </div>
 
   <!-- PAGO -->
@@ -591,7 +594,7 @@ function imprimirProduccion(p) {
 
   <!-- TALLAS Y CANTIDADES -->
   <div class="sec" style="color:#E67E22;">📦 Tallas y cantidades a confeccionar</div>
-  ${tablaPorPersonaHTML(p, "#E67E22", false) || itemsHTML}
+  ${tablaPorPersonaHTML(p, "#E67E22", false, true) || itemsHTML}
 
   <!-- DESCRIPCIÓN E INSTRUCCIONES -->
   ${p.descripcion ? `

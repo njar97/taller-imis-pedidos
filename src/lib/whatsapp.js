@@ -24,7 +24,9 @@ function lineaResumen(it, esAdmin) {
 
 // Agrupa las prendas de una persona y devuelve un bloque de texto multi-línea.
 // `mostrarPrecios` oculta subtotales para vistas no-admin (operarios).
-function bloqueDePersona(per, mostrarPrecios = false) {
+// `mostrarInternos` oculta info del taller (talla taller / gafete) para
+// mensajes que van al cliente.
+function bloqueDePersona(per, mostrarPrecios = false, mostrarInternos = false) {
   const grupos = agruparPrendas(per.prendas);
   if (!grupos.length) return "";
   const lineas = grupos
@@ -47,7 +49,7 @@ function bloqueDePersona(per, mostrarPrecios = false) {
   );
   const subStr = mostrarPrecios && total > 0 ? ` — *$${total.toFixed(2)}*` : "";
   const meta = [];
-  if (per.gafete) meta.push(`Talla taller: ${per.gafete}`);
+  if (mostrarInternos && per.gafete) meta.push(`Talla taller: ${per.gafete}`);
   if (per.cargo) meta.push(per.cargo);
   const metaStr = meta.length ? ` _(${meta.join(", ")})_` : "";
   return `🔸 *${per.nombre || "Sin nombre"}*${metaStr}${subStr}\n${lineas.join("\n")}`;
@@ -103,7 +105,8 @@ export function mensajeWA(p, esAdmin = false) {
   if (personasConPrendas.length > 0) {
     msg += `\n👥 *Desglose por persona:*\n`;
     personasConPrendas.forEach((per) => {
-      msg += `\n${bloqueDePersona(per, esAdmin)}\n`;
+      // mostrarInternos=false → no se manda talla taller al cliente.
+      msg += `\n${bloqueDePersona(per, esAdmin, false)}\n`;
     });
     if (tallasDetalle) {
       msg += `\n📦 *Resumen de tallas:*\n${tallasDetalle}\n`;
@@ -113,7 +116,8 @@ export function mensajeWA(p, esAdmin = false) {
   }
 
   if (p.descripcion) msg += `\n📝 ${p.descripcion}\n`;
-  if (p.tieneBordado) msg += `\n🪡 Lleva bordado${p.estatusDiseno ? " — " + p.estatusDiseno : ""}`;
+  // "Lleva bordado" sí va al cliente; estatusDiseno (info Wilcom) NO.
+  if (p.tieneBordado) msg += `\n🪡 Lleva bordado`;
   msg += `\n\n📅 *Entrega: ${p.fechaEntrega || "—"}*${diasStr}`;
   if (p.estatus) msg += `\n   Estado: ${p.estatus}`;
   if (esAdmin) {
@@ -131,7 +135,9 @@ export function mensajeWA(p, esAdmin = false) {
       }
     }
   }
-  if (p.notas) msg += `\n\n💬 ${p.notas}`;
+  // p.notas son OBSERVACIONES INTERNAS del taller (así dice el label en
+  // el form). No se mandan al cliente. Si el usuario quiere comunicar
+  // algo al cliente, va en p.descripcion (que sí se incluye arriba).
   msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
 }
