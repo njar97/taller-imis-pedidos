@@ -361,14 +361,25 @@ export default function FormPedido({
       }
       tallaMap[talla].qty++;
     };
+    let totalPersonas = 0;
     v.forEach(p => {
       if (Array.isArray(p.prendas) && p.prendas.length > 0) {
-        p.prendas.forEach(pr => bump(pr.talla));
+        p.prendas.forEach(pr => {
+          bump(pr.talla);
+          totalPersonas += parseFloat(pr.precio) || 0;
+        });
       } else if (p.talla) {
         bump(p.talla);
       }
     });
     s("tallasItems", Object.values(tallaMap));
+    // Si hay precios en las prendas, el total del pedido se deriva de la
+    // suma — más confiable que un manual que no se actualiza al
+    // agregar/quitar prendas. Si no hay precios (todas en null), no toco
+    // f.precio para preservar un total manual que el admin haya puesto.
+    if (totalPersonas > 0) {
+      s("precio", String(totalPersonas));
+    }
   };
 
   return (
