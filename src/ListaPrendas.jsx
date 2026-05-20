@@ -93,6 +93,36 @@ function normalizar(p) {
   return { ...p, prendas: [prenda] };
 }
 
+// Agrupa prendas idénticas (mismo tipo + talla + precio + spec). Devuelve
+// un array de grupos {tipo, talla, precio, spec, qty, ids}. Usado tanto
+// para mostrar como para editar — al cambiar cantidad o tipo del grupo,
+// se replican los cambios a todas las ids del grupo.
+export function agruparPrendas(prendas) {
+  const mapa = new Map();
+  for (const pr of prendas || []) {
+    const key = JSON.stringify([
+      pr.tipo || "",
+      pr.talla || "",
+      pr.precio,
+      pr.spec || "",
+    ]);
+    if (!mapa.has(key)) {
+      mapa.set(key, {
+        tipo: pr.tipo || "",
+        talla: pr.talla || "",
+        precio: pr.precio,
+        spec: pr.spec || "",
+        qty: 0,
+        ids: [],
+      });
+    }
+    const g = mapa.get(key);
+    g.qty++;
+    g.ids.push(pr.id);
+  }
+  return [...mapa.values()];
+}
+
 // Al persistir, también escribe talla y precio derivados (de la primera
 // prenda y la suma total) para retrocompatibilidad con código que aún
 // lee el shape viejo (impresión, detalle de pedido, búsqueda).
@@ -145,33 +175,74 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
           : p
       )
     );
-  const quitarPrenda = (personaId, prendaId) =>
+
+  // Quita todas las entries que conforman un grupo (saco/pantalón/etc).
+  const quitarGrupo = (personaId, ids) =>
     escribir(
-      lista.map(p =>
-        p.id === personaId
-          ? {
-              ...p,
-              prendas:
-                p.prendas.length > 1
-                  ? p.prendas.filter(pr => pr.id !== prendaId)
-                  : p.prendas, // no permitir 0 prendas — mínimo 1
-            }
-          : p
-      )
+      lista.map(p => {
+        if (p.id !== personaId) return p;
+        const nuevas = p.prendas.filter(pr => !ids.includes(pr.id));
+        // Mínimo 1 prenda por persona — si quitar el grupo dejaría 0,
+        // dejamos una prenda en blanco como placeholder.
+        return {
+          ...p,
+          prendas: nuevas.length > 0 ? nuevas : [PRENDA_BASE(tipoPrendaDefault)],
+        };
+      })
     );
-  const editarPrenda = (personaId, prendaId, k, v) =>
+
+  // Aplica un cambio (tipo / talla / precio / spec) a TODAS las entries
+  // del grupo. Si el cambio hace que dos grupos coincidan, el render los
+  // mergea automáticamente en el siguiente cycle.
+  const editarGrupo = (personaId, ids, k, v) =>
     escribir(
       lista.map(p =>
         p.id === personaId
           ? {
               ...p,
               prendas: p.prendas.map(pr =>
-                pr.id === prendaId ? { ...pr, [k]: v } : pr
+                ids.includes(pr.id) ? { ...pr, [k]: v } : pr
               ),
             }
           : p
       )
     );
+
+  // Cambia la cantidad de un grupo: agrega entries duplicadas o quita
+  // entries existentes hasta llegar al nuevo total.
+  const cambiarQtyGrupo = (personaId, grupo, nuevaQty) => {
+    const n = Math.max(0, parseInt(nuevaQty) || 0);
+    escribir(
+      lista.map(p => {
+        if (p.id !== personaId) return p;
+        const fuera = p.prendas.filter(pr => !grupo.ids.includes(pr.id));
+        const dentro = p.prendas.filter(pr => grupo.ids.includes(pr.id));
+        let nuevas;
+        if (n === 0) {
+          nuevas = fuera.length > 0 ? fuera : [PRENDA_BASE(tipoPrendaDefault)];
+        } else if (n < dentro.length) {
+          // Quitar las últimas (n - dentro.length) entries del grupo
+          nuevas = [...fuera, ...dentro.slice(0, n)];
+        } else if (n > dentro.length) {
+          // Agregar (n - dentro.length) entries clonadas
+          const extra = [];
+          for (let i = 0; i < n - dentro.length; i++) {
+            extra.push({
+              id: Date.now() + Math.random() + i,
+              tipo: grupo.tipo,
+              talla: grupo.talla,
+              precio: grupo.precio,
+              spec: grupo.spec,
+            });
+          }
+          nuevas = [...fuera, ...dentro, ...extra];
+        } else {
+          nuevas = p.prendas;
+        }
+        return { ...p, prendas: nuevas };
+      })
+    );
+  };
 
   const copiarMedidas = id => {
     const idx = lista.findIndex(p => p.id === id);
@@ -324,11 +395,11 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
               (s, pr) => s + (parseFloat(pr.precio || 0) || 0),
               0
             );
-            const resumenPrendas = (p.prendas || [])
-              .filter(pr => pr.tipo || pr.talla)
-              .map(pr => {
-                if (pr.tipo && pr.talla) return `${pr.tipo} ${pr.talla}`;
-                return pr.tipo || pr.talla;
+            const resumenPrendas = agruparPrendas(p.prendas)
+              .filter(g => g.tipo || g.talla)
+              .map(g => {
+                const etiqueta = [g.tipo, g.talla].filter(Boolean).join(" ");
+                return g.qty > 1 ? `${g.qty}× ${etiqueta}` : etiqueta;
               })
               .join(" · ");
             return (
@@ -420,106 +491,183 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
                       />
                     </div>
 
-                    {/* Prendas de esta persona */}
+                    {/* Prendas de esta persona — agrupadas por tipo+talla+precio */}
                     <div style={MLAB}>Prendas</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
-                      {(p.prendas || []).map(pr => (
+                      {agruparPrendas(p.prendas).map(g => (
                         <div
-                          key={pr.id}
+                          key={g.ids[0]}
                           style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 72px 72px 22px",
-                            gap: 6,
-                            alignItems: "center",
+                            display: "flex",
+                            flexDirection: "column",
                             background: "#fff",
                             border: "1px solid #fde0b8",
                             borderRadius: 8,
                             padding: "6px 8px",
+                            gap: 4,
                           }}
                         >
-                          <input
-                            value={pr.tipo}
-                            onChange={e =>
-                              editarPrenda(p.id, pr.id, "tipo", e.target.value)
-                            }
-                            placeholder="Ej: Saco, Pantalón, Quepi"
-                            style={INP_LP}
-                          />
-                          <select
-                            value={pr.talla}
-                            onChange={e =>
-                              editarPrenda(p.id, pr.id, "talla", e.target.value)
-                            }
+                          <div
                             style={{
-                              ...INP_LP,
-                              cursor: "pointer",
-                              color: pr.talla ? "#2C1654" : "#aaa",
+                              display: "grid",
+                              gridTemplateColumns: "1fr 64px 70px 60px 22px",
+                              gap: 6,
+                              alignItems: "center",
                             }}
                           >
-                            <option value="">Talla</option>
-                            {TODAS_TALLAS.map(t => (
-                              <option key={t}>{t}</option>
-                            ))}
-                          </select>
-                          <div style={{ position: "relative" }}>
-                            <span
-                              style={{
-                                position: "absolute",
-                                left: 6,
-                                top: "50%",
-                                transform: "translateY(-50%)",
-                                fontSize: 11,
-                                color: "#27AE60",
-                                fontWeight: 700,
-                                pointerEvents: "none",
-                              }}
-                            >
-                              $
-                            </span>
                             <input
-                              type="number"
-                              inputMode="decimal"
-                              min="0"
-                              step="0.01"
-                              value={pr.precio != null ? pr.precio : ""}
-                              onChange={e =>
-                                editarPrenda(
-                                  p.id,
-                                  pr.id,
-                                  "precio",
-                                  e.target.value !== "" ? parseFloat(e.target.value) : null
-                                )
-                              }
-                              placeholder="—"
+                              value={g.tipo}
+                              onChange={e => editarGrupo(p.id, g.ids, "tipo", e.target.value)}
+                              placeholder="Ej: Saco, Pantalón, Quepi"
+                              style={INP_LP}
+                            />
+                            <select
+                              value={g.talla}
+                              onChange={e => editarGrupo(p.id, g.ids, "talla", e.target.value)}
                               style={{
                                 ...INP_LP,
-                                paddingLeft: 16,
-                                color: "#27AE60",
-                                fontWeight: 700,
+                                cursor: "pointer",
+                                color: g.talla ? "#2C1654" : "#aaa",
                               }}
-                            />
+                            >
+                              <option value="">Talla</option>
+                              {TODAS_TALLAS.map(t => (
+                                <option key={t}>{t}</option>
+                              ))}
+                            </select>
+                            <div style={{ position: "relative" }}>
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  left: 6,
+                                  top: "50%",
+                                  transform: "translateY(-50%)",
+                                  fontSize: 11,
+                                  color: "#27AE60",
+                                  fontWeight: 700,
+                                  pointerEvents: "none",
+                                }}
+                              >
+                                $
+                              </span>
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                step="0.01"
+                                value={g.precio != null ? g.precio : ""}
+                                onChange={e =>
+                                  editarGrupo(
+                                    p.id,
+                                    g.ids,
+                                    "precio",
+                                    e.target.value !== "" ? parseFloat(e.target.value) : null
+                                  )
+                                }
+                                placeholder="—"
+                                style={{
+                                  ...INP_LP,
+                                  paddingLeft: 16,
+                                  color: "#27AE60",
+                                  fontWeight: 700,
+                                }}
+                              />
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 2,
+                                border: "1.5px solid #E67E22",
+                                borderRadius: 6,
+                                overflow: "hidden",
+                                background: "#fff",
+                              }}
+                            >
+                              <button
+                                onClick={() => cambiarQtyGrupo(p.id, g, g.qty - 1)}
+                                disabled={g.qty <= 1}
+                                title="Quitar uno"
+                                style={{
+                                  width: 18,
+                                  border: "none",
+                                  background: "transparent",
+                                  color: g.qty <= 1 ? "#ddd" : "#E67E22",
+                                  cursor: g.qty <= 1 ? "not-allowed" : "pointer",
+                                  fontWeight: 800,
+                                  fontSize: 14,
+                                  lineHeight: 1,
+                                  padding: 0,
+                                }}
+                              >
+                                −
+                              </button>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min="1"
+                                value={g.qty}
+                                onChange={e =>
+                                  cambiarQtyGrupo(p.id, g, parseInt(e.target.value) || 1)
+                                }
+                                style={{
+                                  width: 22,
+                                  textAlign: "center",
+                                  border: "none",
+                                  outline: "none",
+                                  fontSize: 13,
+                                  fontWeight: 800,
+                                  color: "#E67E22",
+                                  background: "transparent",
+                                  padding: 0,
+                                }}
+                              />
+                              <button
+                                onClick={() => cambiarQtyGrupo(p.id, g, g.qty + 1)}
+                                title="Sumar uno"
+                                style={{
+                                  width: 18,
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#E67E22",
+                                  cursor: "pointer",
+                                  fontWeight: 800,
+                                  fontSize: 14,
+                                  lineHeight: 1,
+                                  padding: 0,
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => quitarGrupo(p.id, g.ids)}
+                              title="Quitar todo el grupo"
+                              style={{
+                                padding: 0,
+                                border: "none",
+                                background: "none",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                color: "#e0e0e0",
+                                lineHeight: 1,
+                              }}
+                            >
+                              ×
+                            </button>
                           </div>
-                          <button
-                            onClick={() => quitarPrenda(p.id, pr.id)}
-                            disabled={(p.prendas || []).length <= 1}
-                            title={
-                              (p.prendas || []).length <= 1
-                                ? "Mínimo 1 prenda por persona"
-                                : "Quitar prenda"
-                            }
+                          <input
+                            value={g.spec}
+                            onChange={e => editarGrupo(p.id, g.ids, "spec", e.target.value)}
+                            placeholder="Nota / color / detalle (opcional)"
                             style={{
-                              padding: 0,
-                              border: "none",
-                              background: "none",
-                              cursor: (p.prendas || []).length <= 1 ? "not-allowed" : "pointer",
-                              fontSize: 16,
-                              color: "#e0e0e0",
-                              lineHeight: 1,
-                              opacity: (p.prendas || []).length <= 1 ? 0.3 : 1,
+                              ...INP_LP,
+                              fontSize: 11,
+                              padding: "4px 8px",
+                              background: "#fafafa",
+                              color: "#666",
                             }}
-                          >
-                            ×
-                          </button>
+                          />
                         </div>
                       ))}
                     </div>

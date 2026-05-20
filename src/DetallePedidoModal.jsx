@@ -12,6 +12,7 @@ import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
 import { fmt$, resumenTallas } from "./lib/dominio.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { TallasChips } from "./SelectorTallas.jsx";
+import { agruparPrendas } from "./ListaPrendas.jsx";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
@@ -317,30 +318,46 @@ function Personas({ personas }) {
                     ? <span style={{ color: "#bbb" }}>—</span>
                     : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        {p.prendas.map((pr, j) => (
-                          <span key={j} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                            {pr.tipo && <span style={{ color: "#555", fontSize: 11 }}>{pr.tipo}</span>}
-                            {pr.talla && (
-                              <span
-                                style={{
-                                  background: "#1A5276",
-                                  color: "#fff",
-                                  borderRadius: 10,
-                                  padding: "1px 7px",
-                                  fontWeight: 700,
-                                  fontSize: 10,
-                                }}
-                              >
-                                {pr.talla}
-                              </span>
-                            )}
-                            {pr.precio != null && pr.precio !== "" && (
-                              <span style={{ fontSize: 10, color: "#27AE60", fontWeight: 700 }}>
-                                ${parseFloat(pr.precio).toFixed(2)}
-                              </span>
-                            )}
-                          </span>
-                        ))}
+                        {agruparPrendas(p.prendas).map((g, j) => {
+                          const subtotal =
+                            g.precio != null && g.precio !== ""
+                              ? parseFloat(g.precio) * g.qty
+                              : null;
+                          return (
+                            <span key={j} style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                              {g.qty > 1 && (
+                                <span style={{ fontWeight: 800, color: "#E67E22", fontSize: 11 }}>
+                                  {g.qty}×
+                                </span>
+                              )}
+                              {g.tipo && <span style={{ color: "#555", fontSize: 11 }}>{g.tipo}</span>}
+                              {g.talla && (
+                                <span
+                                  style={{
+                                    background: "#1A5276",
+                                    color: "#fff",
+                                    borderRadius: 10,
+                                    padding: "1px 7px",
+                                    fontWeight: 700,
+                                    fontSize: 10,
+                                  }}
+                                >
+                                  {g.talla}
+                                </span>
+                              )}
+                              {subtotal != null && (
+                                <span style={{ fontSize: 10, color: "#27AE60", fontWeight: 700 }}>
+                                  ${subtotal.toFixed(2)}
+                                </span>
+                              )}
+                              {g.spec && (
+                                <span style={{ fontSize: 9, color: "#888", fontStyle: "italic" }}>
+                                  {g.spec}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
                       </div>
                     )
                   }
