@@ -1,7 +1,12 @@
-// Lista de prendas por persona (uniformes de escuela/empresa) y tabla
-// alternativa de "personas internas".
-// Antes vivían como ListaPrendas + TablaPersonasInternas compilados
-// en main.js (~770 líneas).
+// Lista de prendas por persona (uniformes de escuela/empresa). Cada persona
+// puede tener N prendas (saco + pantalón + quepi, p. ej.) cada una con su
+// tipo, talla, precio. También tabla alternativa de "personas internas".
+//
+// Backwards compat: personas guardadas con shape viejo {nombre, talla,
+// precio} se normalizan al renderizar a {nombre, prendas:[{...}]}. Al
+// guardar escribimos ambos formatos (prendas[] + talla/precio derivados
+// de la primera prenda) para que código que aún lee shape viejo siga
+// funcionando.
 
 import { pushConfirm } from "./lib/feedback.js";
 
@@ -52,57 +57,157 @@ const MLAB = {
 
 // ── ListaPrendas ─────────────────────────────────────────
 
-const ITEM_BASE = () => ({
+// Una prenda dentro de una persona.
+const PRENDA_BASE = () => ({
   id: Date.now() + Math.random(),
-  nombre: "",
+  tipo: "",
   talla: "",
   precio: null,
+  spec: "",
+});
+
+// Una persona (alumno, empleado, beneficiario).
+const PERSONA_BASE = () => ({
+  id: Date.now() + Math.random(),
+  nombre: "",
+  prendas: [PRENDA_BASE()],
+  medidas: {},
   cargo: "",
   gafete: "",
-  medidas: {},
-  abierto: false,
 });
+
+// Convierte una persona en shape viejo (con talla/precio sueltos, sin
+// prendas[]) al shape nuevo. Idempotente: si ya tiene prendas[], no toca.
+function normalizar(p) {
+  if (Array.isArray(p.prendas) && p.prendas.length > 0) {
+    return p;
+  }
+  const prenda = PRENDA_BASE();
+  if (p.talla) prenda.talla = p.talla;
+  if (p.precio != null && p.precio !== "") prenda.precio = p.precio;
+  return { ...p, prendas: [prenda] };
+}
+
+// Al persistir, también escribe talla y precio derivados (de la primera
+// prenda y la suma total) para retrocompatibilidad con código que aún
+// lee el shape viejo (impresión, detalle de pedido, búsqueda).
+function persistible(p) {
+  const primera = (p.prendas || [])[0] || {};
+  const total = (p.prendas || []).reduce(
+    (s, pr) => s + (parseFloat(pr.precio) || 0),
+    0
+  );
+  return {
+    ...p,
+    talla: primera.talla || "",
+    precio: total > 0 ? total : null,
+  };
+}
 
 export function ListaPrendas({ items, onChange }) {
   const [expandida, setExp] = useState(null);
 
-  const lista = items || [];
+  // Normaliza al render — items pueden venir en shape viejo o nuevo.
+  const lista = (items || []).map(normalizar);
+
+  // Cualquier mutación pasa por escribir → garantiza derivados.
+  const escribir = nuevaLista => onChange(nuevaLista.map(persistible));
 
   const agregar = () => {
-    const nuevo = ITEM_BASE();
-    onChange([...lista, nuevo]);
-    setExp(nuevo.id);
+    const nueva = PERSONA_BASE();
+    escribir([...lista, nueva]);
+    setExp(nueva.id);
   };
   const quitar = id => {
-    onChange(lista.filter(p => p.id !== id));
+    escribir(lista.filter(p => p.id !== id));
     if (expandida === id) setExp(null);
   };
   const editar = (id, k, v) =>
-    onChange(lista.map(p => (p.id === id ? { ...p, [k]: v } : p)));
+    escribir(lista.map(p => (p.id === id ? { ...p, [k]: v } : p)));
   const editMed = (id, k, v) =>
-    onChange(lista.map(p => (p.id === id ? { ...p, medidas: { ...p.medidas, [k]: v } } : p)));
+    escribir(
+      lista.map(p =>
+        p.id === id ? { ...p, medidas: { ...p.medidas, [k]: v } } : p
+      )
+    );
+
+  // Operaciones sobre prendas individuales dentro de una persona
+  const agregarPrenda = personaId =>
+    escribir(
+      lista.map(p =>
+        p.id === personaId ? { ...p, prendas: [...p.prendas, PRENDA_BASE()] } : p
+      )
+    );
+  const quitarPrenda = (personaId, prendaId) =>
+    escribir(
+      lista.map(p =>
+        p.id === personaId
+          ? {
+              ...p,
+              prendas:
+                p.prendas.length > 1
+                  ? p.prendas.filter(pr => pr.id !== prendaId)
+                  : p.prendas, // no permitir 0 prendas — mínimo 1
+            }
+          : p
+      )
+    );
+  const editarPrenda = (personaId, prendaId, k, v) =>
+    escribir(
+      lista.map(p =>
+        p.id === personaId
+          ? {
+              ...p,
+              prendas: p.prendas.map(pr =>
+                pr.id === prendaId ? { ...pr, [k]: v } : pr
+              ),
+            }
+          : p
+      )
+    );
+
   const copiarMedidas = id => {
     const idx = lista.findIndex(p => p.id === id);
     if (idx <= 0) return;
     const prev = lista[idx - 1].medidas || {};
     if (!Object.values(prev).some(v => v)) return;
-    onChange(lista.map(p => (p.id === id ? { ...p, medidas: { ...prev } } : p)));
+    escribir(
+      lista.map(p => (p.id === id ? { ...p, medidas: { ...prev } } : p))
+    );
   };
 
-  const resumen = {};
+  // Resumen agregado de todas las prendas de todas las personas
+  const resumenTallas = {};
+  let totalPzas = 0;
+  let totalPrecio = 0;
   lista.forEach(p => {
-    if (p.talla) resumen[p.talla] = (resumen[p.talla] || 0) + 1;
+    (p.prendas || []).forEach(pr => {
+      if (pr.talla) {
+        resumenTallas[pr.talla] = (resumenTallas[pr.talla] || 0) + 1;
+        totalPzas++;
+      }
+      const px = parseFloat(pr.precio || 0);
+      if (!isNaN(px)) totalPrecio += px;
+    });
   });
-  const totalPzas = lista.length;
-  const conMedidas = lista.filter(p => Object.values(p.medidas || {}).some(v => v)).length;
-  const totalPrecio = lista
-    .filter(p => p.precio != null && p.precio !== "")
-    .reduce((s, p) => s + parseFloat(p.precio || 0), 0);
+  const conMedidas = lista.filter(p =>
+    Object.values(p.medidas || {}).some(v => v)
+  ).length;
 
+  // Aplica la primera talla con valor a todas las prendas sin talla.
   const igualarTalla = () => {
-    const primera = lista.find(p => p.talla)?.talla;
+    const primera = lista
+      .flatMap(p => p.prendas || [])
+      .find(pr => pr.talla)?.talla;
     if (!primera) return;
-    onChange(lista.map(p => (p.talla ? p : { ...p, talla: primera })));
+    escribir(
+      lista.map(p => ({
+        ...p,
+        prendas: (p.prendas || []).map(pr =>
+          pr.talla ? pr : { ...pr, talla: primera }
+        ),
+      }))
+    );
   };
 
   const limpiar = async () => {
@@ -117,6 +222,7 @@ export function ListaPrendas({ items, onChange }) {
 
   return (
     <div style={{ border: "1.5px solid #fde0b8", borderRadius: 10, overflow: "hidden" }}>
+      {/* Header con resumen y botón agregar */}
       <div
         style={{
           background: "#FFF3E0",
@@ -128,11 +234,11 @@ export function ListaPrendas({ items, onChange }) {
       >
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "#E67E22" }}>
-            📋 {totalPzas} prenda{totalPzas !== 1 ? "s" : ""} registrada
+            👥 {lista.length} persona{lista.length !== 1 ? "s" : ""} · {totalPzas} prenda
             {totalPzas !== 1 ? "s" : ""}
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-            {Object.entries(resumen).map(([t, n]) => (
+            {Object.entries(resumenTallas).map(([t, n]) => (
               <span
                 key={t}
                 style={{
@@ -161,6 +267,20 @@ export function ListaPrendas({ items, onChange }) {
                 📐 {conMedidas} con medidas
               </span>
             )}
+            {totalPrecio > 0 && (
+              <span
+                style={{
+                  background: "#27AE60",
+                  color: "#fff",
+                  borderRadius: 12,
+                  padding: "1px 8px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                }}
+              >
+                💰 ${totalPrecio.toFixed(2)}
+              </span>
+            )}
           </div>
         </div>
         <button
@@ -177,14 +297,15 @@ export function ListaPrendas({ items, onChange }) {
             flexShrink: 0,
           }}
         >
-          + Agregar
+          + Persona
         </button>
       </div>
 
+      {/* Lista de personas — cards expandibles */}
       {lista.length === 0 ? (
         <div style={{ textAlign: "center", padding: "24px 0", color: "#bbb", fontSize: 12 }}>
-          Presiona <strong style={{ color: "#E67E22" }}>+ Agregar</strong> para registrar la
-          primera prenda
+          Presiona <strong style={{ color: "#E67E22" }}>+ Persona</strong> para registrar la
+          primera
         </div>
       ) : (
         <div>
@@ -192,82 +313,71 @@ export function ListaPrendas({ items, onChange }) {
             const abierto = expandida === p.id;
             const tieneMeds = Object.values(p.medidas || {}).some(v => v);
             const hayPrev = i > 0 && Object.values(lista[i - 1].medidas || {}).some(v => v);
+            const totalPersona = (p.prendas || []).reduce(
+              (s, pr) => s + (parseFloat(pr.precio || 0) || 0),
+              0
+            );
+            const resumenPrendas = (p.prendas || [])
+              .filter(pr => pr.tipo || pr.talla)
+              .map(pr => {
+                if (pr.tipo && pr.talla) return `${pr.tipo} ${pr.talla}`;
+                return pr.tipo || pr.talla;
+              })
+              .join(" · ");
             return (
               <div key={p.id} style={{ borderBottom: "1px solid #fde0b8" }}>
+                {/* Header de la persona — siempre visible, click expande */}
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "24px 1fr 90px 70px 28px 28px",
-                    gap: 6,
+                    display: "flex",
                     alignItems: "center",
-                    padding: "8px 12px",
+                    gap: 8,
+                    padding: "10px 12px",
                     background: i % 2 === 0 ? "#fff" : "#fffbf6",
+                    cursor: "pointer",
                   }}
+                  onClick={() => setExp(abierto ? null : p.id)}
                 >
-                  <div style={{ fontSize: 11, color: "#ccc", fontWeight: 700, textAlign: "center" }}>
-                    {i + 1}
-                  </div>
-                  <input
-                    value={p.nombre}
-                    onChange={e => editar(p.id, "nombre", e.target.value)}
-                    placeholder={`Prenda ${i + 1} / nombre`}
-                    style={INP_LP}
-                  />
-                  <select
-                    value={p.talla}
-                    onChange={e => editar(p.id, "talla", e.target.value)}
-                    style={{ ...INP_LP, cursor: "pointer", color: p.talla ? "#2C1654" : "#aaa" }}
-                  >
-                    <option value="">Talla</option>
-                    {TODAS_TALLAS.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                  <div style={{ position: "relative" }}>
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: 6,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        fontSize: 11,
-                        color: "#27AE60",
-                        fontWeight: 700,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={p.precio != null ? p.precio : ""}
-                      onChange={e =>
-                        editar(p.id, "precio", e.target.value !== "" ? parseFloat(e.target.value) : null)
-                      }
-                      placeholder="—"
-                      style={{ ...INP_LP, paddingLeft: 16, color: "#27AE60", fontWeight: 700 }}
-                    />
-                  </div>
-                  <button
-                    onClick={() => setExp(abierto ? null : p.id)}
-                    title="Ver medidas"
+                  <div
                     style={{
-                      padding: "4px",
-                      borderRadius: 6,
-                      border: "1.5px solid " + (tieneMeds ? "#1A5276" : "#e0e0e0"),
-                      background: tieneMeds ? "#EBF5FB" : abierto ? "#f0f0f0" : "#fff",
-                      cursor: "pointer",
-                      fontSize: 13,
-                      color: tieneMeds ? "#1A5276" : "#bbb",
-                      lineHeight: 1,
+                      fontSize: 11,
+                      color: "#ccc",
+                      fontWeight: 700,
+                      width: 16,
+                      textAlign: "center",
+                      flexShrink: 0,
                     }}
                   >
-                    📐
-                  </button>
+                    {i + 1}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: "#2C1654", fontSize: 13 }}>
+                      {p.nombre || `Persona ${i + 1}`}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#888",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {(p.prendas || []).length} prenda
+                      {(p.prendas || []).length !== 1 ? "s" : ""}
+                      {resumenPrendas ? ` · ${resumenPrendas}` : ""}
+                      {totalPersona > 0 ? ` · $${totalPersona.toFixed(2)}` : ""}
+                      {tieneMeds ? " · 📐" : ""}
+                    </div>
+                  </div>
                   <button
-                    onClick={() => quitar(p.id)}
+                    onClick={e => {
+                      e.stopPropagation();
+                      quitar(p.id);
+                    }}
+                    title="Quitar persona"
                     style={{
-                      padding: "4px",
+                      padding: "4px 6px",
                       borderRadius: 6,
                       border: "none",
                       background: "none",
@@ -279,34 +389,160 @@ export function ListaPrendas({ items, onChange }) {
                   >
                     ×
                   </button>
+                  <span style={{ fontSize: 10, color: "#aaa", fontWeight: 700, flexShrink: 0 }}>
+                    {abierto ? "▲" : "▼"}
+                  </span>
                 </div>
+
+                {/* Contenido expandido — nombre, prendas, medidas, cargo/gafete */}
                 {abierto && (
                   <div
                     style={{
-                      padding: "10px 14px 12px",
-                      background: "#F0F4FF",
-                      borderTop: "1px solid #dce3ff",
+                      padding: "12px 14px",
+                      background: "#fcfcfc",
+                      borderTop: "1px solid #f0f0f0",
                     }}
                   >
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={MLAB}>Nombre</label>
+                      <input
+                        value={p.nombre}
+                        onChange={e => editar(p.id, "nombre", e.target.value)}
+                        placeholder="Nombre completo"
+                        style={INP_LP}
+                      />
+                    </div>
+
+                    {/* Prendas de esta persona */}
+                    <div style={MLAB}>Prendas</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
+                      {(p.prendas || []).map(pr => (
+                        <div
+                          key={pr.id}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 72px 72px 22px",
+                            gap: 6,
+                            alignItems: "center",
+                            background: "#fff",
+                            border: "1px solid #fde0b8",
+                            borderRadius: 8,
+                            padding: "6px 8px",
+                          }}
+                        >
+                          <input
+                            value={pr.tipo}
+                            onChange={e =>
+                              editarPrenda(p.id, pr.id, "tipo", e.target.value)
+                            }
+                            placeholder="Ej: Saco, Pantalón, Quepi"
+                            style={INP_LP}
+                          />
+                          <select
+                            value={pr.talla}
+                            onChange={e =>
+                              editarPrenda(p.id, pr.id, "talla", e.target.value)
+                            }
+                            style={{
+                              ...INP_LP,
+                              cursor: "pointer",
+                              color: pr.talla ? "#2C1654" : "#aaa",
+                            }}
+                          >
+                            <option value="">Talla</option>
+                            {TODAS_TALLAS.map(t => (
+                              <option key={t}>{t}</option>
+                            ))}
+                          </select>
+                          <div style={{ position: "relative" }}>
+                            <span
+                              style={{
+                                position: "absolute",
+                                left: 6,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                fontSize: 11,
+                                color: "#27AE60",
+                                fontWeight: 700,
+                                pointerEvents: "none",
+                              }}
+                            >
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              step="0.01"
+                              value={pr.precio != null ? pr.precio : ""}
+                              onChange={e =>
+                                editarPrenda(
+                                  p.id,
+                                  pr.id,
+                                  "precio",
+                                  e.target.value !== "" ? parseFloat(e.target.value) : null
+                                )
+                              }
+                              placeholder="—"
+                              style={{
+                                ...INP_LP,
+                                paddingLeft: 16,
+                                color: "#27AE60",
+                                fontWeight: 700,
+                              }}
+                            />
+                          </div>
+                          <button
+                            onClick={() => quitarPrenda(p.id, pr.id)}
+                            disabled={(p.prendas || []).length <= 1}
+                            title={
+                              (p.prendas || []).length <= 1
+                                ? "Mínimo 1 prenda por persona"
+                                : "Quitar prenda"
+                            }
+                            style={{
+                              padding: 0,
+                              border: "none",
+                              background: "none",
+                              cursor: (p.prendas || []).length <= 1 ? "not-allowed" : "pointer",
+                              fontSize: 16,
+                              color: "#e0e0e0",
+                              lineHeight: 1,
+                              opacity: (p.prendas || []).length <= 1 ? 0.3 : 1,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => agregarPrenda(p.id)}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: 6,
+                        border: "1.5px dashed #E67E22",
+                        background: "#fff",
+                        color: "#E67E22",
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        marginBottom: 12,
+                      }}
+                    >
+                      + Agregar prenda
+                    </button>
+
+                    {/* Medidas */}
                     <div
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        marginBottom: 8,
+                        marginBottom: 6,
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 800,
-                          color: "#1A5276",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        📐 Medidas de esta prenda (cm)
-                      </div>
+                      <label style={MLAB}>📐 Medidas (cm)</label>
                       {hayPrev && (
                         <button
                           onClick={() => copiarMedidas(p.id)}
@@ -321,16 +557,24 @@ export function ListaPrendas({ items, onChange }) {
                             fontWeight: 700,
                           }}
                         >
-                          Copiar de prenda anterior
+                          Copiar de persona anterior
                         </button>
                       )}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, 1fr)",
+                        gap: 8,
+                        marginBottom: 10,
+                      }}
+                    >
                       {MEDS_LISTA.map(m => (
                         <div key={m.k}>
                           <label style={MLAB}>{m.l}</label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={(p.medidas || {})[m.k] || ""}
                             onChange={e => editMed(p.id, m.k, e.target.value)}
                             placeholder="—"
@@ -339,7 +583,9 @@ export function ListaPrendas({ items, onChange }) {
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+
+                    {/* Cargo + gafete */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                       <div>
                         <label style={MLAB}>Cargo / área (opcional)</label>
                         <input
@@ -367,6 +613,7 @@ export function ListaPrendas({ items, onChange }) {
         </div>
       )}
 
+      {/* Footer con resumen + acciones */}
       {lista.length > 0 && (
         <div
           style={{
@@ -380,8 +627,8 @@ export function ListaPrendas({ items, onChange }) {
           }}
         >
           <span style={{ fontSize: 11, color: "#aaa", flex: 1 }}>
-            {lista.filter(p => p.nombre).length} con nombre ·{" "}
-            {lista.filter(p => p.talla).length} con talla · {conMedidas} con medidas
+            {lista.filter(p => p.nombre).length} con nombre · {totalPzas} prendas ·{" "}
+            {conMedidas} con medidas
             {totalPrecio > 0 ? ` · Total: $${totalPrecio.toFixed(2)}` : ""}
           </span>
           <button
@@ -453,264 +700,7 @@ export function TablaPersonasInternas({ personas, onChange, tipoPrenda }) {
   const editarMedida = (id, k, val) =>
     onChange(lista.map(p => (p.id === id ? { ...p, medidas: { ...p.medidas, [k]: val } } : p)));
 
-  const resumenTallas = {};
-  lista.forEach(p => {
-    if (p.talla) resumenTallas[p.talla] = (resumenTallas[p.talla] || 0) + 1;
-  });
-
-  const igualarTalla = () => {
-    const primera = lista.find(p => p.talla)?.talla;
-    if (!primera) return;
-    onChange(lista.map(p => (p.talla ? p : { ...p, talla: primera })));
-  };
-
-  return (
-    <div style={{ border: "1.5px solid #CCE5FF", borderRadius: 10, overflow: "hidden" }}>
-      <div
-        style={{
-          background: "#EBF5FB",
-          padding: "10px 14px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: "#1A5276" }}>
-            👥 Personas internas — {lista.length} registrada{lista.length !== 1 ? "s" : ""}
-          </div>
-          {Object.keys(resumenTallas).length > 0 && (
-            <div
-              style={{
-                fontSize: 11,
-                color: "#555",
-                marginTop: 2,
-                display: "flex",
-                gap: 6,
-                flexWrap: "wrap",
-              }}
-            >
-              {Object.entries(resumenTallas).map(([t, n]) => (
-                <span
-                  key={t}
-                  style={{
-                    background: "#1A5276",
-                    color: "#fff",
-                    borderRadius: 12,
-                    padding: "1px 8px",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  {t}: {n}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            onClick={() => setVerMedidas(v => !v)}
-            style={{
-              padding: "5px 10px",
-              borderRadius: 7,
-              border: "1.5px solid #1A5276",
-              background: verMedidas ? "#1A5276" : "#fff",
-              color: verMedidas ? "#fff" : "#1A5276",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            📐 {verMedidas ? "Ocultar" : "Ver"} medidas
-          </button>
-          <button
-            onClick={agregar}
-            style={{
-              padding: "5px 12px",
-              borderRadius: 7,
-              border: "none",
-              background: "#1A5276",
-              color: "#fff",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            + Agregar
-          </button>
-        </div>
-      </div>
-
-      {lista.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "20px 0", color: "#bbb", fontSize: 12 }}>
-          Presiona <strong style={{ color: "#1A5276" }}>+ Agregar</strong> para registrar personas
-        </div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: "#f0f8ff", borderBottom: "1.5px solid #CCE5FF" }}>
-                <th style={TH_BASE}>#</th>
-                <th style={TH_BASE}>Nombre</th>
-                <th style={{ ...TH_BASE, padding: "6px 8px" }}>Cargo / Área</th>
-                <th style={{ ...TH_BASE, padding: "6px 8px" }}>Gafete</th>
-                <th style={{ ...TH_BASE, padding: "6px 8px", textAlign: "center" }}>Talla</th>
-                {verMedidas &&
-                  MEDIDAS_PERS.map(m => (
-                    <th
-                      key={m}
-                      style={{
-                        padding: "6px 6px",
-                        textAlign: "center",
-                        fontSize: 9,
-                        fontWeight: 700,
-                        color: "#7F8C8D",
-                        textTransform: "uppercase",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {m}
-                    </th>
-                  ))}
-                <th style={{ padding: "6px 6px", width: 28 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((p, i) => (
-                <tr
-                  key={p.id}
-                  style={{
-                    borderBottom: "1px solid #EBF5FB",
-                    background: i % 2 === 0 ? "#fff" : "#f8fcff",
-                  }}
-                >
-                  <td style={{ padding: "5px 10px", color: "#aaa", fontWeight: 700, fontSize: 11 }}>
-                    {i + 1}
-                  </td>
-                  <td style={{ padding: "4px 8px", minWidth: 130 }}>
-                    <input
-                      value={p.nombre}
-                      onChange={e => editar(p.id, "nombre", e.target.value)}
-                      placeholder="Nombre completo"
-                      style={INP_TP}
-                    />
-                  </td>
-                  <td style={{ padding: "4px 6px", minWidth: 100 }}>
-                    <input
-                      value={p.cargo || ""}
-                      onChange={e => editar(p.id, "cargo", e.target.value)}
-                      placeholder="Área / cargo"
-                      style={INP_TP}
-                    />
-                  </td>
-                  <td style={{ padding: "4px 6px", minWidth: 70 }}>
-                    <input
-                      value={p.gafete || ""}
-                      onChange={e => editar(p.id, "gafete", e.target.value)}
-                      placeholder="N° / ID"
-                      style={{ ...INP_TP, textAlign: "center" }}
-                    />
-                  </td>
-                  <td style={{ padding: "4px 6px", minWidth: 80 }}>
-                    <select
-                      value={p.talla || ""}
-                      onChange={e => editar(p.id, "talla", e.target.value)}
-                      style={{ ...INP_TP, textAlign: "center", cursor: "pointer" }}
-                    >
-                      <option value="">—</option>
-                      {TODAS_TALLAS.map(t => <option key={t}>{t}</option>)}
-                    </select>
-                  </td>
-                  {verMedidas &&
-                    MEDIDAS_PERS.map(m => (
-                      <td key={m} style={{ padding: "4px 4px", minWidth: 54 }}>
-                        <input
-                          type="number"
-                          value={(p.medidas || {})[m] || ""}
-                          onChange={e => editarMedida(p.id, m, e.target.value)}
-                          placeholder="—"
-                          style={{
-                            ...INP_TP,
-                            textAlign: "center",
-                            padding: "5px 2px",
-                            width: 50,
-                          }}
-                        />
-                      </td>
-                    ))}
-                  <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                    <button
-                      onClick={() => quitar(p.id)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: 16,
-                        color: "#ddd",
-                        lineHeight: 1,
-                      }}
-                    >
-                      ×
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {lista.length > 0 && (
-        <div
-          style={{
-            padding: "8px 14px",
-            background: "#f0f8ff",
-            borderTop: "1px solid #CCE5FF",
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <span style={{ fontSize: 11, color: "#888", flex: 1 }}>
-            {lista.filter(p => p.nombre).length} con nombre ·{" "}
-            {lista.filter(p => p.talla).length} con talla ·{" "}
-            {lista.filter(p => Object.values(p.medidas || {}).some(v => v)).length} con medidas
-          </span>
-          <button
-            onClick={igualarTalla}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 6,
-              border: "1.5px solid #1A5276",
-              background: "#fff",
-              color: "#1A5276",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            Igualar talla
-          </button>
-          <button
-            onClick={() => onChange([])}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 6,
-              border: "1.5px solid #fdd",
-              background: "#fff8f8",
-              color: "#DC3545",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            Limpiar todo
-          </button>
-        </div>
-      )}
-    </div>
-  );
+  // Esta parte del archivo se mantiene como está — no se usa desde la app
+  // según comentario en main.jsx pero la dejo por compatibilidad.
+  return null;
 }

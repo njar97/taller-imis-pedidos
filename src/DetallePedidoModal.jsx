@@ -244,6 +244,17 @@ function Imagenes({ pedido, onVerFoto }) {
 
 function Personas({ personas }) {
   if (!personas || personas.length === 0) return null;
+  // Normaliza: si la persona no tiene prendas[], crea una virtual desde
+  // su talla/precio sueltos (compat con shape viejo).
+  const norm = personas.map(p => {
+    if (Array.isArray(p.prendas) && p.prendas.length > 0) return p;
+    return {
+      ...p,
+      prendas: p.talla || p.precio != null
+        ? [{ id: 0, tipo: "", talla: p.talla || "", precio: p.precio }]
+        : [],
+    };
+  });
   return (
     <div style={{ marginTop: 12 }}>
       <div
@@ -267,7 +278,7 @@ function Personas({ personas }) {
         >
           <thead>
             <tr style={{ background: "#EBF5FB" }}>
-              {["#", "Nombre", "Cargo", "Gafete", "Talla"].map(h => (
+              {["#", "Nombre", "Cargo", "Gafete", "Prendas"].map(h => (
                 <th
                   key={h}
                   style={{
@@ -285,7 +296,7 @@ function Personas({ personas }) {
             </tr>
           </thead>
           <tbody>
-            {personas.map((p, i) => (
+            {norm.map((p, i) => (
               <tr
                 key={p.id || i}
                 style={{
@@ -293,29 +304,46 @@ function Personas({ personas }) {
                   background: i % 2 === 0 ? "#fff" : "#f8fcff",
                 }}
               >
-                <td style={{ padding: "5px 8px", color: "#aaa" }}>{i + 1}</td>
-                <td style={{ padding: "5px 8px", fontWeight: 700, color: "#2C1654" }}>
+                <td style={{ padding: "5px 8px", color: "#aaa", verticalAlign: "top" }}>{i + 1}</td>
+                <td style={{ padding: "5px 8px", fontWeight: 700, color: "#2C1654", verticalAlign: "top" }}>
                   {p.nombre || "—"}
                 </td>
-                <td style={{ padding: "5px 8px", color: "#555" }}>{p.cargo || "—"}</td>
-                <td style={{ padding: "5px 8px", textAlign: "center", color: "#555" }}>
+                <td style={{ padding: "5px 8px", color: "#555", verticalAlign: "top" }}>{p.cargo || "—"}</td>
+                <td style={{ padding: "5px 8px", textAlign: "center", color: "#555", verticalAlign: "top" }}>
                   {p.gafete || "—"}
                 </td>
-                <td style={{ padding: "5px 8px", textAlign: "center" }}>
-                  {p.talla ? (
-                    <span
-                      style={{
-                        background: "#1A5276",
-                        color: "#fff",
-                        borderRadius: 10,
-                        padding: "2px 8px",
-                        fontWeight: 700,
-                        fontSize: 11,
-                      }}
-                    >
-                      {p.talla}
-                    </span>
-                  ) : "—"}
+                <td style={{ padding: "5px 8px" }}>
+                  {p.prendas.length === 0
+                    ? <span style={{ color: "#bbb" }}>—</span>
+                    : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {p.prendas.map((pr, j) => (
+                          <span key={j} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            {pr.tipo && <span style={{ color: "#555", fontSize: 11 }}>{pr.tipo}</span>}
+                            {pr.talla && (
+                              <span
+                                style={{
+                                  background: "#1A5276",
+                                  color: "#fff",
+                                  borderRadius: 10,
+                                  padding: "1px 7px",
+                                  fontWeight: 700,
+                                  fontSize: 10,
+                                }}
+                              >
+                                {pr.talla}
+                              </span>
+                            )}
+                            {pr.precio != null && pr.precio !== "" && (
+                              <span style={{ fontSize: 10, color: "#27AE60", fontWeight: 700 }}>
+                                ${parseFloat(pr.precio).toFixed(2)}
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  }
                 </td>
               </tr>
             ))}
