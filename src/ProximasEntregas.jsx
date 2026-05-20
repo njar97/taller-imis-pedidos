@@ -56,7 +56,7 @@ export default function ProximasEntregas({ pedidos, diasPara, esAdmin, onVer, on
           alignItems: "center",
         }}
       >
-        <div style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>📅 Próximas entregas</div>
+        <div style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>📌 Próximas entregas</div>
         <div style={{ color: "#9B59B6", fontSize: 11, fontWeight: 700 }}>
           {proximos.length} pedido{proximos.length !== 1 ? "s" : ""} pendiente
           {proximos.length !== 1 ? "s" : ""}

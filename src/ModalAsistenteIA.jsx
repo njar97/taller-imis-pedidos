@@ -244,7 +244,7 @@ Cuando generes el JSON, responde ÚNICAMENTE con esto, sin texto antes ni despu�
     ["📦 Tallas", pedidoFinal?.tallasLibre],
     ["📝 Descripción", pedidoFinal?.descripcion],
     ["🪡 Bordado", pedidoFinal?.tieneBordado ? "Sí" : "No"],
-    ["📅 Entrega", pedidoFinal?.fechaEntrega],
+    ["📌 Entrega", pedidoFinal?.fechaEntrega],
     ["✂️ Costurera", pedidoFinal?.costurera],
     esAdmin && ["💰 Precio", pedidoFinal?.precio ? `$${pedidoFinal.precio}` : "—"],
     esAdmin && ["💵 Adelanto recibido", pedidoFinal?.anticipo ? `$${pedidoFinal.anticipo}` : "—"],

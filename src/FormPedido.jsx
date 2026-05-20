@@ -682,7 +682,7 @@ export default function FormPedido({
       </SeccionOpcional>
 
       {/* ── Fecha entrega ───────────────────────────── */}
-      <SeccionOpcional id="sec-fecha" titulo="Fecha de entrega" icon="📅" color="#27AE60" defaultOpen={llenoFecha} textoCerrado={validez.fechaEntrega ? "▼" : "▼ Llenar"}>
+      <SeccionOpcional id="sec-fecha" titulo="Fecha de entrega" icon="📌" color="#27AE60" defaultOpen={llenoFecha} textoCerrado={validez.fechaEntrega ? "▼" : "▼ Llenar"}>
       <FechasRapidas onChange={v => s("fechaEntrega", v)} />
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <input

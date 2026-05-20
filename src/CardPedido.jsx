@@ -174,7 +174,7 @@ export default function CardPedido({
               fontWeight: urgent ? 700 : 400,
             }}
           >
-            {urgent ? "⚠️ " : "📅 "}
+            {urgent ? "⚠️ " : "📌 "}
             {p.fechaEntrega}
           </span>
           {dias !== null && !["Entregado", "Cancelado"].includes(p.estatus) && (

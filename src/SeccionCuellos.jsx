@@ -794,7 +794,7 @@ function CardsCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambia
             {cu.fechaEntrega && (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, color: urg ? "#E63946" : "#555", fontWeight: urg ? 700 : 400 }}>
-                  {urg ? "⚠️ " : "📅 "}{cu.fechaEntrega}
+                  {urg ? "⚠️ " : "📌 "}{cu.fechaEntrega}
                 </span>
                 {dias !== null && !["Entregado", "Cancelado"].includes(cu.estatus) && (
                   <span style={{
