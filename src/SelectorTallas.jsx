@@ -25,6 +25,142 @@ function ordenarTallas(items) {
   return [...(items || [])].sort((a, b) => rankTalla(a.talla) - rankTalla(b.talla));
 }
 
+// Vista "resumen del pedido" en chips grandes — decorativa, complementa la
+// tabla interactiva de arriba. Antes vivía inline en SelectorTallas con
+// ~150 líneas de estilos.
+function ResumenTallas({ lista, totalPzas, totalMonto }) {
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        background: "#FFFBF6",
+        border: "1px solid #fde0b8",
+        borderRadius: 10,
+        padding: "10px 12px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 10,
+          paddingBottom: 8,
+          borderBottom: "1px solid #fde0b8",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 800,
+            color: "#aaa",
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}
+        >
+          Resumen del pedido
+        </span>
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: "#2C1654", lineHeight: 1 }}>
+              {totalPzas}
+            </div>
+            <div style={{ fontSize: 9, color: "#aaa", fontWeight: 700, textTransform: "uppercase" }}>
+              prendas
+            </div>
+          </div>
+          {totalMonto != null && (
+            <div style={{ textAlign: "center", borderLeft: "1px solid #fde0b8", paddingLeft: 12 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: "#27AE60", lineHeight: 1 }}>
+                ${totalMonto.toFixed(2)}
+              </div>
+              <div style={{ fontSize: 9, color: "#aaa", fontWeight: 700, textTransform: "uppercase" }}>
+                total tallas
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+        {lista.map(it => {
+          const tieneP =
+            it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0;
+          const sub = tieneP ? parseFloat(it.precio) * it.qty : null;
+          return (
+            <div
+              key={it.id}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                background: "#fff",
+                border: "1.5px solid #fde0b8",
+                borderRadius: 10,
+                padding: "8px 10px",
+                minWidth: 64,
+                maxWidth: 90,
+                textAlign: "center",
+                gap: 3,
+              }}
+            >
+              <div
+                style={{
+                  background: "#E67E22",
+                  color: "#fff",
+                  borderRadius: 7,
+                  padding: "3px 8px",
+                  fontSize: 15,
+                  fontWeight: 900,
+                  lineHeight: 1.2,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {it.talla}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#2C1654", marginTop: 2 }}>
+                {it.qty} {it.qty === 1 ? "prenda" : "prendas"}
+              </div>
+              {tieneP && (
+                <div style={{ fontSize: 10, color: "#27AE60", fontWeight: 700 }}>
+                  ${parseFloat(it.precio).toFixed(2)} c/u
+                </div>
+              )}
+              {sub != null && (
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#27AE60",
+                    fontWeight: 800,
+                    background: "#f0fff4",
+                    borderRadius: 5,
+                    padding: "1px 6px",
+                  }}
+                >
+                  = ${sub.toFixed(2)}
+                </div>
+              )}
+              {it.spec && (
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "#888",
+                    marginTop: 1,
+                    lineHeight: 1.3,
+                    maxWidth: 80,
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {it.spec}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── SelectorTallas ───────────────────────────────────────
 
 export function SelectorTallas({ items, onChange, esAdmin }) {
@@ -179,6 +315,7 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
               </div>
               <input
                 type="number"
+                inputMode="numeric"
                 min="1"
                 max="999"
                 value={qty}
@@ -212,6 +349,7 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
               </div>
               <input
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 value={precio}
@@ -363,6 +501,7 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
                     </div>
                     <input
                       type="number"
+                      inputMode="numeric"
                       min="1"
                       max="999"
                       value={it.qty}
@@ -398,6 +537,7 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
                       </span>
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0"
                         step="0.01"
                         value={it.precio != null ? it.precio : ""}
@@ -474,159 +614,7 @@ export function SelectorTallas({ items, onChange, esAdmin }) {
               })}
             </div>
 
-            <div
-              style={{
-                marginTop: 10,
-                background: "#FFFBF6",
-                border: "1px solid #fde0b8",
-                borderRadius: 10,
-                padding: "10px 12px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 10,
-                  paddingBottom: 8,
-                  borderBottom: "1px solid #fde0b8",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: "#aaa",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  Resumen del pedido
-                </span>
-                <div style={{ display: "flex", gap: 12 }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: "#2C1654", lineHeight: 1 }}>
-                      {totalPzas}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 9,
-                        color: "#aaa",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      prendas
-                    </div>
-                  </div>
-                  {totalMonto != null && (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        borderLeft: "1px solid #fde0b8",
-                        paddingLeft: 12,
-                      }}
-                    >
-                      <div
-                        style={{ fontSize: 16, fontWeight: 900, color: "#27AE60", lineHeight: 1 }}
-                      >
-                        ${totalMonto.toFixed(2)}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 9,
-                          color: "#aaa",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        total tallas
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                {lista.map(it => {
-                  const sub =
-                    it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0
-                      ? parseFloat(it.precio) * it.qty
-                      : null;
-                  return (
-                    <div
-                      key={it.id}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        background: "#fff",
-                        border: "1.5px solid #fde0b8",
-                        borderRadius: 10,
-                        padding: "8px 10px",
-                        minWidth: 64,
-                        maxWidth: 90,
-                        textAlign: "center",
-                        gap: 3,
-                      }}
-                    >
-                      <div
-                        style={{
-                          background: "#E67E22",
-                          color: "#fff",
-                          borderRadius: 7,
-                          padding: "3px 8px",
-                          fontSize: 15,
-                          fontWeight: 900,
-                          lineHeight: 1.2,
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        {it.talla}
-                      </div>
-                      <div
-                        style={{ fontSize: 11, fontWeight: 800, color: "#2C1654", marginTop: 2 }}
-                      >
-                        {it.qty} {it.qty === 1 ? "prenda" : "prendas"}
-                      </div>
-                      {it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0 && (
-                        <div style={{ fontSize: 10, color: "#27AE60", fontWeight: 700 }}>
-                          ${parseFloat(it.precio).toFixed(2)} c/u
-                        </div>
-                      )}
-                      {sub != null && (
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "#27AE60",
-                            fontWeight: 800,
-                            background: "#f0fff4",
-                            borderRadius: 5,
-                            padding: "1px 6px",
-                          }}
-                        >
-                          = ${sub.toFixed(2)}
-                        </div>
-                      )}
-                      {it.spec && (
-                        <div
-                          style={{
-                            fontSize: 9,
-                            color: "#888",
-                            marginTop: 1,
-                            lineHeight: 1.3,
-                            maxWidth: 80,
-                            overflowWrap: "break-word",
-                          }}
-                        >
-                          {it.spec}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <ResumenTallas lista={lista} totalPzas={totalPzas} totalMonto={totalMonto} />
           </div>
         )}
 

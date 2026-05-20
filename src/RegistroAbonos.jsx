@@ -159,6 +159,7 @@ export default function RegistroAbonos({ abonos, precioTotal, onChange, esAdmin 
               <div style={LBL_GREEN}>Monto recibido ($)</div>
               <input
                 type="number"
+                inputMode="decimal"
                 min="0"
                 step="0.01"
                 value={monto}

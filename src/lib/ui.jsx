@@ -21,6 +21,18 @@ const SEC = (c = "#9B59B6") => ({
   paddingBottom: 3,
 });
 
+// Spread de estilo común de botón-chip: borde / fondo / color / weight
+// según si está seleccionado. Cada call-site agrega su padding/borderRadius
+// y eventuales detalles propios.
+export function chipActiveStyle(activo, color = "#9B59B6") {
+  return {
+    border: "1.5px solid " + (activo ? color : "#e0e0e0"),
+    background: activo ? color : "#fff",
+    color: activo ? "#fff" : "#666",
+    fontWeight: activo ? 700 : 400,
+  };
+}
+
 // ── Toaster ───────────────────────────────────────────────
 
 function useToasts() {
