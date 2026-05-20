@@ -4,7 +4,7 @@
 
 import { COLABORADORAS, ESTATUS, TIPO_DOC } from "./lib/constants.js";
 import { PEDIDO_BASE, fmt$, medInit } from "./lib/dominio.js";
-import { pushToast } from "./lib/feedback.js";
+import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { CATALOGO_BASE } from "./lib/catalogoBase.js";
 import {
@@ -20,7 +20,7 @@ import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
 import FormNav from "./FormNav.jsx";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
 // Estilos (duplicados de main.js para no acoplar). Compactados para
 // reducir altura del formulario en móvil.
@@ -76,11 +76,6 @@ const TIPOS_CLIENTE = [
   ["persona", "👤 Persona"],
   ["empresa", "🏢 Empresa"],
   ["escuela", "🏫 Escuela/Inst."],
-];
-
-const MODOS_REGISTRO = [
-  ["tallas", "📦 Por tallas", "S, M, L... con cantidades"],
-  ["lista", "📋 Lista de prendas", "Por nombre con medidas opcionales"],
 ];
 
 export default function FormPedido({
@@ -291,8 +286,50 @@ export default function FormPedido({
       pushToast("Falta la fecha de entrega", "error");
       return;
     }
+    // Sanidad de fechas — avisa pero no bloquea (puede haber casos legítimos
+    // de fechas atrasadas, ej. registrar un pedido viejo).
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    if (f.fechaEntrega < hoyStr) {
+      pushToast("⚠️ La fecha de entrega ya pasó — revisá si es correcto", "info");
+    }
+    if (f.fechaInicio && f.fechaInicio > f.fechaEntrega) {
+      pushToast("⚠️ La fecha de inicio es posterior a la de entrega", "info");
+    }
     limpiarBorrador();
-    onSave(f);
+    // Strip claves con prefijo _ (state local del banner de medidas) que
+    // no deben persistirse al servidor.
+    const limpio = Object.fromEntries(
+      Object.entries(f).filter(([k]) => !k.startsWith("_"))
+    );
+    onSave(limpio);
+  };
+
+  // Snapshot del estado inicial para detectar cambios al cancelar.
+  // Se captura una vez al montar.
+  const snapshotInicial = useRef(null);
+  useEffect(() => {
+    if (snapshotInicial.current === null) {
+      snapshotInicial.current = JSON.stringify(
+        Object.fromEntries(Object.entries(f).filter(([k]) => !k.startsWith("_")))
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCancelar = async () => {
+    const actual = JSON.stringify(
+      Object.fromEntries(Object.entries(f).filter(([k]) => !k.startsWith("_")))
+    );
+    if (snapshotInicial.current !== null && snapshotInicial.current !== actual) {
+      const ok = await pushConfirm({
+        titulo: "Descartar cambios",
+        msg: "Tenés cambios sin guardar. ¿Salir igual?",
+        okLabel: "Salir sin guardar",
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    limpiarBorrador();
+    onCancel();
   };
 
   const handlePersonas = v => {
@@ -902,7 +939,23 @@ export default function FormPedido({
           <select
             style={{ ...INP, marginBottom: 10 }}
             value={f.tipoDocumento}
-            onChange={e => s("tipoDocumento", e.target.value)}
+            onChange={e => {
+              const v = e.target.value;
+              if (v === "Consumidor Final") {
+                // Volver a CF limpia los datos fiscales para no enviar
+                // basura al servidor (NIT/NRC del cambio anterior).
+                setF(p => ({
+                  ...p,
+                  tipoDocumento: v,
+                  nit: "",
+                  nrc: "",
+                  razonSocial: "",
+                  dirFiscal: "",
+                }));
+              } else {
+                s("tipoDocumento", v);
+              }
+            }}
           >
             {TIPO_DOC.map(t => <option key={t}>{t}</option>)}
           </select>
@@ -971,17 +1024,11 @@ export default function FormPedido({
 
       {/* ── Acciones ────────────────────────────────── */}
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 22 }}>
-        <button
-          onClick={() => {
-            limpiarBorrador();
-            onCancel();
-          }}
-          style={BTN("#aaa")}
-        >
+        <button onClick={handleCancelar} style={BTN("#aaa")}>
           Cancelar
         </button>
         <button onClick={handleGuardar} style={BTN("#9B59B6")}>
-          💾 Guardar pedido
+          {initial ? "💾 Guardar cambios" : "💾 Crear pedido"}
         </button>
       </div>
     </div>
