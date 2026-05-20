@@ -536,13 +536,21 @@ export function FechasRapidas({ onChange }) {
 
 // ── SeccionOpcional ───────────────────────────────────────
 
-export function SeccionOpcional({ titulo, icon, color = "#888", children, id }) {
-  const [open, setOpen] = useState(false);
+export function SeccionOpcional({
+  titulo,
+  icon,
+  color = "#888",
+  children,
+  id,
+  defaultOpen = false,
+  textoCerrado = "▼ Agregar",
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div
       id={id}
       style={{
-        border: "1.5px solid #f0f0f0",
+        border: "1.5px solid " + (open ? color + "40" : "#f0f0f0"),
         borderRadius: 10,
         overflow: "hidden",
         marginBottom: 8,
@@ -561,6 +569,7 @@ export function SeccionOpcional({ titulo, icon, color = "#888", children, id }) 
           alignItems: "center",
           gap: 8,
           textAlign: "left",
+          fontFamily: "inherit",
         }}
       >
         <span style={{ fontSize: 16 }}>{icon}</span>
@@ -568,7 +577,7 @@ export function SeccionOpcional({ titulo, icon, color = "#888", children, id }) 
           {titulo}
         </span>
         <span style={{ fontSize: 12, color: "#ccc", fontWeight: 700 }}>
-          {open ? "▲" : "▼ Agregar"}
+          {open ? "▲" : textoCerrado}
         </span>
       </button>
       {open && (

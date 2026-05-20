@@ -148,6 +148,21 @@ export default function FormPedido({
     fechaEntrega: !!f.fechaEntrega,
   };
 
+  // ¿Tiene contenido cada sección? Si sí, arranca abierta (al editar un
+  // pedido existente). Si es nuevo, todas cerradas → form se ve compacto.
+  const llenoCliente   = !!(f.cliente || "").trim();
+  const llenoPrenda    = !!(f.tipoPrenda || "").trim();
+  const llenoTallas    = tieneCantidad;
+  const llenoTela      = !!(f.tela || "").trim() || !!(f.color || "").trim();
+  const llenoFecha     = !!f.fechaEntrega;
+  const llenoCosturera = !!f.costurera && f.costurera !== "(Sin asignar)";
+  const llenoDesc      = !!(f.descripcion || "").trim() || !!f.tieneBordado;
+  const llenoPrecio    = !!String(f.precio || "").trim() || !!String(f.anticipo || "").trim() || (f.abonos || []).length > 0;
+  const llenoFactura   = (f.tipoDocumento && f.tipoDocumento !== "Consumidor Final")
+                      || !!(f.nit || "").trim() || !!(f.nrc || "").trim();
+  const llenoObs       = !!(f.notas || "").trim() || !!(f.vendedor || "").trim();
+  const llenoFotos     = (f.imagenes || []).length > 0;
+
   useEffect(() => {
     if (initial || !DRAFT_KEY) return;
     try {
@@ -304,7 +319,7 @@ export default function FormPedido({
     <div>
       <FormNav erroresIds={erroresIds} />
       {/* ── Cliente ─────────────────────────────────── */}
-      <div id="sec-cliente" style={{ ...SEC("#2C1654"), scrollMarginTop: 80 }}>👤 Cliente</div>
+      <SeccionOpcional id="sec-cliente" titulo="Cliente" icon="👤" color="#2C1654" defaultOpen={llenoCliente} textoCerrado={validez.cliente ? "▼" : "▼ Llenar"}>
       <div style={{ position: "relative", marginBottom: 10 }}>
         <input
           style={INP}
@@ -407,8 +422,10 @@ export default function FormPedido({
         />
       )}
 
+      </SeccionOpcional>
+
       {/* ── Prenda ──────────────────────────────────── */}
-      <div id="sec-prenda" style={{ ...SEC("#9B59B6"), scrollMarginTop: 80 }}>✂️ Prenda</div>
+      <SeccionOpcional id="sec-prenda" titulo="Prenda" icon="✂️" color="#9B59B6" defaultOpen={llenoPrenda} textoCerrado={validez.tipoPrenda ? "▼" : "▼ Llenar"}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
         {catlist
           .filter(p => p.nombre !== "Bordado independiente")
@@ -481,8 +498,10 @@ export default function FormPedido({
         </div>
       )}
 
+      </SeccionOpcional>
+
       {/* ── Tallas / Lista ──────────────────────────── */}
-      <div id="sec-tallas" style={{ ...SEC("#E67E22"), scrollMarginTop: 80 }}>👕 Tallas y cantidades</div>
+      <SeccionOpcional id="sec-tallas" titulo="Tallas y cantidades" icon="👕" color="#E67E22" defaultOpen={llenoTallas} textoCerrado={validez.cantidad ? "▼" : "▼ Llenar"}>
       <div
         style={{
           display: "flex",
@@ -529,8 +548,10 @@ export default function FormPedido({
         <ListaPrendas items={f.personas || []} onChange={handlePersonas} />
       )}
 
+      </SeccionOpcional>
+
       {/* ── Tela y color ────────────────────────────── */}
-      <div id="sec-tela" style={{ ...SEC("#1A5276"), scrollMarginTop: 80 }}>🧵 Tela y color</div>
+      <SeccionOpcional id="sec-tela" titulo="Tela y color" icon="🧵" color="#1A5276" defaultOpen={llenoTela}>
       <div style={{ marginBottom: 6 }}>
         <div
           style={{
@@ -581,8 +602,10 @@ export default function FormPedido({
         )}
       </div>
 
+      </SeccionOpcional>
+
       {/* ── Fecha entrega ───────────────────────────── */}
-      <div id="sec-fecha" style={{ ...SEC("#27AE60"), scrollMarginTop: 80 }}>📅 Fecha de entrega</div>
+      <SeccionOpcional id="sec-fecha" titulo="Fecha de entrega" icon="📅" color="#27AE60" defaultOpen={llenoFecha} textoCerrado={validez.fechaEntrega ? "▼" : "▼ Llenar"}>
       <FechasRapidas onChange={v => s("fechaEntrega", v)} />
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <input
@@ -609,8 +632,10 @@ export default function FormPedido({
         )}
       </div>
 
+      </SeccionOpcional>
+
       {/* ── Costurera ───────────────────────────────── */}
-      <div id="sec-costurera" style={{ ...SEC("#007BFF"), scrollMarginTop: 80 }}>✂️ Costurera</div>
+      <SeccionOpcional id="sec-costurera" titulo="Costurera" icon="✂️" color="#007BFF" defaultOpen={llenoCosturera} textoCerrado="▼">
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
         {COLABORADORAS.map(c => (
           <button
@@ -631,6 +656,8 @@ export default function FormPedido({
           </button>
         ))}
       </div>
+
+      </SeccionOpcional>
 
       {/* ── Banner medidas guardadas ────────────────── */}
       {!f._medCliente && tieneMedsCliente && (
@@ -673,7 +700,7 @@ export default function FormPedido({
         Detalles adicionales (opcional)
       </div>
 
-      <SeccionOpcional id="sec-desc" titulo="Descripción y bordado" icon="📝" color="#9B59B6">
+      <SeccionOpcional id="sec-desc" titulo="Descripción y bordado" icon="📝" color="#9B59B6" defaultOpen={llenoDesc}>
         <textarea
           style={{ ...INP, resize: "vertical", minHeight: 60, marginBottom: 8 }}
           value={f.descripcion}
@@ -734,6 +761,7 @@ export default function FormPedido({
           }
           icon="💰"
           color="#27AE60"
+          defaultOpen={llenoPrecio}
         >
           {totalTallasAuto > 0 && (
             <div
@@ -870,7 +898,7 @@ export default function FormPedido({
 
       {/* ── Facturación (admin) ─────────────────────── */}
       {esAdmin && (
-        <SeccionOpcional id="sec-factura" titulo="Facturación / Crédito fiscal" icon="🧾" color="#E67E22">
+        <SeccionOpcional id="sec-factura" titulo="Facturación / Crédito fiscal" icon="🧾" color="#E67E22" defaultOpen={llenoFactura}>
           <select
             style={{ ...INP, marginBottom: 10 }}
             value={f.tipoDocumento}
@@ -910,7 +938,7 @@ export default function FormPedido({
       )}
 
       {/* ── Observaciones y fotos ───────────────────── */}
-      <SeccionOpcional id="sec-obs" titulo="Observaciones y vendedor" icon="📌" color="#888">
+      <SeccionOpcional id="sec-obs" titulo="Observaciones y vendedor" icon="📌" color="#888" defaultOpen={llenoObs}>
         <textarea
           style={{ ...INP, resize: "vertical", minHeight: 50, marginBottom: 8 }}
           value={f.notas}
@@ -925,7 +953,7 @@ export default function FormPedido({
         />
       </SeccionOpcional>
 
-      <SeccionOpcional id="sec-fotos" titulo="Fotos de referencia" icon="📸" color="#E91E8C">
+      <SeccionOpcional id="sec-fotos" titulo="Fotos de referencia" icon="📸" color="#E91E8C" defaultOpen={llenoFotos}>
         <UploaderImagenes imagenes={f.imagenes} onChange={imgs => s("imagenes", imgs)} />
       </SeccionOpcional>
 
