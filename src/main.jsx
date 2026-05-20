@@ -874,6 +874,7 @@ function App() {
   const [progreso, setProgreso] = useState(null);
   const [errorFotos, setErrorFotos] = useState([]);
   const [visor, setVisor] = useState(null); // {imgs:[], idx:0}
+  const [seedDuplicar, setSeedDuplicar] = useState(null); // semilla para "Crear similar"
   const [modalIA, setModalIA] = useState(false);
   const [modalArchivar, setModalArchivar] = useState(null);
   const [modalActMedidas, setModalActMedidas] = useState(null);
@@ -1592,9 +1593,10 @@ function App() {
             </button>
           )}
           <FormPedido
-            initial={modal !== "nuevo" ? modal : null}
-            onSave={guardarPedido}
-            onCancel={() => setModal(null)}
+            key={modal === "nuevo" && seedDuplicar ? `seed-${seedDuplicar.cliente}-${Date.now()}` : (modal === "nuevo" ? "nuevo" : modal && modal.id) || "blank"}
+            initial={modal !== "nuevo" ? modal : seedDuplicar}
+            onSave={f => { setSeedDuplicar(null); guardarPedido(f); }}
+            onCancel={() => { setSeedDuplicar(null); setModal(null); }}
             rol={rol}
             pedidosExistentes={pedidos}
             clientes={clientes}
@@ -1693,6 +1695,32 @@ function App() {
           onAbrirEdicion={() => {
             setModal(detalle);
             setDet(null);
+          }}
+          onCrearSimilar={() => {
+            // Copia el pedido como semilla del form, sin id/fechas/abonos/
+            // imágenes/estado/anticipo. El user solo ajusta lo que cambia
+            // (típicamente fecha de entrega y cantidades) y guarda.
+            const {
+              id: _id,
+              fecha: _f,
+              fechaInicio: _fi,
+              fechaEntrega: _fe,
+              abonos: _a,
+              anticipo: _an,
+              imagenes: _im,
+              estatus: _e,
+              dias: _d,
+              costurera: _c,
+              ...resto
+            } = detalle;
+            setSeedDuplicar({
+              ...resto,
+              abonos: [],
+              imagenes: [],
+              costurera: "(Sin asignar)",
+            });
+            setDet(null);
+            setModal("nuevo");
           }}
         />
       )}
