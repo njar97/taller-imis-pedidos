@@ -233,7 +233,10 @@ installGlobalErrorHandlers();
 // persona con sus prendas agrupadas (3× Pantalón 32 — $69, etc.) y un
 // subtotal por persona. Devuelve "" si el pedido no tiene personas con
 // prendas (ej. pedido en modo "Por tallas" agregadas).
-function tablaPorPersonaHTML(p, color = "#1A5276") {
+//
+// `mostrarPrecios`: si false (operario), oculta columna Subtotal y los
+// montos por línea — el operario no necesita ver $ para confeccionar.
+function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false) {
   const personasConPrendas = (p.personas || []).filter(per =>
     Array.isArray(per.prendas) &&
     per.prendas.some(pr => pr.tipo || pr.talla)
@@ -253,7 +256,7 @@ function tablaPorPersonaHTML(p, color = "#1A5276") {
       .map(g => {
         const label = [g.tipo, g.talla].filter(Boolean).join(" ");
         const tieneP = g.precio != null && g.precio !== "" && parseFloat(g.precio) > 0;
-        const sub = tieneP ? parseFloat(g.precio) * g.qty : null;
+        const sub = mostrarPrecios && tieneP ? parseFloat(g.precio) * g.qty : null;
         return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;">
           <span><strong style="color:${color};">${g.qty}×</strong> ${label}${g.spec ? ` <span style="color:#888;font-size:11px;">(${g.spec})</span>` : ""}</span>
           ${sub != null ? `<span style="color:#27AE60;font-weight:700;white-space:nowrap;">$${sub.toFixed(2)}</span>` : ""}
@@ -269,23 +272,28 @@ function tablaPorPersonaHTML(p, color = "#1A5276") {
         ${cargo}
       </td>
       <td style="padding:8px 10px;vertical-align:top;font-size:12px;">${lineas}</td>
-      <td style="padding:8px 10px;vertical-align:top;text-align:right;font-weight:800;color:${color};white-space:nowrap;">${subtotal > 0 ? "$" + subtotal.toFixed(2) : "—"}</td>
+      ${mostrarPrecios ? `<td style="padding:8px 10px;vertical-align:top;text-align:right;font-weight:800;color:${color};white-space:nowrap;">${subtotal > 0 ? "$" + subtotal.toFixed(2) : "—"}</td>` : ""}
     </tr>`;
   }).join("");
 
-  return `
-    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;border:1px solid #eee;border-radius:10px;overflow:hidden;">
-      <thead><tr style="background:${color};color:#fff;">
-        <th style="padding:7px 10px;text-align:left;width:24px;">#</th>
-        <th style="padding:7px 10px;text-align:left;">Persona</th>
-        <th style="padding:7px 10px;text-align:left;">Prendas</th>
-        <th style="padding:7px 10px;text-align:right;width:90px;">Subtotal</th>
-      </tr></thead>
-      <tbody>${filas}</tbody>
-      ${totalPedido > 0 ? `<tfoot><tr style="background:#f0f0f0;font-weight:800;border-top:2px solid ${color};">
+  const colsHeader = `
+    <th style="padding:7px 10px;text-align:left;width:24px;">#</th>
+    <th style="padding:7px 10px;text-align:left;">Persona</th>
+    <th style="padding:7px 10px;text-align:left;">Prendas</th>
+    ${mostrarPrecios ? `<th style="padding:7px 10px;text-align:right;width:90px;">Subtotal</th>` : ""}
+  `;
+  const totalRow = mostrarPrecios && totalPedido > 0
+    ? `<tfoot><tr style="background:#f0f0f0;font-weight:800;border-top:2px solid ${color};">
         <td colspan="3" style="padding:8px 10px;color:${color};">TOTAL</td>
         <td style="padding:8px 10px;text-align:right;font-size:15px;color:${color};">$${totalPedido.toFixed(2)}</td>
-      </tr></tfoot>` : ""}
+      </tr></tfoot>`
+    : "";
+
+  return `
+    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;border:1px solid #eee;border-radius:10px;overflow:hidden;">
+      <thead><tr style="background:${color};color:#fff;">${colsHeader}</tr></thead>
+      <tbody>${filas}</tbody>
+      ${totalRow}
     </table>`;
 }
 
@@ -389,7 +397,7 @@ function imprimirRecibo(p) {
     <div style="font-size:16px;font-weight:800;color:#2C1654;margin-bottom:6px;">✂️ ${p.tipoPrenda || "(sin especificar)"}</div>
     ${p.tela || p.color ? `<div style="font-size:13px;color:#555;margin-bottom:4px;">🧵 ${[p.tela, p.color].filter(Boolean).join(" — ")}</div>` : ""}
     ${p.descripcion ? `<div style="font-size:12px;color:#666;margin-top:6px;padding:8px 10px;background:#fff;border-radius:6px;border-left:3px solid #9B59B6;">${p.descripcion}</div>` : ""}
-    ${tablaPorPersonaHTML(p, "#2C1654") || itemsHTML}
+    ${tablaPorPersonaHTML(p, "#2C1654", true) || itemsHTML}
   </div>
 
   <!-- PAGO -->
@@ -581,7 +589,7 @@ function imprimirProduccion(p) {
 
   <!-- TALLAS Y CANTIDADES -->
   <div class="sec" style="color:#E67E22;">📦 Tallas y cantidades a confeccionar</div>
-  ${tablaPorPersonaHTML(p, "#E67E22") || itemsHTML}
+  ${tablaPorPersonaHTML(p, "#E67E22", false) || itemsHTML}
 
   <!-- DESCRIPCIÓN E INSTRUCCIONES -->
   ${p.descripcion ? `

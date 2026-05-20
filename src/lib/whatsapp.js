@@ -6,7 +6,8 @@ import { resumenTallas } from "./dominio.js";
 import { agruparPrendas } from "../ListaPrendas.jsx";
 
 // Agrupa las prendas de una persona y devuelve un bloque de texto multi-línea.
-function bloqueDePersona(per) {
+// `mostrarPrecios` oculta subtotales para vistas no-admin (operarios).
+function bloqueDePersona(per, mostrarPrecios = false) {
   const grupos = agruparPrendas(per.prendas);
   if (!grupos.length) return "";
   const lineas = grupos
@@ -14,7 +15,10 @@ function bloqueDePersona(per) {
     .map(g => {
       const label = [g.tipo, g.talla].filter(Boolean).join(" ");
       const sub =
-        g.precio != null && g.precio !== "" && parseFloat(g.precio) > 0
+        mostrarPrecios &&
+        g.precio != null &&
+        g.precio !== "" &&
+        parseFloat(g.precio) > 0
           ? ` — $${(parseFloat(g.precio) * g.qty).toFixed(2)}`
           : "";
       const nota = g.spec ? ` (${g.spec})` : "";
@@ -24,7 +28,7 @@ function bloqueDePersona(per) {
     (s, g) => s + (parseFloat(g.precio || 0) || 0) * g.qty,
     0
   );
-  const subStr = total > 0 ? ` — *$${total.toFixed(2)}*` : "";
+  const subStr = mostrarPrecios && total > 0 ? ` — *$${total.toFixed(2)}*` : "";
   const meta = [];
   if (per.gafete) meta.push(`Talla taller: ${per.gafete}`);
   if (per.cargo) meta.push(per.cargo);
@@ -82,11 +86,12 @@ export function mensajeWA(p, esAdmin = false) {
   msg += `\n`;
 
   // Si hay personas con prendas, mostrar desglose por persona en vez del
-  // resumen agregado por talla — más informativo para uniformes.
+  // resumen agregado por talla — más informativo para uniformes. Precios
+  // solo si esAdmin (al operario no le mostramos $ ).
   if (personasConPrendas.length > 0) {
     msg += `\n👥 *Desglose por persona:*\n`;
-    personasConPrendas.forEach((per, i) => {
-      msg += `\n${bloqueDePersona(per)}\n`;
+    personasConPrendas.forEach((per) => {
+      msg += `\n${bloqueDePersona(per, esAdmin)}\n`;
     });
     if (tallasDetalle) {
       msg += `\n📦 *Resumen de tallas:*\n${tallasDetalle}\n`;
