@@ -28,7 +28,7 @@ import RegistroAbonos from "./RegistroAbonos.jsx";
 // Lista de prendas por persona (uniformes) — decompilado a JSX.
 // El módulo también exporta TablaPersonasInternas (dead code histórico
 // nunca referenciado desde call-sites), por simetría con el original.
-import { ListaPrendas } from "./ListaPrendas.jsx";
+import { ListaPrendas, agruparPrendas } from "./ListaPrendas.jsx";
 
 // Selector de tallas estándar + chips de resumen (decompilados a JSX)
 import { SelectorTallas, TallasChips } from "./SelectorTallas.jsx";
@@ -228,6 +228,67 @@ import { installGlobalErrorHandlers } from "./lib/reportError.js";
 // antes de montar React para no perder los que ocurran durante el primer
 // render.
 installGlobalErrorHandlers();
+
+// Genera el HTML de "Detalle por persona" — tabla donde cada fila es una
+// persona con sus prendas agrupadas (3× Pantalón 32 — $69, etc.) y un
+// subtotal por persona. Devuelve "" si el pedido no tiene personas con
+// prendas (ej. pedido en modo "Por tallas" agregadas).
+function tablaPorPersonaHTML(p, color = "#1A5276") {
+  const personasConPrendas = (p.personas || []).filter(per =>
+    Array.isArray(per.prendas) &&
+    per.prendas.some(pr => pr.tipo || pr.talla)
+  );
+  if (personasConPrendas.length === 0) return "";
+
+  let totalPedido = 0;
+  const filas = personasConPrendas.map((per, i) => {
+    const grupos = agruparPrendas(per.prendas);
+    const subtotal = grupos.reduce(
+      (s, g) => s + (parseFloat(g.precio) || 0) * g.qty,
+      0
+    );
+    totalPedido += subtotal;
+    const lineas = grupos
+      .filter(g => g.tipo || g.talla)
+      .map(g => {
+        const label = [g.tipo, g.talla].filter(Boolean).join(" ");
+        const tieneP = g.precio != null && g.precio !== "" && parseFloat(g.precio) > 0;
+        const sub = tieneP ? parseFloat(g.precio) * g.qty : null;
+        return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;">
+          <span><strong style="color:${color};">${g.qty}×</strong> ${label}${g.spec ? ` <span style="color:#888;font-size:11px;">(${g.spec})</span>` : ""}</span>
+          ${sub != null ? `<span style="color:#27AE60;font-weight:700;white-space:nowrap;">$${sub.toFixed(2)}</span>` : ""}
+        </div>`;
+      })
+      .join("");
+    const tallaTaller = per.gafete ? `<span style="font-size:10px;color:#666;background:#eef;padding:1px 6px;border-radius:8px;margin-left:6px;">Talla taller ${per.gafete}</span>` : "";
+    const cargo = per.cargo ? `<div style="font-size:10px;color:#888;margin-top:1px;">${per.cargo}</div>` : "";
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f9fa"};border-bottom:1px solid #eee;">
+      <td style="padding:8px 10px;color:#aaa;font-size:11px;width:24px;vertical-align:top;">${i + 1}</td>
+      <td style="padding:8px 10px;vertical-align:top;width:35%;">
+        <div style="font-weight:800;color:#2C1654;">${per.nombre || "Sin nombre"}${tallaTaller}</div>
+        ${cargo}
+      </td>
+      <td style="padding:8px 10px;vertical-align:top;font-size:12px;">${lineas}</td>
+      <td style="padding:8px 10px;vertical-align:top;text-align:right;font-weight:800;color:${color};white-space:nowrap;">${subtotal > 0 ? "$" + subtotal.toFixed(2) : "—"}</td>
+    </tr>`;
+  }).join("");
+
+  return `
+    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;border:1px solid #eee;border-radius:10px;overflow:hidden;">
+      <thead><tr style="background:${color};color:#fff;">
+        <th style="padding:7px 10px;text-align:left;width:24px;">#</th>
+        <th style="padding:7px 10px;text-align:left;">Persona</th>
+        <th style="padding:7px 10px;text-align:left;">Prendas</th>
+        <th style="padding:7px 10px;text-align:right;width:90px;">Subtotal</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+      ${totalPedido > 0 ? `<tfoot><tr style="background:#f0f0f0;font-weight:800;border-top:2px solid ${color};">
+        <td colspan="3" style="padding:8px 10px;color:${color};">TOTAL</td>
+        <td style="padding:8px 10px;text-align:right;font-size:15px;color:${color};">$${totalPedido.toFixed(2)}</td>
+      </tr></tfoot>` : ""}
+    </table>`;
+}
+
 function imprimirPedido(p, esAdmin) {
   if (esAdmin) imprimirRecibo(p);else imprimirProduccion(p);
 }
@@ -328,7 +389,7 @@ function imprimirRecibo(p) {
     <div style="font-size:16px;font-weight:800;color:#2C1654;margin-bottom:6px;">✂️ ${p.tipoPrenda || "(sin especificar)"}</div>
     ${p.tela || p.color ? `<div style="font-size:13px;color:#555;margin-bottom:4px;">🧵 ${[p.tela, p.color].filter(Boolean).join(" — ")}</div>` : ""}
     ${p.descripcion ? `<div style="font-size:12px;color:#666;margin-top:6px;padding:8px 10px;background:#fff;border-radius:6px;border-left:3px solid #9B59B6;">${p.descripcion}</div>` : ""}
-    ${itemsHTML}
+    ${tablaPorPersonaHTML(p, "#2C1654") || itemsHTML}
   </div>
 
   <!-- PAGO -->
@@ -520,7 +581,7 @@ function imprimirProduccion(p) {
 
   <!-- TALLAS Y CANTIDADES -->
   <div class="sec" style="color:#E67E22;">📦 Tallas y cantidades a confeccionar</div>
-  ${itemsHTML}
+  ${tablaPorPersonaHTML(p, "#E67E22") || itemsHTML}
 
   <!-- DESCRIPCIÓN E INSTRUCCIONES -->
   ${p.descripcion ? `
@@ -539,27 +600,20 @@ function imprimirProduccion(p) {
   <!-- MEDIDAS -->
   ${medsHTML}
 
-  <!-- PERSONAS INTERNAS -->
+  <!-- (La tabla "Beneficiarios" detallada ya está arriba en "Tallas y cantidades"
+       cuando hay personas con prendas — gracias al helper tablaPorPersonaHTML.
+       Acá solo dejamos una sección compacta de check-list para marcar cada uno
+       como completado.) -->
   ${p.personas && p.personas.length ? `
     <div style="margin-bottom:18px;">
-      <div style="font-size:10px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1A5276;padding-bottom:4px;margin-bottom:10px;">👥 Beneficiarios del pedido</div>
+      <div style="font-size:10px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1A5276;padding-bottom:4px;margin-bottom:10px;">✅ Check-list de entrega por persona</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead><tr style="background:#1A5276;color:#fff;">
-          <th style="padding:5px 8px;text-align:left;">#</th>
-          <th style="padding:5px 8px;text-align:left;">Nombre</th>
-          <th style="padding:5px 8px;text-align:left;">Cargo / Área</th>
-          <th style="padding:5px 8px;text-align:center;">Gafete</th>
-          <th style="padding:5px 8px;text-align:center;">Talla</th>
-          <th style="padding:5px 8px;text-align:center;">✅ OK</th>
-        </tr></thead>
         <tbody>
           ${p.personas.map((per, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
-            <td style="padding:5px 8px;color:#aaa;">${i + 1}</td>
-            <td style="padding:5px 8px;font-weight:700;">${per.nombre || "—"}</td>
-            <td style="padding:5px 8px;color:#555;">${per.cargo || "—"}</td>
-            <td style="padding:5px 8px;text-align:center;">${per.gafete || "—"}</td>
-            <td style="padding:5px 8px;text-align:center;font-weight:800;color:#1A5276;">${per.talla || "—"}</td>
-            <td style="padding:5px 8px;text-align:center;">☐</td>
+            <td style="padding:6px 8px;color:#aaa;width:24px;">${i + 1}</td>
+            <td style="padding:6px 8px;font-weight:700;">${per.nombre || "—"}${per.gafete ? ` <span style="font-size:10px;color:#666;">· Talla taller ${per.gafete}</span>` : ""}</td>
+            <td style="padding:6px 8px;text-align:right;color:#666;font-size:11px;">${(per.prendas || []).length} prenda${(per.prendas || []).length !== 1 ? "s" : ""}</td>
+            <td style="padding:6px 8px;text-align:center;width:60px;">☐ OK</td>
           </tr>`).join("")}
         </tbody>
       </table>
