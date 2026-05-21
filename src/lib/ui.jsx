@@ -73,9 +73,33 @@ export function Toaster() {
             fontWeight: 600,
             boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
             pointerEvents: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
           }}
         >
-          {t.msg}
+          <span style={{ flex: 1 }}>{t.msg}</span>
+          {t.accion && (
+            <button
+              onClick={t.accion.onClick}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "1px solid rgba(255,255,255,0.4)",
+                color: "#fff",
+                padding: "4px 12px",
+                borderRadius: 6,
+                fontWeight: 800,
+                fontSize: 12,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                flexShrink: 0,
+              }}
+            >
+              {t.accion.label}
+            </button>
+          )}
         </div>
       ))}
     </div>
