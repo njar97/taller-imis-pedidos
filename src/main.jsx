@@ -1376,7 +1376,12 @@ function App() {
     return () => sub.cerrar();
   }, [rolBase]);
   async function guardarPedido(form, _esNuevo) {
-    const esNuevo = _esNuevo !== undefined ? _esNuevo : modal === "nuevo";
+    // Es nuevo si: invocado explícitamente con _esNuevo=true, o el modal
+    // dice "nuevo", o el modal es un borrador (objeto sin id, ej. desde
+    // el estimador cuando inicia una cotización).
+    const esNuevo = _esNuevo !== undefined
+      ? _esNuevo
+      : (modal === "nuevo" || (modal && typeof modal === "object" && !modal.id));
     const idPedido = esNuevo ? nextId : (modal || {}).id || form.id;
     const baseP = esNuevo ? {
       ...form,
@@ -1855,22 +1860,20 @@ function App() {
         onClose={() => setModalEstimador(false)}
         clientes={clientes}
         nextId={nextId}
-        onGuardarCotizacion={async (cot) => {
-          // Pedido borrador (cotización). Reutiliza el flujo de guardar
-          // pedidos pero con el flag es_cotizacion=true.
-          const id = nextId;
-          setNextId(n => n + 1);
-          const ped = {
+        onGuardarCotizacion={(cot) => {
+          // Abre el FormPedido precargado con los datos del estimador
+          // (cliente, tel, items, precio) + flag esCotizacion=true. El
+          // user completa fecha entrega, descripción, tela, color, etc.
+          // y al guardar queda con el mismo formato que un pedido.
+          const borrador = {
             ...PEDIDO_BASE,
-            id,
-            fecha: new Date().toISOString().split("T")[0],
-            esCotizacion: true,
             ...cot,
+            esCotizacion: true,
+            // Sin id → el FormPedido lo trata como edición de un draft;
+            // guardarPedido(f) asigna nextId al guardar.
           };
-          setPedidos(prev => [...prev, ped]);
-          try { await gsGuardar(ped); } catch {}
-          imprimirCotizacion(ped);
-          pushToast("Cotización guardada", "success");
+          setModalEstimador(false);
+          setModal(borrador);
         }}
       />
       {modalIA && (
@@ -1892,6 +1895,10 @@ function App() {
           title={
             modal === "nuevo"
               ? "✂️ Nuevo Pedido"
+              : modal.esCotizacion
+              ? (modal.id
+                  ? "🧮 Cotización COT-" + String(modal.id).padStart(4, "0")
+                  : "🧮 Nueva Cotización")
               : "✏️ Editar N°" + String(modal.id).padStart(4, "0")
           }
           onClose={() => setModal(null)}
