@@ -15,7 +15,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Modal } from "./lib/Modal.jsx";
-import { leerCostos, agruparCostos } from "./lib/costosBase.js";
+import { leerCostos, agruparCostos, upsertCosto } from "./lib/costosBase.js";
 import { fmt$ } from "./lib/dominio.js";
 import { pushToast } from "./lib/feedback.js";
 import { CATALOGO_BASE } from "./lib/catalogoBase.js";
@@ -74,6 +74,7 @@ function itemNuevo(catalogo = []) {
     tipoPrenda: primerTipo,
     qty: 1,
     telaId: "",
+    telaNombre: "",
     telaCostoYd: "",
     yardasPorPrenda: "1.5",
     moModo: "prenda",
@@ -98,7 +99,7 @@ function costoItem(it) {
 
 // ── Modo Confección: lista de items multi-prenda ────────────
 
-function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle }) {
+function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefrescarCostos }) {
   const c = costoItem(it);
   const editField = (k, v) => onChange({ ...it, [k]: v });
   const editOtro = (oid, k, v) => onChange({
@@ -116,10 +117,49 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle }) {
   });
   const delOtro = oid => onChange({ ...it, otros: (it.otros || []).filter(o => o.id !== oid) });
 
-  // Tela seleccionada autopopula costo
+  // Tela seleccionada autopopula nombre + costo. Si pasa a "manual" (id
+  // vacío), borra el id pero conserva el nombre/costo que tenga para
+  // que el user pueda editarlos sin perder lo escrito.
   const onTelaIdChange = telaId => {
     const t = costos.tela.find(x => String(x.id) === String(telaId));
-    onChange({ ...it, telaId, telaCostoYd: t ? String(t.costo) : it.telaCostoYd });
+    onChange({
+      ...it,
+      telaId,
+      telaNombre: t ? t.nombre : "",
+      telaCostoYd: t ? String(t.costo) : it.telaCostoYd,
+    });
+  };
+
+  // Detecta si hay cambios respecto a la tela seleccionada del catálogo.
+  // Muestra el botón "💾 Guardar" cuando vale la pena persistir.
+  const telaActual = costos.tela.find(x => String(x.id) === String(it.telaId));
+  const nombreLimpio = (it.telaNombre || "").trim();
+  const costoVal = Number(it.telaCostoYd);
+  const tieneDatosValidos = nombreLimpio.length > 0 && Number.isFinite(costoVal) && costoVal > 0;
+  const hayCambios = telaActual
+    ? telaActual.nombre !== nombreLimpio || Number(telaActual.costo) !== costoVal
+    : tieneDatosValidos;
+
+  const guardarTela = async () => {
+    if (!tieneDatosValidos) {
+      pushToast("Falta nombre o precio de la tela", "error");
+      return;
+    }
+    const guardado = await upsertCosto({
+      id: it.telaId || undefined,
+      categoria: "tela",
+      nombre: nombreLimpio,
+      unidad: "yarda",
+      costo: costoVal,
+    });
+    if (guardado) {
+      pushToast(it.telaId ? `Tela "${nombreLimpio}" actualizada` : `Tela "${nombreLimpio}" agregada`, "success");
+      if (onRefrescarCostos) await onRefrescarCostos();
+      // Después de guardar, asegurarse de que el item apunte al id real
+      onChange({ ...it, telaId: guardado.id, telaNombre: guardado.nombre, telaCostoYd: String(guardado.costo) });
+    } else {
+      pushToast("No pude guardar la tela", "error");
+    }
   };
 
   return (
@@ -188,7 +228,7 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle }) {
 
           {/* 🧵 Tela */}
           <div style={SEC("#1A5276")}>🧵 Tela</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 70px 70px", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px", gap: 6, marginBottom: 4 }}>
             <select style={INP} value={it.telaId} onChange={e => onTelaIdChange(e.target.value)}>
               <option value="">— Otra/manual —</option>
               {costos.tela.map(t => (
@@ -209,6 +249,30 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle }) {
               placeholder="yd/u"
               title="Yardas por prenda"
             />
+          </div>
+          {/* Nombre editable + botón guardar — para crear telas nuevas o
+              editar las existentes (cambia nombre o precio) directo desde acá */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6, marginBottom: 4 }}>
+            <input
+              style={{ ...INP, fontSize: 12 }}
+              value={it.telaNombre || ""}
+              onChange={e => editField("telaNombre", e.target.value)}
+              placeholder={it.telaId ? "Nombre de la tela" : "Escribe nombre para guardar como nueva tela"}
+            />
+            {hayCambios && (
+              <button
+                onClick={guardarTela}
+                title={it.telaId ? `Actualizar "${telaActual?.nombre || ""}"` : "Guardar como nueva tela"}
+                style={{
+                  padding: "4px 10px", borderRadius: 8,
+                  border: "1.5px solid #1A5276", background: "#1A5276",
+                  color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 800,
+                  fontFamily: "inherit", whiteSpace: "nowrap",
+                }}
+              >
+                💾 {it.telaId ? "Actualizar" : "Guardar tela"}
+              </button>
+            )}
           </div>
           <div style={{ fontSize: 10, color: "#1A5276", textAlign: "right", marginTop: 2 }}>= {fmt$(c.tela)}</div>
 
@@ -311,7 +375,7 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle }) {
   );
 }
 
-function ModoConfeccion({ costos, items, setItems, margen, setMargen }) {
+function ModoConfeccion({ costos, items, setItems, margen, setMargen, onRefrescarCostos }) {
   const editItem = (id, next) => setItems(prev => prev.map(x => x.id === id ? next : x));
   const delItem = id => setItems(prev => prev.filter(x => x.id !== id));
   const toggleItem = id => editItem(id, { ...items.find(x => x.id === id), expandido: !items.find(x => x.id === id).expandido });
@@ -333,6 +397,7 @@ function ModoConfeccion({ costos, items, setItems, margen, setMargen }) {
           onChange={next => editItem(it.id, next)}
           onDel={() => delItem(it.id)}
           onToggle={() => toggleItem(it.id)}
+          onRefrescarCostos={onRefrescarCostos}
         />
       ))}
       <button onClick={addItem} style={{
@@ -515,6 +580,12 @@ export default function EstimadorPrecio({ open, onClose, onAplicar }) {
     leerCostos().then(rows => setCostos(agruparCostos(rows)));
   }, [open]);
 
+  // Recarga la tabla de costos desde la BD (usado tras un guardado inline).
+  const refrescarCostos = async () => {
+    const rows = await leerCostos();
+    setCostos(agruparCostos(rows));
+  };
+
   const precioSugerido = useMemo(() => {
     if (modo === "confeccion") {
       const ct = items.reduce((s, it) => s + costoItem(it).total, 0);
@@ -578,7 +649,7 @@ export default function EstimadorPrecio({ open, onClose, onAplicar }) {
         </div>
 
         {modo === "confeccion" && (
-          <ModoConfeccion costos={costos} items={items} setItems={setItems} margen={margen} setMargen={setMargen} />
+          <ModoConfeccion costos={costos} items={items} setItems={setItems} margen={margen} setMargen={setMargen} onRefrescarCostos={refrescarCostos} />
         )}
         {modo === "bordado" && (
           <ModoBordado datos={bordDatos} setDatos={setBordDatos} margen={margen} setMargen={setMargen} />
