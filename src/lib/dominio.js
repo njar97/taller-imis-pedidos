@@ -79,14 +79,28 @@ export const resumenTallas = p => {
   return tallasTexto(p.tallasQty || {});
 };
 
+// Orden lógico de tallas (mismo rank que SelectorTallas, duplicado para
+// no acoplar dominio.js a un componente). XS < S < M < L < XL < 2XL <
+// 3XL; números van por orden numérico natural.
+const _RANK_TALLAS = { XS: 1, S: 2, M: 3, L: 4, XL: 5, "2XL": 6, "3XL": 7 };
+const _rankTalla = t => {
+  if (!t) return 99999; // "sin talla" al final
+  if (_RANK_TALLAS[t]) return _RANK_TALLAS[t];
+  const n = parseInt(t, 10);
+  if (Number.isFinite(n)) return 1000 + n;
+  return 9999;
+};
+
 // Items con tipo+talla+qty+precio listos para renderizar el resumen del
 // pedido (TallasChips). Resuelve la fuente correcta:
 //   - modoRegistro === "lista": agrupa personas[].prendas[] por tipo+talla+precio+spec.
 //   - modoRegistro === "tallas": usa tallasItems tal cual.
+// Ordena por tipo de prenda (alfabético) y luego por talla (lógico).
 // Si tallasItems viene de un pedido legacy sin `tipo`, devuelve los items
 // igual (el chip simplemente no muestra el tipo encima).
 export const itemsResumen = p => {
   const esLista = p.modoRegistro === "lista" && Array.isArray(p.personas) && p.personas.length;
+  let items;
   if (esLista) {
     const mapa = new Map();
     for (const per of p.personas) {
@@ -102,9 +116,16 @@ export const itemsResumen = p => {
         mapa.get(key).qty += 1;
       }
     }
-    return [...mapa.values()];
+    items = [...mapa.values()];
+  } else {
+    items = Array.isArray(p.tallasItems) ? [...p.tallasItems] : [];
   }
-  return Array.isArray(p.tallasItems) ? p.tallasItems : [];
+  return items.sort((a, b) => {
+    const tipoA = (a.tipo || "zzz").toLowerCase();
+    const tipoB = (b.tipo || "zzz").toLowerCase();
+    if (tipoA !== tipoB) return tipoA.localeCompare(tipoB);
+    return _rankTalla(a.talla) - _rankTalla(b.talla);
+  });
 };
 
 export const PEDIDO_BASE = {
