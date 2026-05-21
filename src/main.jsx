@@ -311,6 +311,130 @@ async function imprimirPedido(p, esAdmin, todosPedidos = []) {
   if (esAdmin) imprimirRecibo(p);
   else await imprimirProduccion(p, todosPedidos);
 }
+
+// Cotización formal — versión limpia para mandar al cliente. NO incluye
+// desglose interno de costos (tela $/yd, mano de obra, etc.). Solo lo
+// que el cliente necesita ver: items con cantidades y precio, total y
+// validez. Pensada para que el cliente acepte y se convierta a pedido.
+function imprimirCotizacion(p) {
+  const num = String(p.id).padStart(4, "0");
+  const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
+  const validez = p.validezDias || 15;
+  const vence = new Date();
+  vence.setDate(vence.getDate() + validez);
+  const venceStr = vence.toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
+  const items = itemsResumen(p);
+  const algunoTieneTipo = items.some(it => it.tipo);
+  const tot = items.reduce((s, it) => {
+    const pr = parseFloat(it.precio) || 0;
+    return s + pr * it.qty;
+  }, 0);
+  const totPzas = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+  const precioFinal = parseFloat(p.precio) > 0 ? parseFloat(p.precio) : tot;
+
+  const w = window.open("", "_blank", "width=780,height=1050");
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Cotización N°${num} — ${p.cliente}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
+  @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:A4;}}
+  table{border-collapse:collapse;width:100%;}
+</style></head><body>
+
+<div class="no-print" style="text-align:right;margin-bottom:18px;display:flex;gap:8px;justify-content:flex-end;">
+  <button onclick="window.print()" style="padding:10px 22px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir</button>
+  <button onclick="window.close()" style="padding:10px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+</div>
+
+<!-- ENCABEZADO -->
+<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #9B59B6;padding-bottom:14px;margin-bottom:22px;">
+  <div>
+    <div style="font-size:24px;font-weight:900;color:#2C1654;font-family:Georgia,serif;">${TALLER}</div>
+    <div style="font-size:12px;color:#888;margin-top:3px;">Bordados y confección · El Salvador</div>
+  </div>
+  <div style="text-align:right;">
+    <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Cotización</div>
+    <div style="font-size:32px;font-weight:900;color:#9B59B6;line-height:1;">N°${num}</div>
+    <div style="font-size:11px;color:#aaa;margin-top:6px;">${fecha}</div>
+  </div>
+</div>
+
+<!-- CLIENTE -->
+<div style="background:#f8f4ff;border-radius:10px;padding:14px 16px;border-left:4px solid #9B59B6;margin-bottom:18px;">
+  <div style="font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Cotización para</div>
+  <div style="font-size:17px;font-weight:800;color:#2C1654;">${p.cliente || "Cliente"}</div>
+  ${p.telefono ? `<div style="font-size:12px;color:#555;margin-top:2px;">📱 ${p.telefono}</div>` : ""}
+  ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:2px;">Contacto: ${p.nombreContacto}</div>` : ""}
+</div>
+
+<!-- DETALLE -->
+<div style="font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📋 Detalle de la cotización</div>
+${items.length ? `
+<table style="border:1.5px solid #ddd;border-radius:8px;overflow:hidden;font-size:13px;margin-bottom:18px;">
+  <thead><tr style="background:#9B59B6;color:#fff;">
+    ${algunoTieneTipo ? `<th style="padding:8px 12px;text-align:left;">Prenda</th>` : ""}
+    <th style="padding:8px 12px;text-align:center;width:70px;">Talla</th>
+    <th style="padding:8px 12px;text-align:center;width:70px;">Cant.</th>
+    <th style="padding:8px 12px;text-align:right;width:100px;">Precio u.</th>
+    <th style="padding:8px 12px;text-align:right;width:100px;">Subtotal</th>
+  </tr></thead>
+  <tbody>
+    ${items.map((it, i) => {
+      const pr = parseFloat(it.precio) || 0;
+      const sub = pr * it.qty;
+      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#fafafa"};border-bottom:1px solid #eee;">
+        ${algunoTieneTipo ? `<td style="padding:8px 12px;font-weight:700;color:#2C1654;">${it.tipo || "—"}${it.spec ? ` <span style="color:#888;font-weight:400;font-size:11px;">(${it.spec})</span>` : ""}</td>` : ""}
+        <td style="padding:8px 12px;text-align:center;font-weight:800;color:#E67E22;">${it.talla || "—"}</td>
+        <td style="padding:8px 12px;text-align:center;font-weight:700;">${it.qty}</td>
+        <td style="padding:8px 12px;text-align:right;color:#27AE60;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
+        <td style="padding:8px 12px;text-align:right;font-weight:800;color:#2C1654;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
+      </tr>`;
+    }).join("")}
+    <tr style="background:#f0f0f0;font-weight:800;border-top:2px solid #9B59B6;">
+      <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:9px 12px;color:#2C1654;">TOTAL</td>
+      <td style="padding:9px 12px;text-align:center;color:#2C1654;">${totPzas} pza${totPzas === 1 ? "" : "s"}</td>
+      <td></td>
+      <td style="padding:9px 12px;text-align:right;font-size:16px;color:#2C1654;">$${precioFinal.toFixed(2)}</td>
+    </tr>
+  </tbody>
+</table>` : `<div style="background:#FAFAFA;border:1px dashed #ccc;border-radius:8px;padding:14px;font-size:13px;color:#888;margin-bottom:18px;">
+  Total cotizado: <strong style="color:#2C1654;font-size:16px;">$${precioFinal.toFixed(2)}</strong>
+</div>`}
+
+${p.descripcion ? `
+<div style="background:#F9F0FF;border:1.5px solid #D7BDE2;border-radius:9px;padding:13px;margin-bottom:18px;font-size:12px;color:#4A235A;line-height:1.6;">
+  ${p.descripcion}
+</div>` : ""}
+
+<!-- VALIDEZ Y CONDICIONES -->
+<div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:9px;padding:14px 16px;margin-bottom:18px;font-size:12px;color:#856404;">
+  <div style="font-weight:800;margin-bottom:4px;">⏱️ Validez de esta cotización</div>
+  <div>Esta cotización es válida por <strong>${validez} días</strong> a partir de la fecha de emisión.</div>
+  <div style="margin-top:3px;">Vence el <strong>${venceStr}</strong>.</div>
+</div>
+
+<div style="font-size:11px;color:#888;line-height:1.5;margin-bottom:20px;">
+  • Los precios incluyen mano de obra y materiales según especificación.<br>
+  • Para confirmar el pedido se requiere un anticipo del 50%.<br>
+  • Fecha de entrega a coordinar al momento de confirmar.<br>
+  • Cambios al diseño o cantidades pueden modificar el precio final.
+</div>
+
+<!-- FIRMA -->
+<div style="margin-top:28px;text-align:center;">
+  <div style="border-top:1.5px solid #333;padding-top:8px;margin:0 auto;max-width:300px;">
+    <div style="font-size:11px;font-weight:700;color:#333;">Cotización emitida por</div>
+    <div style="font-size:12px;color:#555;margin-top:2px;">${TALLER}</div>
+  </div>
+</div>
+
+<div style="margin-top:24px;text-align:center;font-size:10px;color:#ccc;border-top:1px solid #f0f0f0;padding-top:12px;">
+  ${TALLER} · Cotización N°${num} · Generada el ${fecha}
+</div>
+</body></html>`);
+  w.document.close();
+}
 function imprimirRecibo(p) {
   const abonado = sumarAbonos(p);
   const saldo = parseFloat(p.precio || 0) - abonado;
@@ -1417,6 +1541,7 @@ function App() {
   }
   const diasPara = f => f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null;
   const vencidosSinArchivar = useMemo(() => pedidos.filter(p => {
+    if (p.esCotizacion) return false;
     if (["Entregado", "Cancelado", "Listo", "Archivado"].includes(p.estatus)) return false;
     const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
     if (saldo > 0) return false;
@@ -1441,6 +1566,8 @@ function App() {
       p.fechaEntrega &&
       p.fechaEntrega < hoyStr;
     return pedidos.filter(p => {
+      // Cotizaciones (borradores) no aparecen en el listado normal de pedidos.
+      if (p.esCotizacion) return false;
       const match = !q || [p.cliente, p.tipoPrenda, p.tela, p.color, p.costurera, p.notas, p.descripcion, p.nombreContacto, p.estatus, String(p.id || ""), p.fechaEntrega, p.tipoDocumento].some(v => v && String(v).toLowerCase().includes(q));
       if (!match) return false;
       // Tab "Vencidos": solo los que pasaron la fecha y NO están cerrados.
@@ -1455,11 +1582,13 @@ function App() {
   }, [pedidos, busqueda, filtro]);
   const conteos = useMemo(() => {
     const hoyStr = new Date().toISOString().split("T")[0];
+    // Conteos excluyen cotizaciones (las cotizaciones tienen su propia sección)
+    const reales = pedidos.filter(p => !p.esCotizacion);
     const base = ESTATUS.reduce((a, e) => ({
       ...a,
-      [e]: pedidos.filter(p => p.estatus === e).length,
+      [e]: reales.filter(p => p.estatus === e).length,
     }), {});
-    base.Vencidos = pedidos.filter(p =>
+    base.Vencidos = reales.filter(p =>
       !["Entregado", "Cancelado"].includes(p.estatus) &&
       p.fechaEntrega &&
       p.fechaEntrega < hoyStr
@@ -1470,14 +1599,14 @@ function App() {
     const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
     return isNaN(n) ? 0 : n;
   };
-  const porCobrar = useMemo(() => [...pedidos.filter(p => p.estatus !== "Cancelado"), ...bordados.filter(b => b.estatus !== "Cancelado"), ...cuellos.filter(c => c.estatus !== "Cancelado")].reduce((s, p) => {
+  const porCobrar = useMemo(() => [...pedidos.filter(p => p.estatus !== "Cancelado" && !p.esCotizacion), ...bordados.filter(b => b.estatus !== "Cancelado"), ...cuellos.filter(c => c.estatus !== "Cancelado")].reduce((s, p) => {
     const precio = parseMonto(p.precio || p.precioT);
     const anticipo = parseMonto(p.anticipo);
     const saldo = precio - anticipo;
     return saldo > 0 ? s + saldo : s;
   }, 0), [pedidos, bordados, cuellos]);
   const alertaCF = useMemo(() => pedidos.filter(p => p.tipoDocumento === "Crédito Fiscal (pendiente datos)").length, [pedidos]);
-  const activos = useMemo(() => pedidos.filter(p => !["Entregado", "Cancelado"].includes(p.estatus)).length + bordados.filter(b => !["Entregado", "Cancelado"].includes(b.estatus)).length + cuellos.filter(c => !["Entregado", "Cancelado"].includes(c.estatus)).length, [pedidos, bordados, cuellos]);
+  const activos = useMemo(() => pedidos.filter(p => !p.esCotizacion && !["Entregado", "Cancelado"].includes(p.estatus)).length + bordados.filter(b => !["Entregado", "Cancelado"].includes(b.estatus)).length + cuellos.filter(c => !["Entregado", "Cancelado"].includes(c.estatus)).length, [pedidos, bordados, cuellos]);
   const matAgotados = useMemo(() => inventario.filter(m => m.categoria === "material" && m.cantidad - asignaciones.filter(a => a.materialId === m.id).reduce((s, a) => s + a.cantidad, 0) <= 0).length, [inventario, asignaciones]);
   const syncInfo = {
     idle: {
@@ -1693,6 +1822,25 @@ function App() {
       <EstimadorPrecio
         open={modalEstimador}
         onClose={() => setModalEstimador(false)}
+        clientes={clientes}
+        nextId={nextId}
+        onGuardarCotizacion={async (cot) => {
+          // Pedido borrador (cotización). Reutiliza el flujo de guardar
+          // pedidos pero con el flag es_cotizacion=true.
+          const id = nextId;
+          setNextId(n => n + 1);
+          const ped = {
+            ...PEDIDO_BASE,
+            id,
+            fecha: new Date().toISOString().split("T")[0],
+            esCotizacion: true,
+            ...cot,
+          };
+          setPedidos(prev => [...prev, ped]);
+          try { await gsGuardar(ped); } catch {}
+          imprimirCotizacion(ped);
+          pushToast("Cotización guardada", "success");
+        }}
       />
       {modalIA && (
         <ModalAsistenteIA
