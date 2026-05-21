@@ -86,7 +86,13 @@ const calcPrecioSugerido = puntStr => {
 };
 
 function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, clientes = [], bordados = [] }) {
-  const [f, setF] = useState({ ...BORD_DEF, ...(initial || {}), abonos: (initial || {}).abonos || [] });
+  const [f, setF] = useState(() => {
+    const merged = { ...BORD_DEF, ...(initial || {}), abonos: (initial || {}).abonos || [] };
+    // Defensa: bordados creados desde un pedido confección heredaban
+    // tipoDocumento=null, lo que reventaba al evaluar .includes() abajo.
+    if (merged.tipoDocumento == null) merged.tipoDocumento = "Consumidor Final";
+    return merged;
+  });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
 
   const [sugsB, setSugsB] = useState([]);
@@ -341,13 +347,13 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
             {TIPO_DOC.map(t => <option key={t}>{t}</option>)}
           </select>
         </div>
-        {f.tipoDocumento !== "Consumidor Final" && (
+        {f.tipoDocumento && f.tipoDocumento !== "Consumidor Final" && (
           <div style={{
-            background: f.tipoDocumento.includes("pendiente") ? "#FFF8E1" : "#F1F8E9",
-            border: "1.5px solid " + (f.tipoDocumento.includes("pendiente") ? "#FFC107" : "#8BC34A"),
+            background: String(f.tipoDocumento).includes("pendiente") ? "#FFF8E1" : "#F1F8E9",
+            border: "1.5px solid " + (String(f.tipoDocumento).includes("pendiente") ? "#FFC107" : "#8BC34A"),
             borderRadius: 10, padding: 12, marginBottom: 8,
           }}>
-            {f.tipoDocumento.includes("pendiente") && (
+            {String(f.tipoDocumento).includes("pendiente") && (
               <div style={{ fontSize: 11, color: "#856404", fontWeight: 700, marginBottom: 8 }}>
                 ⚠️ Pendiente recibir datos fiscales del cliente
               </div>
