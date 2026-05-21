@@ -9,7 +9,7 @@
 
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
-import { fmt$, resumenTallas } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
@@ -79,10 +79,10 @@ function InfoTabla({ pedido, esAdmin }) {
     pedido.nombreContacto ? ["Contacto", pedido.nombreContacto] : null,
     ["Teléfono", pedido.telefono],
     ["Prenda", pedido.tipoPrenda],
-    ["Tallas",
-      pedido.tallasItems && pedido.tallasItems.length
-        ? "§chips§"
-        : resumenTallas(pedido)],
+    (() => {
+      const items = itemsResumen(pedido);
+      return ["Tallas", items.length ? "§chips§" : resumenTallas(pedido)];
+    })(),
     pedido.personas && pedido.personas.length
       ? ["👥 Beneficiarios",
          pedido.personas.length + " persona" + (pedido.personas.length !== 1 ? "s" : "")]
@@ -121,7 +121,7 @@ function InfoTabla({ pedido, esAdmin }) {
         {k}
       </span>
       {k === "Tallas" && v === "§chips§" ? (
-        <TallasChips items={pedido.tallasItems} compact={false} />
+        <TallasChips items={itemsResumen(pedido)} compact={false} />
       ) : (
         <span style={{ fontSize: 13, color: "#333", textAlign: "right", fontWeight: 600 }}>
           {v}

@@ -761,6 +761,20 @@ export function TallasChips({ items, compact = false }) {
                 gap: 1,
               }}
             >
+              {it.tipo && (
+                <div
+                  style={{
+                    fontWeight: 800,
+                    color: "#9B59B6",
+                    fontSize: compact ? 9 : 10,
+                    lineHeight: 1,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {it.tipo}
+                </div>
+              )}
               <div
                 style={{
                   fontWeight: 800,

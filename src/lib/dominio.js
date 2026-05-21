@@ -79,6 +79,34 @@ export const resumenTallas = p => {
   return tallasTexto(p.tallasQty || {});
 };
 
+// Items con tipo+talla+qty+precio listos para renderizar el resumen del
+// pedido (TallasChips). Resuelve la fuente correcta:
+//   - modoRegistro === "lista": agrupa personas[].prendas[] por tipo+talla+precio+spec.
+//   - modoRegistro === "tallas": usa tallasItems tal cual.
+// Si tallasItems viene de un pedido legacy sin `tipo`, devuelve los items
+// igual (el chip simplemente no muestra el tipo encima).
+export const itemsResumen = p => {
+  const esLista = p.modoRegistro === "lista" && Array.isArray(p.personas) && p.personas.length;
+  if (esLista) {
+    const mapa = new Map();
+    for (const per of p.personas) {
+      for (const pr of per.prendas || []) {
+        const tipo = (pr.tipo || "").trim();
+        const talla = pr.talla || "";
+        const precio = pr.precio != null ? pr.precio : null;
+        const spec = (pr.spec || "").trim();
+        const key = JSON.stringify([tipo, talla, precio, spec]);
+        if (!mapa.has(key)) {
+          mapa.set(key, { id: key, tipo, talla, qty: 0, precio, spec, grupo: pr.grupo || "adulto" });
+        }
+        mapa.get(key).qty += 1;
+      }
+    }
+    return [...mapa.values()];
+  }
+  return Array.isArray(p.tallasItems) ? p.tallasItems : [];
+};
+
 export const PEDIDO_BASE = {
   cliente: "",
   tipoCliente: "persona",

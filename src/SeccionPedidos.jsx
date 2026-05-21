@@ -7,7 +7,7 @@
 // Toda la composición es presentacional — los handlers vienen como props.
 
 import { ESTATUS, EC } from "./lib/constants.js";
-import { fmt$, resumenTallas } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { WABtn } from "./lib/ui.jsx";
@@ -250,6 +250,7 @@ function FilaPedido({
     dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(p.estatus);
   const esCFp = p.tipoDocumento === "Crédito Fiscal (pendiente datos)";
   const tallasR = resumenTallas(p);
+  const itemsP = itemsResumen(p);
   const imgs = (p.imagenes || []).filter(i => imgSrc(i));
   const nFotos = imgs.length;
   const nAsig = asignaciones.filter(a => a.pedidoId === String(p.id)).length;
@@ -294,13 +295,13 @@ function FilaPedido({
             fontSize: 12,
             fontWeight: 600,
             color: "#444",
-            marginBottom: p.tallasItems && p.tallasItems.length ? 4 : 0,
+            marginBottom: itemsP.length ? 4 : 0,
           }}
         >
           {p.tipoPrenda}
         </div>
-        {p.tallasItems && p.tallasItems.length ? (
-          <TallasChips items={p.tallasItems} compact />
+        {itemsP.length ? (
+          <TallasChips items={itemsP} compact />
         ) : tallasR ? (
           <div style={{ fontSize: 11, color: "#E67E22", fontWeight: 700 }}>
             {tallasR}
