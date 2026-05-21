@@ -19,6 +19,7 @@ import { leerCostos, agruparCostos, upsertCosto } from "./lib/costosBase.js";
 import { fmt$ } from "./lib/dominio.js";
 import { pushToast } from "./lib/feedback.js";
 import { CATALOGO_BASE } from "./lib/catalogoBase.js";
+import { contactPickerOK, elegirContacto } from "./lib/contactPicker.js";
 
 // ── Estilos compartidos ─────────────────────────────────────
 
@@ -646,6 +647,15 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
     ? `https://wa.me/${telefono.replace(/[^0-9]/g, "")}`
     : null;
 
+  // Picker nativo de contactos (Chrome Android).
+  const tomarDeContactos = async () => {
+    const c = await elegirContacto();
+    if (!c) return;
+    if (c.nombre) setCliente(c.nombre);
+    if (c.telefono) setTelefono(c.telefono);
+    pushToast(`📒 ${c.nombre || "Contacto"} importado`, "success");
+  };
+
   useEffect(() => {
     if (!open) return;
     leerCostos().then(rows => setCostos(agruparCostos(rows)));
@@ -819,8 +829,20 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
 
         {/* CLIENTE (para guardar cotización formal) */}
         <div style={{ marginTop: 12, padding: 12, background: "#F3E5F5", borderRadius: 10, border: "1.5px solid #d4b3df" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>
-            👤 Cliente (para guardar cotización)
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: .5 }}>
+              👤 Cliente (para guardar cotización)
+            </div>
+            {contactPickerOK && (
+              <button onClick={tomarDeContactos} title="Importar desde mis contactos del teléfono" style={{
+                padding: "4px 10px", borderRadius: 6,
+                border: "1.5px solid #9B59B6", background: "#fff",
+                color: "#9B59B6", fontWeight: 800, fontSize: 11,
+                cursor: "pointer", fontFamily: "inherit",
+              }}>
+                📒 Contactos
+              </button>
+            )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, position: "relative" }}>
             <div style={{ position: "relative" }}>

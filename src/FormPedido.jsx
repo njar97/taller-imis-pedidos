@@ -21,6 +21,7 @@ import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
 import FormNav from "./FormNav.jsx";
 import { leerRecientes, marcarReciente } from "./lib/recientesPrendas.js";
+import { contactPickerOK, elegirContacto } from "./lib/contactPicker.js";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 
@@ -477,6 +478,23 @@ export default function FormPedido({
           inputMode="tel"
           onChange={e => s("telefono", e.target.value)}
         />
+        {contactPickerOK && (
+          <button
+            onClick={async () => {
+              const c = await elegirContacto();
+              if (!c) return;
+              if (c.nombre && !(f.cliente || "").trim()) s("cliente", c.nombre);
+              if (c.telefono) s("telefono", c.telefono);
+              pushToast(`📒 ${c.nombre || "Contacto"} importado`, "success");
+            }}
+            title="Importar desde mis contactos del teléfono"
+            style={{
+              padding: "8px 12px", borderRadius: 8, border: "1.5px solid #9B59B6",
+              background: "#fff", color: "#9B59B6", fontSize: 14, fontWeight: 700,
+              cursor: "pointer", fontFamily: "inherit",
+            }}
+          >📒</button>
+        )}
         {f.telefono && (
           <a
             href={`https://wa.me/${(f.telefono || "").replace(/[^0-9]/g, "")}`}
