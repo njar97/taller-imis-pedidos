@@ -678,6 +678,16 @@ async function imprimirProduccion(p, todosPedidos = []) {
       </table>
     </div>` : ""}
 
+  <!-- ESPACIO PARA ANOTAR A MANO -->
+  <div style="margin-top:14px;">
+    <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
+      ✏️ Anotaciones / correcciones durante la producción
+    </div>
+    <div style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;">
+      ${Array.from({ length: 6 }, () => `<div style="height:22px;border-bottom:1px solid #f0f0f0;"></div>`).join("")}
+    </div>
+  </div>
+
   </body></html>`);
   w.document.close();
 }
