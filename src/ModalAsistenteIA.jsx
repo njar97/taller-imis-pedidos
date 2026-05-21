@@ -71,7 +71,7 @@ Cuando tengas suficiente info (mínimo cliente + prenda), pregunta "¿Listo para
 
 Cuando generes el JSON, responde ÚNICAMENTE con esto, sin texto antes ni después:
 <PEDIDO_JSON>
-{"cliente":"...","telefono":"...","tipoPrenda":"...","tela":"...","color":"...","tallasLibre":"...","modoTallas":"libre","modoPrenda":"medida","descripcion":"...","tieneBordado":false,"fechaEntrega":"...","costurera":"...","precio":"...","anticipo":"...","estatus":"Tomado","notas":""}
+{"cliente":"...","telefono":"...","tipoPrenda":"...","tela":"...","color":"...","tallasLibre":"...","modoTallas":"libre","modoPrenda":"medida","descripcion":"...","tieneBordado":false,"fechaEntrega":"...","costurera":"...","precio":"...","anticipo":"...","estatus":"Corte","notas":""}
 </PEDIDO_JSON>`;
 
   const [apiKey, setApiKey] = useState(
