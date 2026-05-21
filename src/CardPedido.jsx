@@ -2,7 +2,7 @@
 // Antes vivía como CardPedido compilado en main.js (~286 líneas).
 
 import { EC, ESTATUS } from "./lib/constants.js";
-import { fmt$, resumenTallas } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { copiarWA } from "./lib/whatsapp.js";
 import { TallasChips } from "./SelectorTallas.jsx";
@@ -96,15 +96,24 @@ export default function CardPedido({
         {p.tipoPrenda}
       </div>
 
-      {p.tallasItems && p.tallasItems.length > 0 ? (
-        <div style={{ marginBottom: 6 }}>
-          <TallasChips items={p.tallasItems} compact />
-        </div>
-      ) : tallasR ? (
-        <div style={{ fontSize: 12, color: "#E67E22", fontWeight: 700, marginBottom: 4 }}>
-          {tallasR}
-        </div>
-      ) : null}
+      {(() => {
+        const items = itemsResumen(p);
+        if (items.length > 0) {
+          return (
+            <div style={{ marginBottom: 6 }}>
+              <TallasChips items={items} compact />
+            </div>
+          );
+        }
+        if (tallasR) {
+          return (
+            <div style={{ fontSize: 12, color: "#E67E22", fontWeight: 700, marginBottom: 4 }}>
+              {tallasR}
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
         {p.tieneBordado && (
