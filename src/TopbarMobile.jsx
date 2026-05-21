@@ -13,6 +13,7 @@ export default function TopbarMobile({
   activos,
   refrescar,
   refrescando,
+  onAbrirEstimador,
 }) {
   const muestraSync =
     (sync === "ok" || sync === "error" || sync === "error_fotos") && syncInfo;
@@ -58,6 +59,25 @@ export default function TopbarMobile({
         </div>
         <div style={{ fontSize: 9, color: "#9B59B6" }}>activos</div>
       </div>
+      {onAbrirEstimador && (
+        <button
+          onClick={onAbrirEstimador}
+          title="Estimador de precio"
+          style={{
+            background: "rgba(40, 167, 69, 0.25)",
+            border: "1px solid #28A745",
+            color: "#7ee59a",
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            fontSize: 18,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          💰
+        </button>
+      )}
       <button
         onClick={refrescar}
         disabled={refrescando}

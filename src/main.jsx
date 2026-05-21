@@ -44,6 +44,7 @@ import CardPedido from "./CardPedido.jsx";
 
 // Modal del asistente IA (chat con Claude) — decompilado a JSX
 import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
+import EstimadorPrecio from "./EstimadorPrecio.jsx";
 
 // Formulario de pedido (decompilado a JSX)
 import FormPedido from "./FormPedido.jsx";
@@ -948,6 +949,7 @@ function App() {
   // (esNuevo = true, nextId avanza, state local se actualiza).
   const [seedDuplicar, setSeedDuplicar] = useState(null);
   const [modalIA, setModalIA] = useState(false);
+  const [modalEstimador, setModalEstimador] = useState(false);
   const [modalArchivar, setModalArchivar] = useState(null);
   const [modalActMedidas, setModalActMedidas] = useState(null);
   const [masOpen, setMasOpen] = useState(false);
@@ -1496,6 +1498,7 @@ function App() {
         refrescar={refrescar}
         refrescando={refrescando}
         setRol={setRol}
+        onAbrirEstimador={() => setModalEstimador(true)}
       />
       <main
         style={{
@@ -1514,6 +1517,7 @@ function App() {
           activos={activos}
           refrescar={refrescar}
           refrescando={refrescando}
+          onAbrirEstimador={() => setModalEstimador(true)}
         />
         {seccion === "estadisticas" && esAdmin && (
           <SeccionEstadisticas
@@ -1654,6 +1658,10 @@ function App() {
           onCerrar={() => setModalArchivar(null)}
         />
       )}
+      <EstimadorPrecio
+        open={modalEstimador}
+        onClose={() => setModalEstimador(false)}
+      />
       {modalIA && (
         <ModalAsistenteIA
           rol={rol}

@@ -91,6 +91,7 @@ export default function SidebarDesktop({
   refrescar,
   refrescando,
   setRol,
+  onAbrirEstimador,
 }) {
   const muestraSync =
     (sync === "ok" || sync === "error" || sync === "error_fotos") && syncInfo;
@@ -219,6 +220,26 @@ export default function SidebarDesktop({
               </div>
             )}
           </>
+        )}
+        {onAbrirEstimador && (
+          <button
+            onClick={onAbrirEstimador}
+            style={{
+              width: "100%",
+              padding: "8px",
+              borderRadius: 8,
+              border: "1px solid #28A745",
+              background: "rgba(40, 167, 69, 0.15)",
+              color: "#7ee59a",
+              cursor: "pointer",
+              fontSize: 11,
+              marginBottom: 6,
+              fontWeight: 700,
+              fontFamily: "inherit",
+            }}
+          >
+            💰 Estimador de precio
+          </button>
         )}
         <button
           onClick={refrescar}
