@@ -468,12 +468,29 @@ export default function FormPedido({
         )}
       </div>
 
-      <input
-        style={{ ...INP, marginBottom: 8 }}
-        value={f.telefono}
-        placeholder="📱 Teléfono / WhatsApp"
-        onChange={e => s("telefono", e.target.value)}
-      />
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <input
+          style={{ ...INP, flex: 1 }}
+          value={f.telefono}
+          placeholder="📱 Teléfono / WhatsApp"
+          type="tel"
+          inputMode="tel"
+          onChange={e => s("telefono", e.target.value)}
+        />
+        {f.telefono && (
+          <a
+            href={`https://wa.me/${(f.telefono || "").replace(/[^0-9]/g, "")}`}
+            target="_blank"
+            rel="noopener"
+            title="Abrir WhatsApp"
+            style={{
+              padding: "8px 14px", borderRadius: 8, border: "1.5px solid #25D366",
+              background: "#25D366", color: "#fff", textDecoration: "none",
+              fontSize: 18, display: "flex", alignItems: "center",
+            }}
+          >💬</a>
+        )}
+      </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
         {TIPOS_CLIENTE.map(([val, lbl]) => (
