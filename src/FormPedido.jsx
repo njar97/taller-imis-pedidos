@@ -20,6 +20,7 @@ import { ListaPrendas } from "./ListaPrendas.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
 import FormNav from "./FormNav.jsx";
+import { leerRecientes, marcarReciente } from "./lib/recientesPrendas.js";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 
@@ -116,6 +117,12 @@ export default function FormPedido({
   const [f, setF] = useState(initForm);
   const [sugs, setSugs] = useState([]);
   const [showSugs, setShowSugs] = useState(false);
+  // Últimos 3 tipos de prenda "libres" usados (no del catálogo). Memoria
+  // compartida en Supabase para que aparezcan como chips de atajo.
+  const [recientes, setRecientes] = useState([]);
+  useEffect(() => {
+    leerRecientes(3).then(setRecientes);
+  }, []);
 
   const s = (k, v) => setF(p => ({ ...p, [k]: v }));
 
@@ -302,6 +309,12 @@ export default function FormPedido({
     const limpio = Object.fromEntries(
       Object.entries(f).filter(([k]) => !k.startsWith("_"))
     );
+    // Si el tipo escrito NO está en el catálogo, lo guardamos como
+    // reciente para que aparezca como chip en futuros pedidos.
+    const tipoTrim = String(f.tipoPrenda || "").trim();
+    if (tipoTrim && !catlist.some(p => p.nombre === tipoTrim)) {
+      marcarReciente(tipoTrim);
+    }
     onSave(limpio);
   };
 
@@ -564,6 +577,41 @@ export default function FormPedido({
             );
           })}
       </div>
+      {/* Chips de tipos libres usados antes (memoria compartida en Supabase).
+          Solo mostramos los que NO están ya en el catálogo, para no duplicar. */}
+      {recientes.filter(n => !catlist.some(p => p.nombre === n)).length > 0 && (
+        <>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.4, marginTop: 8, marginBottom: 4 }}>
+            ⭐ Recientes
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+            {recientes
+              .filter(n => !catlist.some(p => p.nombre === n))
+              .map(nombre => {
+                const sel = f.tipoPrenda === nombre;
+                return (
+                  <button
+                    key={nombre}
+                    onClick={() => s("tipoPrenda", nombre)}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 20,
+                      border: "1.5px dashed " + (sel ? "#9B59B6" : "#ccc"),
+                      background: sel ? "#9B59B6" : "#fafafa",
+                      color: sel ? "#fff" : "#666",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: sel ? 700 : 400,
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {nombre}
+                  </button>
+                );
+              })}
+          </div>
+        </>
+      )}
       <input
         style={{ ...INP, marginBottom: 6 }}
         value={catlist.some(p => p.nombre === f.tipoPrenda) ? "" : f.tipoPrenda}
