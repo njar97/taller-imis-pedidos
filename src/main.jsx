@@ -45,6 +45,7 @@ import CardPedido from "./CardPedido.jsx";
 // Modal del asistente IA (chat con Claude) — decompilado a JSX
 import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
 import EstimadorPrecio from "./EstimadorPrecio.jsx";
+import SeccionCotizaciones from "./SeccionCotizaciones.jsx";
 import QRCode from "qrcode";
 
 // Formulario de pedido (decompilado a JSX)
@@ -1739,6 +1740,36 @@ function App() {
             bordados={bordados}
             cuellos={cuellos}
             esAdmin={esAdmin}
+          />
+        )}
+        {seccion === "cotizaciones" && esAdmin && (
+          <SeccionCotizaciones
+            pedidos={pedidos}
+            onImprimir={(c) => imprimirCotizacion(c)}
+            onEditar={(c) => setModal(c)}
+            onConvertirPedido={async (c) => {
+              const ok = await pushConfirm({
+                titulo: "Convertir a pedido",
+                msg: `¿Convertir COT-${String(c.id).padStart(4, "0")} de ${c.cliente} a pedido firme? Pasará a producción con estatus Corte.`,
+                okLabel: "Sí, convertir",
+              });
+              if (!ok) return;
+              const actualizado = { ...c, esCotizacion: false, estatus: "Corte" };
+              setPedidos(prev => prev.map(p => p.id === c.id ? actualizado : p));
+              try { await gsGuardar(actualizado); } catch {}
+              pushToast("Cotización convertida a pedido ✓", "success");
+              setSec("pedidos");
+            }}
+            onEliminar={async (c) => {
+              const ok = await pushConfirm({
+                titulo: "Eliminar cotización",
+                msg: `¿Eliminar COT-${String(c.id).padStart(4, "0")} de ${c.cliente}? Se puede recuperar desde Papelera.`,
+                okLabel: "Eliminar",
+                danger: true,
+              });
+              if (!ok) return;
+              await eliminar(c.id);
+            }}
           />
         )}
         {seccion === "papelera" && esAdmin && (
