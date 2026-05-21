@@ -504,7 +504,8 @@ export default function SeccionCuellos({
             🧶 Tejido de Cuellos
           </h1>
           <div style={{ fontSize: 11, color: "#aaa" }}>
-            {cuellos.length} pedido(s) · {activos} activos · {fmt$C(porCobrar)} por cobrar
+            {cuellos.length} pedido(s) · {activos} activos
+            {esAdmin && ` · ${fmt$C(porCobrar)} por cobrar`}
           </div>
         </div>
         <div style={{ background: "#FFF4E6", border: "1px solid #FFCC80", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#B85C00", fontWeight: 700 }}>

@@ -882,7 +882,8 @@ export default function SeccionBordados({
             🪡 Bordados
           </h1>
           <div style={{ fontSize: 11, color: "#aaa" }}>
-            {bordados.length} pedido(s) · {activos} activos · {fmt$B(porCobrar)} por cobrar
+            {bordados.length} pedido(s) · {activos} activos
+            {esAdmin && ` · ${fmt$B(porCobrar)} por cobrar`}
           </div>
         </div>
         {esAdmin && sinDrive > 0 && (
