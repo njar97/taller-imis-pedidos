@@ -45,6 +45,7 @@ import CardPedido from "./CardPedido.jsx";
 // Modal del asistente IA (chat con Claude) — decompilado a JSX
 import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
 import EstimadorPrecio from "./EstimadorPrecio.jsx";
+import QRCode from "qrcode";
 
 // Formulario de pedido (decompilado a JSX)
 import FormPedido from "./FormPedido.jsx";
@@ -306,8 +307,9 @@ function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false, mostr
     </table>`;
 }
 
-function imprimirPedido(p, esAdmin) {
-  if (esAdmin) imprimirRecibo(p);else imprimirProduccion(p);
+async function imprimirPedido(p, esAdmin, todosPedidos = []) {
+  if (esAdmin) imprimirRecibo(p);
+  else await imprimirProduccion(p, todosPedidos);
 }
 function imprimirRecibo(p) {
   const abonado = sumarAbonos(p);
@@ -464,8 +466,29 @@ function imprimirRecibo(p) {
   </body></html>`);
   w.document.close();
 }
-function imprimirProduccion(p) {
+async function imprimirProduccion(p, todosPedidos = []) {
   const num = String(p.id).padStart(4, "0");
+  // QR con URL del pedido — el query param ?p=<id> se puede usar en
+  // un futuro deeplink para abrir el detalle del pedido al instante.
+  const baseURL = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
+  const qrURL = baseURL ? `${baseURL}?p=${p.id}` : `Pedido #${num}`;
+  let qrDataURL = "";
+  try {
+    qrDataURL = await QRCode.toDataURL(qrURL, { margin: 1, width: 110, color: { dark: "#1A5276", light: "#fff" } });
+  } catch (e) {
+    console.warn("QR falló:", e.message);
+  }
+  // Historial: últimos 3 pedidos del mismo cliente (excluyendo el actual
+  // y los borrados). Ordenados por fecha descendente.
+  const historial = (todosPedidos || [])
+    .filter(x =>
+      x.id !== p.id &&
+      !x.deletedAt &&
+      x.cliente &&
+      x.cliente.trim().toLowerCase() === (p.cliente || "").trim().toLowerCase()
+    )
+    .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")))
+    .slice(0, 3);
   const fecha = new Date().toLocaleDateString("es-SV", {
     day: "2-digit",
     month: "long",
@@ -549,9 +572,9 @@ function imprimirProduccion(p) {
     <button onclick="window.close()" style="padding:10px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
   </div>
 
-  <!-- ENCABEZADO compacto: taller a la izq, N° + entrega a la der -->
-  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1A5276;padding-bottom:10px;margin-bottom:14px;">
-    <div>
+  <!-- ENCABEZADO: taller + N° + entrega + QR -->
+  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1A5276;padding-bottom:10px;margin-bottom:14px;gap:14px;">
+    <div style="flex:1;">
       <div style="font-size:18px;font-weight:900;color:#1A5276;font-family:Georgia,serif;line-height:1;">${TALLER}</div>
       <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-top:3px;">Hoja de Producción · ${fecha}</div>
     </div>
@@ -561,6 +584,10 @@ function imprimirProduccion(p) {
         📌 Entregar: ${p.fechaEntrega || "⚠️ Sin fecha"}
       </div>
     </div>
+    ${qrDataURL ? `<div style="text-align:center;flex-shrink:0;">
+      <img src="${qrDataURL}" style="width:80px;height:80px;display:block;" alt="QR pedido" />
+      <div style="font-size:8px;color:#aaa;margin-top:2px;letter-spacing:.5px;">ESCANEAR</div>
+    </div>` : ""}
   </div>
 
   <!-- CLIENTE (una sola tarjeta amplia) -->
@@ -586,10 +613,24 @@ function imprimirProduccion(p) {
       <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">🪡 Bordado</div>
       <div style="font-size:13px;font-weight:700;color:#6B2D8B;">SÍ${p.estatusDiseno ? ` — ${p.estatusDiseno}` : ""}</div>
     </div>` : ""}
-    ${p.fechaInicio ? `<div style="flex:1;min-width:120px;padding:8px 10px;background:#f4f4f4;border-radius:8px;border-left:3px solid #888;">
-      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">📅 Inicio</div>
-      <div style="font-size:13px;font-weight:700;color:#222;">${p.fechaInicio}</div>
-    </div>` : ""}
+  </div>
+
+  <!-- TIMELINE DE FECHAS -->
+  <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:#FAFAFA;border-radius:8px;margin-bottom:14px;font-size:11px;">
+    <div style="text-align:center;flex:1;">
+      <div style="color:#888;font-weight:800;text-transform:uppercase;letter-spacing:.4px;font-size:8px;">📅 Pedido</div>
+      <div style="font-weight:700;color:#222;">${p.fecha || "—"}</div>
+    </div>
+    <div style="color:#ccc;font-size:14px;">→</div>
+    <div style="text-align:center;flex:1;">
+      <div style="color:#888;font-weight:800;text-transform:uppercase;letter-spacing:.4px;font-size:8px;">🛠️ Inicio</div>
+      <div style="font-weight:700;color:${p.fechaInicio ? "#222" : "#bbb"};">${p.fechaInicio || "—"}</div>
+    </div>
+    <div style="color:#ccc;font-size:14px;">→</div>
+    <div style="text-align:center;flex:1;">
+      <div style="color:#888;font-weight:800;text-transform:uppercase;letter-spacing:.4px;font-size:8px;">📌 Entrega</div>
+      <div style="font-weight:800;color:#E67E22;">${p.fechaEntrega || "—"}</div>
+    </div>
   </div>
 
   <!-- PRENDAS A CONFECCIONAR — el bloque más prominente -->
@@ -597,6 +638,14 @@ function imprimirProduccion(p) {
     📋 Prendas a confeccionar${p.tipoPrenda ? ` — ${p.tipoPrenda}` : ""}
   </div>
   ${tablaPrendasHTML}
+
+  <!-- DETALLE POR PERSONA (solo modo lista con personas) -->
+  ${p.personas && p.personas.length ? `
+    <div style="font-size:11px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;margin-top:14px;margin-bottom:6px;">
+      👥 Detalle por persona
+    </div>
+    ${tablaPorPersonaHTML(p, "#1A5276", false, true)}
+  ` : ""}
 
   <!-- DESCRIPCIÓN E INSTRUCCIONES (fusionada con notas) -->
   ${p.descripcion || p.notas ? `
@@ -612,6 +661,22 @@ function imprimirProduccion(p) {
 
   <!-- IMÁGENES -->
   ${imgHTML}
+
+  <!-- HISTORIAL DEL CLIENTE -->
+  ${historial.length ? `
+    <div style="margin-top:14px;padding:10px 12px;background:#FAFAFA;border:1px dashed #ccc;border-radius:8px;">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
+        📜 Pedidos anteriores de ${p.cliente}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        ${historial.map(h => `<tr>
+          <td style="padding:3px 6px;color:#9B59B6;font-weight:700;white-space:nowrap;">N°${String(h.id).padStart(4, "0")}</td>
+          <td style="padding:3px 6px;color:#666;white-space:nowrap;">${h.fecha || "—"}</td>
+          <td style="padding:3px 6px;color:#444;">${h.tipoPrenda || "—"}</td>
+          <td style="padding:3px 6px;text-align:right;color:#888;font-size:10px;">${h.estatus || ""}</td>
+        </tr>`).join("")}
+      </table>
+    </div>` : ""}
 
   </body></html>`);
   w.document.close();
@@ -1574,7 +1639,7 @@ function App() {
             setConf={setConf}
             setVisor={setVisor}
             cambiarEstatus={cambiarEstatus}
-            onImprimir={(p) => imprimirPedido(p, esAdmin)}
+            onImprimir={(p) => imprimirPedido(p, esAdmin, pedidos)}
             onCopiarWA={(p) => copiarWA(p, esAdmin)}
           />
         )}
@@ -1766,7 +1831,7 @@ function App() {
             setSec("cuellos");
             setDet(null);
           }}
-          onImprimir={() => imprimirPedido(detalle, esAdmin)}
+          onImprimir={() => imprimirPedido(detalle, esAdmin, pedidos)}
           onExportarPDF={() => exportarPedidoPDF(detalle, "confeccion")}
           onAbrirEdicion={() => {
             setModal(detalle);
