@@ -197,6 +197,7 @@ import {
   tallasTexto,
   tallasItemsTexto,
   resumenTallas,
+  itemsResumen,
   PEDIDO_BASE,
 } from "./lib/dominio.js";
 
@@ -464,7 +465,6 @@ function imprimirRecibo(p) {
   w.document.close();
 }
 function imprimirProduccion(p) {
-  const tallas = resumenTallas(p);
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", {
     day: "2-digit",
@@ -473,40 +473,51 @@ function imprimirProduccion(p) {
   });
   const imagenes = (p.imagenes || []).filter(img => imgSrc(img));
   const meds = MEDIDAS_DEF.filter(m => (p.medidas || {})[m.k]);
-  const tieneItems = (p.tallasItems || []).length > 0;
+  // itemsResumen agrupa por tipo+talla+precio+spec — soporta los 2 modos
+  // (lista y tallas) y devuelve items con tipo, lo que necesitamos para
+  // la tabla de producción.
+  const items = itemsResumen(p);
+  const totalPzas = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+  const algunoTieneTipo = items.some(it => it.tipo);
+  const tallasTxt = resumenTallas(p);
   const medsHTML = meds.length ? `
-    <div style="margin-bottom:18px;">
-      <div style="font-size:10px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1A5276;padding-bottom:4px;margin-bottom:10px;">📐 Medidas</div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:10px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1A5276;padding-bottom:3px;margin-bottom:8px;">📐 Medidas</div>
       <table style="border:1px solid #ddd;border-radius:8px;overflow:hidden;">
         ${(() => {
     const rows = [];
     for (let i = 0; i < meds.length; i += 4) {
-      rows.push(`<tr>${meds.slice(i, i + 4).map((m, j) => `<td style="padding:7px 10px;border:1px solid #ddd;font-size:11px;background:${j % 2 === 0 ? "#f9f9f9" : "#fff"};color:#888;font-weight:700;">${m.l}</td><td style="padding:7px 12px;border:1px solid #ddd;font-size:14px;font-weight:800;color:#1A5276;">${p.medidas[m.k]} cm</td>`).join("")}</tr>`);
+      rows.push(`<tr>${meds.slice(i, i + 4).map((m, j) => `<td style="padding:6px 9px;border:1px solid #ddd;font-size:11px;background:${j % 2 === 0 ? "#f9f9f9" : "#fff"};color:#888;font-weight:700;">${m.l}</td><td style="padding:6px 10px;border:1px solid #ddd;font-size:13px;font-weight:800;color:#1A5276;">${p.medidas[m.k]} cm</td>`).join("")}</tr>`);
     }
     return rows.join("");
   })()}
       </table>
     </div>` : "";
-  const itemsHTML = tieneItems ? `
-    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+  // Tabla principal: TIPO + TALLA + CANT + SPEC. La columna TIPO solo
+  // aparece si al menos un item tiene tipo (modo lista o modo tallas
+  // post-PR91). Para legacy sin tipo, fallback al layout anterior.
+  const tablaPrendasHTML = items.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
-        <th style="padding:6px 10px;text-align:left;">Talla</th>
-        <th style="padding:6px 10px;text-align:center;">Cant.</th>
-        <th style="padding:6px 10px;text-align:left;">Especificación / instrucción</th>
+        ${algunoTieneTipo ? `<th style="padding:9px 12px;text-align:left;">Tipo de prenda</th>` : ""}
+        <th style="padding:9px 12px;text-align:center;width:80px;">Talla</th>
+        <th style="padding:9px 12px;text-align:center;width:80px;">Cant.</th>
+        <th style="padding:9px 12px;text-align:left;">Especificación / instrucción</th>
       </tr></thead>
       <tbody>
-        ${p.tallasItems.map((it, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};">
-          <td style="padding:7px 10px;font-weight:900;font-size:14px;color:#E67E22;border-bottom:1px solid #eee;">${it.talla}</td>
-          <td style="padding:7px 10px;text-align:center;font-weight:800;font-size:14px;border-bottom:1px solid #eee;">${it.qty}</td>
-          <td style="padding:7px 10px;color:#444;border-bottom:1px solid #eee;">${it.spec || "—"}</td>
+        ${items.map((it, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
+          ${algunoTieneTipo ? `<td style="padding:9px 12px;font-weight:800;font-size:14px;color:#2C1654;">${it.tipo || "—"}</td>` : ""}
+          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:16px;color:#E67E22;">${it.talla || "S/T"}</td>
+          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:18px;color:#1A5276;">${it.qty}</td>
+          <td style="padding:9px 12px;color:#444;font-size:12px;">${it.spec || ""}</td>
         </tr>`).join("")}
-        <tr style="background:#e8f5e9;font-weight:800;border-top:2px solid #27AE60;">
-          <td style="padding:7px 10px;color:#155724;">TOTAL</td>
-          <td style="padding:7px 10px;text-align:center;font-size:15px;color:#155724;">${p.tallasItems.reduce((s, it) => s + it.qty, 0)}</td>
-          <td style="padding:7px 10px;color:#888;font-size:11px;">prendas a confeccionar</td>
+        <tr style="background:#1A5276;color:#fff;font-weight:800;">
+          <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:9px 12px;text-align:right;">TOTAL A CONFECCIONAR</td>
+          <td style="padding:9px 12px;text-align:center;font-size:18px;">${totalPzas}</td>
+          <td style="padding:9px 12px;font-size:11px;opacity:.85;">piezas</td>
         </tr>
       </tbody>
-    </table>` : tallas ? `<div style="font-size:14px;color:#E67E22;font-weight:700;margin-top:6px;">📦 ${tallas}</div>` : "";
+    </table>` : tallasTxt ? `<div style="font-size:14px;color:#E67E22;font-weight:700;margin-top:6px;">📦 ${tallasTxt}</div>` : `<div style="color:#aaa;font-style:italic;">(sin prendas especificadas)</div>`;
   const imgHTML = imagenes.length ? `
     <div style="margin-bottom:18px;">
       <div style="font-size:10px;font-weight:800;color:#E91E8C;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #E91E8C;padding-bottom:4px;margin-bottom:10px;">📸 Imágenes de referencia</div>
@@ -538,66 +549,54 @@ function imprimirProduccion(p) {
     <button onclick="window.close()" style="padding:10px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
   </div>
 
-  <!-- ENCABEZADO -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1A5276;padding-bottom:12px;margin-bottom:16px;">
+  <!-- ENCABEZADO compacto: taller a la izq, N° + entrega a la der -->
+  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1A5276;padding-bottom:10px;margin-bottom:14px;">
     <div>
-      <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Hoja de Producción</div>
-      <div style="font-size:20px;font-weight:900;color:#1A5276;font-family:Georgia,serif;">${TALLER}</div>
-      <div style="font-size:11px;color:#aaa;margin-top:2px;">Impreso: ${fecha}</div>
+      <div style="font-size:18px;font-weight:900;color:#1A5276;font-family:Georgia,serif;line-height:1;">${TALLER}</div>
+      <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-top:3px;">Hoja de Producción · ${fecha}</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Orden</div>
-      <div style="font-size:40px;font-weight:900;color:#1A5276;line-height:1;">N°${num}</div>
-      <div style="margin-top:6px;font-size:15px;font-weight:800;color:#E67E22;">
+      <div style="font-size:34px;font-weight:900;color:#1A5276;line-height:1;">N°${num}</div>
+      <div style="margin-top:4px;display:inline-block;padding:4px 12px;border-radius:20px;background:#FFF5E6;border:1.5px solid #E67E22;font-size:13px;font-weight:800;color:#E67E22;">
         📌 Entregar: ${p.fechaEntrega || "⚠️ Sin fecha"}
       </div>
     </div>
   </div>
 
-  <!-- CLIENTE Y PRENDA -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
-    <div style="background:#f8f4ff;border-radius:10px;padding:13px;border-left:4px solid #9B59B6;">
-      <div style="font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;margin-bottom:5px;">👤 Cliente</div>
-      <div style="font-size:16px;font-weight:800;color:#2C1654;">${p.cliente}</div>
-      ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:2px;">Contacto: ${p.nombreContacto}</div>` : ""}
+  <!-- CLIENTE (una sola tarjeta amplia) -->
+  <div style="background:#f8f4ff;border-radius:10px;padding:12px 14px;border-left:4px solid #9B59B6;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <div style="font-size:17px;font-weight:800;color:#2C1654;">👤 ${p.cliente}</div>
       ${p.telefono ? `<div style="font-size:12px;color:#555;">📱 ${p.telefono}</div>` : ""}
     </div>
-    <div style="background:#EBF5FB;border-radius:10px;padding:13px;border-left:4px solid #1A5276;">
-      <div style="font-size:10px;font-weight:800;color:#1A5276;text-transform:uppercase;margin-bottom:5px;">✂️ Prenda</div>
-      <div style="font-size:16px;font-weight:800;color:#1A5276;">${p.tipoPrenda || "(sin especificar)"}</div>
-      ${p.tela ? `<div style="font-size:12px;color:#555;margin-top:3px;">🧵 Tela: <strong>${p.tela}</strong></div>` : ""}
-      ${p.color ? `<div style="font-size:12px;color:#555;">🎨 Color: <strong>${p.color}</strong></div>` : ""}
-    </div>
+    ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:2px;">Contacto: <strong>${p.nombreContacto}</strong></div>` : ""}
   </div>
 
-  <!-- FICHA DE PRODUCCIÓN -->
-  <div class="sec" style="color:#1A5276;">⚙️ Ficha de producción</div>
-  <div class="ficha">
-    <div class="campo ${p.costurera && p.costurera !== "(Sin asignar)" ? "ok" : ""}">
-      <div class="campo-lbl">Costurera asignada</div>
-      <div class="campo-val">${p.costurera || "⚠️ Sin asignar"}</div>
+  <!-- FICHA DE PRODUCCIÓN compacta (todo en línea horizontal de chips) -->
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+    <div style="flex:1;min-width:140px;padding:8px 10px;background:${p.costurera && p.costurera !== "(Sin asignar)" ? "#E8F5E9" : "#FFF5E6"};border-radius:8px;border-left:3px solid ${p.costurera && p.costurera !== "(Sin asignar)" ? "#27AE60" : "#E67E22"};">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">✂️ Costurera</div>
+      <div style="font-size:13px;font-weight:700;color:#222;">${p.costurera || "⚠️ Sin asignar"}</div>
     </div>
-    <div class="campo">
-      <div class="campo-lbl">Fecha inicio</div>
-      <div class="campo-val">${p.fechaInicio || "—"}</div>
-    </div>
-    <div class="campo ${p.tieneBordado ? "urgente" : ""}">
-      <div class="campo-lbl">Bordado</div>
-      <div class="campo-val">${p.tieneBordado ? "✅ SÍ LLEVA BORDADO" : "No"}</div>
-    </div>
-    <div class="campo ${p.telaComprada ? "ok" : "urgente"}">
-      <div class="campo-lbl">Tela</div>
-      <div class="campo-val">${p.telaComprada ? "✅ Ya comprada" : "⚠️ Pendiente comprar"}</div>
-    </div>
-    ${p.tieneBordado && p.estatusDiseno ? `<div class="campo" style="grid-column:span 2">
-      <div class="campo-lbl">Estado del diseño de bordado</div>
-      <div class="campo-val">${p.estatusDiseno}</div>
+    ${p.tela || p.color ? `<div style="flex:1;min-width:140px;padding:8px 10px;background:${p.telaComprada ? "#E8F5E9" : "#FFF5E6"};border-radius:8px;border-left:3px solid ${p.telaComprada ? "#27AE60" : "#E67E22"};">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">🧵 Tela ${p.telaComprada ? "(comprada)" : "(pend.)"}</div>
+      <div style="font-size:13px;font-weight:700;color:#222;">${[p.tela, p.color].filter(Boolean).join(" — ") || "—"}</div>
+    </div>` : ""}
+    ${p.tieneBordado ? `<div style="flex:1;min-width:140px;padding:8px 10px;background:#F3E5F5;border-radius:8px;border-left:3px solid #9B59B6;">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">🪡 Bordado</div>
+      <div style="font-size:13px;font-weight:700;color:#6B2D8B;">SÍ${p.estatusDiseno ? ` — ${p.estatusDiseno}` : ""}</div>
+    </div>` : ""}
+    ${p.fechaInicio ? `<div style="flex:1;min-width:120px;padding:8px 10px;background:#f4f4f4;border-radius:8px;border-left:3px solid #888;">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">📅 Inicio</div>
+      <div style="font-size:13px;font-weight:700;color:#222;">${p.fechaInicio}</div>
     </div>` : ""}
   </div>
 
-  <!-- TALLAS Y CANTIDADES -->
-  <div class="sec" style="color:#E67E22;">📦 Tallas y cantidades a confeccionar</div>
-  ${tablaPorPersonaHTML(p, "#E67E22", false, true) || itemsHTML}
+  <!-- PRENDAS A CONFECCIONAR — el bloque más prominente -->
+  <div style="font-size:11px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">
+    📋 Prendas a confeccionar${p.tipoPrenda ? ` — ${p.tipoPrenda}` : ""}
+  </div>
+  ${tablaPrendasHTML}
 
   <!-- DESCRIPCIÓN E INSTRUCCIONES -->
   ${p.descripcion ? `
