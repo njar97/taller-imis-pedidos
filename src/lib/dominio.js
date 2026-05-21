@@ -106,7 +106,7 @@ export const PEDIDO_BASE = {
   anticipo: "",
   fechaInicio: "",
   fechaEntrega: "",
-  estatus: "Tomado",
+  estatus: "Corte",
   costurera: "(Sin asignar)",
   vendedor: "",
   notas: "",

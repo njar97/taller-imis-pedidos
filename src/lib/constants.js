@@ -12,19 +12,24 @@ export const SQL_WASM = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sq
 export const ANTHROPIC_KEY = "";
 
 // ── Pedidos de confección ─────────────────────────────────
+// Estatus simplificados (21-may-2026): 4 estados visibles. Cancelado se
+// implementa como soft-delete (papelera), no como estatus. Los estados
+// viejos siguen mapeados en EC por si quedan pedidos legacy sin migrar.
 export const ESTATUS = [
-  "Tomado", "Diseño Wilcom", "Bordado", "En corte", "En costura",
-  "En acabados", "Listo", "Entregado", "Cancelado",
+  "Corte", "Producción", "Listo", "Entregado",
 ];
 export const EC = {
-  "Tomado":         { bg: "#FFF3CD", fg: "#856404" },
-  "Diseño Wilcom":  { bg: "#FFE5D0", fg: "#7B3A10" },
-  "Bordado":        { bg: "#FCE4EC", fg: "#880E4F" },
-  "En corte":       { bg: "#FFF9C4", fg: "#795548" },
-  "En costura":     { bg: "#CCE5FF", fg: "#004085" },
-  "En acabados":    { bg: "#E8D5FF", fg: "#4B0082" },
+  "Corte":          { bg: "#FFF9C4", fg: "#795548" },
+  "Producción":     { bg: "#CCE5FF", fg: "#004085" },
   "Listo":          { bg: "#D4EDDA", fg: "#155724" },
   "Entregado":      { bg: "#E2E3E5", fg: "#383D41" },
+  // Legacy — pedidos antiguos sin migrar. No se usan en UI nueva.
+  "Tomado":         { bg: "#FFF9C4", fg: "#795548" },
+  "Diseño Wilcom":  { bg: "#CCE5FF", fg: "#004085" },
+  "Bordado":        { bg: "#CCE5FF", fg: "#004085" },
+  "En corte":       { bg: "#FFF9C4", fg: "#795548" },
+  "En costura":     { bg: "#CCE5FF", fg: "#004085" },
+  "En acabados":    { bg: "#CCE5FF", fg: "#004085" },
   "Cancelado":      { bg: "#F8D7DA", fg: "#721C24" },
 };
 
