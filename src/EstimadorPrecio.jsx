@@ -611,7 +611,7 @@ function BloqueTotales({ costoTotal, precioSugerido, margen, setMargen, totalQty
 
 // ── Componente principal ────────────────────────────────────
 
-export default function EstimadorPrecio({ open, onClose, onAplicar }) {
+export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [], onGuardarCotizacion }) {
   const [costos, setCostos] = useState({ tela: [], mano_obra: [], extra: [] });
   const [modo, setModo] = useState("confeccion"); // confeccion | bordado | cuello
 
@@ -625,6 +625,26 @@ export default function EstimadorPrecio({ open, onClose, onAplicar }) {
   const [cuelloDatos, setCuelloDatos] = useState({ tipo: TIPOS_CUELLO[0], material: MATERIALES_CUELLO[0], qty: "1", costoUnit: "3.5" });
 
   const [margen, setMargen] = useState(50);
+
+  // Datos del cliente para guardar la cotización formal
+  const [cliente, setCliente] = useState("");
+  const [telefono, setTelefono] = useState("");
+
+  // Autocomplete contra los clientes ya registrados en la app
+  const sugClientes = (clientes || [])
+    .filter(c => cliente && c.nombre && c.nombre.toLowerCase().includes(cliente.toLowerCase()) && c.nombre.toLowerCase() !== cliente.toLowerCase())
+    .slice(0, 5);
+
+  // Cuando el user elige un cliente del dropdown, autopobla el teléfono
+  const elegirCliente = c => {
+    setCliente(c.nombre);
+    if (c.telefono) setTelefono(c.telefono);
+  };
+
+  // Botón WhatsApp: ?phone=... → wa.me/. Quita todo lo no-numérico.
+  const waURL = telefono
+    ? `https://wa.me/${telefono.replace(/[^0-9]/g, "")}`
+    : null;
 
   useEffect(() => {
     if (!open) return;
@@ -676,6 +696,94 @@ export default function EstimadorPrecio({ open, onClose, onAplicar }) {
     }
   };
 
+  // Genera el shape del pedido (cotización) a partir del estado actual
+  // del estimador. Cada item del estimador queda como un tallasItem del
+  // pedido — sin talla específica (es cotización rough), con precio
+  // unitario derivado del costo + margen.
+  const armarCotizacion = () => {
+    if (!cliente.trim()) return null;
+    if (modo === "confeccion") {
+      const tallasItems = items
+        .filter(it => num(it.qty) > 0 && (it.tipoPrenda || "").trim())
+        .map(it => {
+          const costo = costoItem(it).total;
+          const precioItem = costo * (1 + margen / 100);
+          const precioUnit = it.qty > 0 ? precioItem / num(it.qty) : 0;
+          return {
+            id: it.id,
+            tipo: (it.tipoPrenda || "").trim(),
+            talla: "",
+            qty: num(it.qty),
+            precio: parseFloat(precioUnit.toFixed(2)),
+            spec: "",
+            grupo: "adulto",
+          };
+        });
+      return {
+        cliente: cliente.trim(),
+        telefono: telefono.trim(),
+        tipoPrenda: items[0]?.tipoPrenda || "Cotización",
+        tallasItems,
+        modoRegistro: "tallas",
+        precio: precioSugerido.toFixed(2),
+        validezDias: 15,
+      };
+    }
+    if (modo === "bordado") {
+      const qty = num(bordDatos.qty);
+      const precioUnit = qty > 0 ? precioSugerido / qty : 0;
+      return {
+        cliente: cliente.trim(),
+        telefono: telefono.trim(),
+        tipoPrenda: `Bordado en ${bordDatos.soporte || "soporte"}`,
+        tallasItems: [{
+          id: Date.now(),
+          tipo: bordDatos.soporte || "Bordado",
+          talla: "",
+          qty,
+          precio: parseFloat(precioUnit.toFixed(2)),
+          spec: `${bordDatos.puntadas || 0} puntadas`,
+          grupo: "adulto",
+        }],
+        modoRegistro: "tallas",
+        precio: precioSugerido.toFixed(2),
+        validezDias: 15,
+      };
+    }
+    // cuello
+    const qty = num(cuelloDatos.qty);
+    const precioUnit = qty > 0 ? precioSugerido / qty : 0;
+    return {
+      cliente: cliente.trim(),
+      telefono: telefono.trim(),
+      tipoPrenda: `${cuelloDatos.tipo} (${cuelloDatos.material})`,
+      tallasItems: [{
+        id: Date.now(),
+        tipo: cuelloDatos.tipo,
+        talla: "",
+        qty,
+        precio: parseFloat(precioUnit.toFixed(2)),
+        spec: cuelloDatos.material,
+        grupo: "adulto",
+      }],
+      modoRegistro: "tallas",
+      precio: precioSugerido.toFixed(2),
+      validezDias: 15,
+    };
+  };
+
+  const guardarCotizacion = () => {
+    const cot = armarCotizacion();
+    if (!cot) {
+      pushToast("Falta el nombre del cliente", "error");
+      return;
+    }
+    if (onGuardarCotizacion) {
+      onGuardarCotizacion(cot);
+      onClose();
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -709,23 +817,106 @@ export default function EstimadorPrecio({ open, onClose, onAplicar }) {
           <ModoCuello datos={cuelloDatos} setDatos={setCuelloDatos} margen={margen} setMargen={setMargen} costos={costos} />
         )}
 
+        {/* CLIENTE (para guardar cotización formal) */}
+        <div style={{ marginTop: 12, padding: 12, background: "#F3E5F5", borderRadius: 10, border: "1.5px solid #d4b3df" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: .5, marginBottom: 8 }}>
+            👤 Cliente (para guardar cotización)
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, position: "relative" }}>
+            <div style={{ position: "relative" }}>
+              <input
+                style={INP}
+                value={cliente}
+                onChange={e => setCliente(e.target.value)}
+                placeholder="Nombre del cliente"
+                list="clientes-existentes"
+              />
+              <datalist id="clientes-existentes">
+                {(clientes || []).map(c => (
+                  <option key={c.id} value={c.nombre} />
+                ))}
+              </datalist>
+              {sugClientes.length > 0 && (
+                <div style={{
+                  position: "absolute", left: 0, right: 0, top: "100%",
+                  zIndex: 10, background: "#fff", border: "1.5px solid #d4b3df",
+                  borderRadius: 6, marginTop: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  maxHeight: 140, overflowY: "auto",
+                }}>
+                  {sugClientes.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => elegirCliente(c)}
+                      style={{
+                        display: "block", width: "100%", textAlign: "left",
+                        padding: "6px 10px", border: "none", background: "#fff",
+                        cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+                        borderBottom: "1px solid #f5f5f5",
+                      }}
+                    >
+                      <strong>{c.nombre}</strong>
+                      {c.telefono && <span style={{ color: "#888", fontSize: 11, marginLeft: 6 }}>📱 {c.telefono}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <input
+                style={INP}
+                value={telefono}
+                onChange={e => setTelefono(e.target.value)}
+                placeholder="Teléfono"
+                type="tel"
+                inputMode="tel"
+              />
+              {waURL && (
+                <a
+                  href={waURL}
+                  target="_blank"
+                  rel="noopener"
+                  title="Abrir WhatsApp"
+                  style={{
+                    padding: "8px 10px", borderRadius: 8, border: "1.5px solid #25D366",
+                    background: "#25D366", color: "#fff", textDecoration: "none",
+                    fontSize: 16, display: "flex", alignItems: "center",
+                  }}
+                >💬</a>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Acciones */}
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
           <button onClick={copiar} style={{
-            flex: 1, padding: "10px", borderRadius: 8,
+            flex: "1 1 100px", padding: "10px", borderRadius: 8,
             border: "1.5px solid #9B59B6", background: "#fff",
-            color: "#9B59B6", fontWeight: 800, fontSize: 13,
+            color: "#9B59B6", fontWeight: 800, fontSize: 12,
             cursor: "pointer", fontFamily: "inherit",
           }}>
-            📋 Copiar resumen
+            📋 Copiar
           </button>
           {onAplicar && (
             <button onClick={aplicar} style={{
-              flex: 1, padding: "10px", borderRadius: 8, border: "none",
-              background: "#9B59B6", color: "#fff", fontWeight: 800, fontSize: 13,
+              flex: "1 1 100px", padding: "10px", borderRadius: 8, border: "none",
+              background: "#9B59B6", color: "#fff", fontWeight: 800, fontSize: 12,
               cursor: "pointer", fontFamily: "inherit",
             }}>
-              📦 Usar este precio
+              📦 Usar precio
+            </button>
+          )}
+          {onGuardarCotizacion && (
+            <button onClick={guardarCotizacion}
+              disabled={!cliente.trim()}
+              title={cliente.trim() ? "Guarda como cotización y abre el PDF formal" : "Escribe el nombre del cliente primero"}
+              style={{
+                flex: "1 1 100%", padding: "12px", borderRadius: 8, border: "none",
+                background: cliente.trim() ? "#27AE60" : "#bbb",
+                color: "#fff", fontWeight: 800, fontSize: 13,
+                cursor: cliente.trim() ? "pointer" : "not-allowed", fontFamily: "inherit",
+              }}>
+              💾 Guardar y abrir cotización formal
             </button>
           )}
         </div>
