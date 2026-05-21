@@ -77,7 +77,7 @@ function itemNuevo(catalogo = []) {
     telaNombre: "",
     telaCostoYd: "",
     yardasPorPrenda: "1.5",
-    moModo: "prenda",
+    moModo: "hechura", // 'hechura' (por prenda) | 'tiempo' (por hora)
     moCostoUnit: "3",
     moHoras: "1",
     bordActivo: false,
@@ -89,7 +89,9 @@ function itemNuevo(catalogo = []) {
 
 function costoItem(it) {
   const tela = num(it.telaCostoYd) * num(it.yardasPorPrenda) * num(it.qty);
-  const mo = it.moModo === "prenda"
+  // Backwards-compat con "prenda"/"hora" antiguos (pre-rename a hechura/tiempo).
+  const modo = it.moModo === "prenda" || it.moModo === "hechura" ? "hechura" : "tiempo";
+  const mo = modo === "hechura"
     ? num(it.moCostoUnit) * num(it.qty)
     : num(it.moCostoUnit) * num(it.moHoras);
   const bord = it.bordActivo ? calcCostoBordado(it.bordPunt) * num(it.qty) : 0;
@@ -276,37 +278,86 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefresca
           </div>
           <div style={{ fontSize: 10, color: "#1A5276", textAlign: "right", marginTop: 2 }}>= {fmt$(c.tela)}</div>
 
-          {/* ✂️ Mano de obra */}
+          {/* ✂️ Mano de obra — toggle 'Por hechura' (por prenda) o 'Por tiempo' (por hora) */}
           <div style={SEC("#27AE60")}>✂️ Mano de obra</div>
           <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-            {["prenda", "hora"].map(m => (
-              <button key={m} onClick={() => editField("moModo", m)} style={{
-                flex: 1, padding: "5px 6px", borderRadius: 6,
-                border: "1.5px solid " + (it.moModo === m ? "#27AE60" : "#e0e0e0"),
-                background: it.moModo === m ? "#27AE60" : "#fff",
-                color: it.moModo === m ? "#fff" : "#666",
-                fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit",
-              }}>
-                {m === "prenda" ? "Por prenda" : "Por tiempo"}
-              </button>
-            ))}
+            {[
+              { id: "hechura", label: "Por hechura" },
+              { id: "tiempo",  label: "Por tiempo" },
+            ].map(m => {
+              const activo = it.moModo === m.id ||
+                (m.id === "hechura" && it.moModo === "prenda") ||
+                (m.id === "tiempo" && it.moModo === "hora");
+              return (
+                <button key={m.id} onClick={() => editField("moModo", m.id)} style={{
+                  flex: 1, padding: "5px 6px", borderRadius: 6,
+                  border: "1.5px solid " + (activo ? "#27AE60" : "#e0e0e0"),
+                  background: activo ? "#27AE60" : "#fff",
+                  color: activo ? "#fff" : "#666",
+                  fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit",
+                }}>
+                  {m.label}
+                </button>
+              );
+            })}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: it.moModo === "hora" ? "1fr 1fr" : "1fr", gap: 6 }}>
-            <input
-              type="number" step="0.01" min="0"
-              style={INP} value={it.moCostoUnit}
-              onChange={e => editField("moCostoUnit", e.target.value)}
-              placeholder={it.moModo === "prenda" ? "$/prenda" : "$/hora"}
-            />
-            {it.moModo === "hora" && (
-              <input
-                type="number" step="0.5" min="0"
-                style={INP} value={it.moHoras}
-                onChange={e => editField("moHoras", e.target.value)}
-                placeholder="Horas totales"
-              />
-            )}
-          </div>
+          {(() => {
+            const esTiempo = it.moModo === "tiempo" || it.moModo === "hora";
+            // Match con la fila de BD para inline-edit del precio
+            const nombreBD = esTiempo ? "Por tiempo" : "Por hechura";
+            const moBD = costos.mano_obra.find(x => x.nombre === nombreBD);
+            const costoBD = moBD ? Number(moBD.costo) : null;
+            const costoUI = num(it.moCostoUnit);
+            const hayCambioPrecio = moBD && costoUI > 0 && costoBD !== costoUI;
+            const guardarMO = async () => {
+              if (!moBD) {
+                pushToast("No encuentro este modo en BD", "error");
+                return;
+              }
+              const guardado = await upsertCosto({
+                id: moBD.id, categoria: "mano_obra",
+                nombre: moBD.nombre, unidad: moBD.unidad, costo: costoUI,
+              });
+              if (guardado) {
+                pushToast(`${moBD.nombre} actualizado a $${costoUI}`, "success");
+                if (onRefrescarCostos) await onRefrescarCostos();
+              } else {
+                pushToast("No pude guardar", "error");
+              }
+            };
+            return (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: esTiempo ? "1fr 1fr auto" : "1fr auto", gap: 6 }}>
+                  <input
+                    type="number" step="0.01" min="0"
+                    style={INP} value={it.moCostoUnit}
+                    onChange={e => editField("moCostoUnit", e.target.value)}
+                    placeholder={esTiempo ? "$/hora" : "$/prenda"}
+                  />
+                  {esTiempo && (
+                    <input
+                      type="number" step="0.5" min="0"
+                      style={INP} value={it.moHoras}
+                      onChange={e => editField("moHoras", e.target.value)}
+                      placeholder="Horas totales"
+                    />
+                  )}
+                  {hayCambioPrecio && (
+                    <button
+                      onClick={guardarMO}
+                      title={`Actualizar precio base de "${moBD.nombre}"`}
+                      style={{
+                        padding: "4px 10px", borderRadius: 8,
+                        border: "1.5px solid #27AE60", background: "#27AE60",
+                        color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 800,
+                        fontFamily: "inherit", whiteSpace: "nowrap",
+                      }}
+                    >💾 Guardar</button>
+                  )}
+                </div>
+              </>
+            );
+          })()}
           <div style={{ fontSize: 10, color: "#27AE60", textAlign: "right", marginTop: 2 }}>= {fmt$(c.mo)}</div>
 
           {/* 🪡 Bordado opcional */}
