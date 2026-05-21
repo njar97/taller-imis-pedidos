@@ -598,63 +598,21 @@ function imprimirProduccion(p) {
   </div>
   ${tablaPrendasHTML}
 
-  <!-- DESCRIPCIÓN E INSTRUCCIONES -->
-  ${p.descripcion ? `
+  <!-- DESCRIPCIÓN E INSTRUCCIONES (fusionada con notas) -->
+  ${p.descripcion || p.notas ? `
   <div class="sec" style="color:#6C3483;">📝 Descripción e instrucciones</div>
   <div style="background:#F9F0FF;border:1.5px solid #D7BDE2;border-radius:9px;padding:13px;margin-bottom:14px;font-size:13px;color:#4A235A;line-height:1.6;">
-    ${p.descripcion}
-  </div>` : ""}
-
-  <!-- NOTAS INTERNAS -->
-  ${p.notas ? `
-  <div style="background:#FFF9C4;border:1.5px solid #F1C40F;border-radius:9px;padding:12px;margin-bottom:14px;">
-    <div style="font-size:10px;font-weight:800;color:#856404;text-transform:uppercase;margin-bottom:4px;">⚠️ Notas / Observaciones internas</div>
-    <div style="font-size:13px;color:#856404;">${p.notas}</div>
+    ${p.descripcion ? `<div>${p.descripcion}</div>` : ""}
+    ${p.descripcion && p.notas ? `<div style="border-top:1px dashed #D7BDE2;margin:8px 0;"></div>` : ""}
+    ${p.notas ? `<div>${p.notas}</div>` : ""}
   </div>` : ""}
 
   <!-- MEDIDAS -->
   ${medsHTML}
 
-  <!-- (La tabla "Beneficiarios" detallada ya está arriba en "Tallas y cantidades"
-       cuando hay personas con prendas — gracias al helper tablaPorPersonaHTML.
-       Acá solo dejamos una sección compacta de check-list para marcar cada uno
-       como completado.) -->
-  ${p.personas && p.personas.length ? `
-    <div style="margin-bottom:18px;">
-      <div style="font-size:10px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1A5276;padding-bottom:4px;margin-bottom:10px;">✅ Check-list de entrega por persona</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <tbody>
-          ${p.personas.map((per, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
-            <td style="padding:6px 8px;color:#aaa;width:24px;">${i + 1}</td>
-            <td style="padding:6px 8px;font-weight:700;">${per.nombre || "—"}${per.gafete ? ` <span style="font-size:10px;color:#666;">· Talla taller ${per.gafete}</span>` : ""}</td>
-            <td style="padding:6px 8px;text-align:right;color:#666;font-size:11px;">${(per.prendas || []).length} prenda${(per.prendas || []).length !== 1 ? "s" : ""}</td>
-            <td style="padding:6px 8px;text-align:center;width:60px;">☐ OK</td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-    </div>` : ""}
-
   <!-- IMÁGENES -->
   ${imgHTML}
 
-  <!-- CHECK DE PRODUCCIÓN -->
-  <div class="sec" style="color:#27AE60;margin-top:20px;">✅ Control de calidad y entrega</div>
-  <table style="border:1px solid #ddd;border-radius:8px;overflow:hidden;font-size:12px;">
-    ${["Tela cortada correctamente", "Costuras revisadas", "Bordado aplicado", "Acabados y detalles", "Revisión final — lista para entregar"].map((paso, i) => `
-    <tr style="background:${i % 2 === 0 ? "#fff" : "#f9f9f9"};">
-      <td style="padding:9px 14px;width:50%;border-bottom:1px solid #eee;">${paso}</td>
-      <td style="padding:9px 14px;width:50%;border-bottom:1px solid #eee;text-align:right;">
-        <div style="display:inline-flex;align-items:center;gap:16px;">
-          <span>☐ OK</span>
-          <span>☐ Corrección</span>
-        </div>
-      </td>
-    </tr>`).join("")}
-  </table>
-
-  <div style="margin-top:16px;text-align:center;font-size:10px;color:#ccc;border-top:1px solid #f0f0f0;padding-top:10px;">
-    ${TALLER} · Hoja de Producción N°${num} · ${fecha}
-  </div>
   </body></html>`);
   w.document.close();
 }
