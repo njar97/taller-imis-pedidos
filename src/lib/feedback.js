@@ -25,6 +25,33 @@ export function pushToast(msg, kind = "info", duracion = 3500) {
   }, duracion);
 }
 
+// Toast con acción "Deshacer". onUndo se invoca si el user toca el botón
+// antes de que expire el toast (duración por defecto 6s — más largo que
+// un toast normal porque pedir undo lleva tiempo de leer + decidir).
+// Devuelve el id por si necesitás cerrarlo manualmente.
+export function pushUndo(msg, onUndo, duracion = 6000) {
+  buzz(15);
+  const id = Date.now() + Math.random();
+  let yaUsado = false;
+  const accion = {
+    label: "Deshacer",
+    onClick: () => {
+      if (yaUsado) return;
+      yaUsado = true;
+      _toastBus.items = _toastBus.items.filter(t => t.id !== id);
+      _toastBus.listeners.forEach(fn => fn());
+      try { onUndo(); } catch (e) { console.error("undo falló:", e); }
+    },
+  };
+  _toastBus.items = [..._toastBus.items, { id, msg, kind: "info", accion }];
+  _toastBus.listeners.forEach(fn => fn());
+  setTimeout(() => {
+    _toastBus.items = _toastBus.items.filter(t => t.id !== id);
+    _toastBus.listeners.forEach(fn => fn());
+  }, duracion);
+  return id;
+}
+
 export function _subscribeToasts(fn) {
   _toastBus.listeners.add(fn);
   return () => _toastBus.listeners.delete(fn);

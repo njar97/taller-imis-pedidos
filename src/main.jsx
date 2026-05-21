@@ -131,6 +131,7 @@ import { subirFotoSupabase, subirArchivoSupabase } from "./supabaseStorage.js";
 // Bus de notificaciones (toast + confirm) accesible desde cualquier módulo.
 import {
   pushToast,
+  pushUndo,
   pushConfirm,
   _subscribeToasts,
   _getToasts,
@@ -147,6 +148,7 @@ import {
   dbLeer            as gsLeer,
   dbGuardar         as gsGuardar,
   dbBorrar          as gsBorrar,
+  dbRestaurar       as gsRestaurar,
   dbBordLeer        as gsBordLeer,
   dbBordGuardar     as gsBordGuardar,
   dbBordBorrar      as gsBordBorrar,
@@ -1347,21 +1349,37 @@ function App() {
     });
   }
   async function cambiarEstatus(id, est) {
-    const lista = pedidos.map(p => p.id === id ? {
-      ...p,
-      estatus: est
-    } : p);
+    const anterior = pedidos.find(p => p.id === id);
+    if (!anterior || anterior.estatus === est) return;
+    const estatusPrevio = anterior.estatus;
+    const lista = pedidos.map(p => p.id === id ? { ...p, estatus: est } : p);
     setPedidos(lista);
     try {
       await gsGuardar(lista.find(p => p.id === id));
     } catch {}
+    pushUndo(`Estatus → ${est}`, async () => {
+      setPedidos(prev => prev.map(p => p.id === id ? { ...p, estatus: estatusPrevio } : p));
+      try {
+        await gsGuardar({ ...anterior, estatus: estatusPrevio });
+      } catch {}
+    });
   }
   async function eliminar(id) {
+    const anterior = pedidos.find(p => p.id === id);
     setPedidos(p => p.filter(x => x.id !== id));
     setConf(null);
     try {
       await Promise.all([gsBorrar(id), idbBorrar(id)]);
     } catch {}
+    const nombre = anterior?.cliente ? `pedido de ${anterior.cliente}` : "pedido";
+    pushUndo(`🗑️ ${nombre} eliminado`, async () => {
+      try {
+        await gsRestaurar(id);
+        if (anterior) setPedidos(prev => [...prev.filter(x => x.id !== id), anterior]);
+      } catch (e) {
+        pushToast("No pude restaurar el pedido", "error");
+      }
+    });
   }
   const diasPara = f => f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null;
   const vencidosSinArchivar = useMemo(() => pedidos.filter(p => {
