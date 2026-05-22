@@ -47,6 +47,7 @@ import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
 import EstimadorPrecio from "./EstimadorPrecio.jsx";
 import SeccionCotizaciones from "./SeccionCotizaciones.jsx";
 import SeccionCalendario from "./SeccionCalendario.jsx";
+import SeccionResumenTallas from "./SeccionResumenTallas.jsx";
 import QRCode from "qrcode";
 
 // Formulario de pedido (decompilado a JSX)
@@ -1754,6 +1755,12 @@ function App() {
             pedidos={pedidos}
             bordados={bordados}
             cuellos={cuellos}
+            onAbrirPedido={(p) => setDet(p)}
+          />
+        )}
+        {seccion === "resumen" && esAdmin && (
+          <SeccionResumenTallas
+            pedidos={pedidos}
             onAbrirPedido={(p) => setDet(p)}
           />
         )}
