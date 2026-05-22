@@ -4,6 +4,7 @@
 
 import { TALLER } from "./lib/constants.js";
 import { fmt$ } from "./lib/dominio.js";
+import PushSwitch from "./PushSwitch.jsx";
 
 export default function TopbarMobile({
   esAdmin,
@@ -78,6 +79,7 @@ export default function TopbarMobile({
           💰
         </button>
       )}
+      <PushSwitch compact />
       <button
         onClick={refrescar}
         disabled={refrescando}
