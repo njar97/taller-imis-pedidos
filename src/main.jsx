@@ -204,6 +204,7 @@ import {
   itemsResumen,
   PEDIDO_BASE,
 } from "./lib/dominio.js";
+import { EMPRESA } from "./lib/empresa.js";
 
 // Helpers de imágenes
 import {
@@ -315,10 +316,11 @@ async function imprimirPedido(p, esAdmin, todosPedidos = []) {
   else await imprimirProduccion(p, todosPedidos);
 }
 
-// Cotización formal — versión limpia para mandar al cliente. NO incluye
-// desglose interno de costos (tela $/yd, mano de obra, etc.). Solo lo
-// que el cliente necesita ver: items con cantidades y precio, total y
-// validez. Pensada para que el cliente acepte y se convierta a pedido.
+// Cotización formal — para mandar al cliente. Formato basado en el
+// template real de UDP Confecciones IMIS (encabezado con datos
+// fiscales, tabla descripción/medida/cant/precio, IVA 13% desglosado,
+// firma del representante legal). Sin desglose interno de costos —
+// solo lo que el cliente debe ver.
 function imprimirCotizacion(p) {
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
@@ -327,113 +329,146 @@ function imprimirCotizacion(p) {
   vence.setDate(vence.getDate() + validez);
   const venceStr = vence.toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
   const items = itemsResumen(p);
-  const algunoTieneTipo = items.some(it => it.tipo);
   const tot = items.reduce((s, it) => {
     const pr = parseFloat(it.precio) || 0;
     return s + pr * it.qty;
   }, 0);
   const totPzas = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+  // El precio total puede venir como string desde p.precio (sobreescrito
+  // manualmente) o calcularse desde los items. Damos prioridad al manual.
   const precioFinal = parseFloat(p.precio) > 0 ? parseFloat(p.precio) : tot;
+  // Asumimos que el precio total incluye IVA (modelo SV). Si NO incluye
+  // IVA, basta con cambiar este cálculo. SUBTOTAL = TOTAL / 1.13.
+  const ivaRate = 0.13;
+  const subtotal = precioFinal / (1 + ivaRate);
+  const iva = precioFinal - subtotal;
 
-  const w = window.open("", "_blank", "width=780,height=1050");
+  const w = window.open("", "_blank", "width=820,height=1100");
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Cotización N°${num} — ${p.cliente}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:28px 36px;font-size:12px;line-height:1.4;}
   @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:A4;}}
   table{border-collapse:collapse;width:100%;}
+  .lbl{font-size:9px;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:.6px;}
 </style></head><body>
 
-<div class="no-print" style="text-align:right;margin-bottom:18px;display:flex;gap:8px;justify-content:flex-end;">
-  <button onclick="window.print()" style="padding:10px 22px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir</button>
+<div class="no-print" style="text-align:right;margin-bottom:14px;display:flex;gap:8px;justify-content:flex-end;">
+  <button onclick="window.print()" style="padding:10px 22px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / PDF</button>
   <button onclick="window.close()" style="padding:10px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
 </div>
 
-<!-- ENCABEZADO -->
-<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #9B59B6;padding-bottom:14px;margin-bottom:22px;">
-  <div>
-    <div style="font-size:24px;font-weight:900;color:#2C1654;font-family:Georgia,serif;">${TALLER}</div>
-    <div style="font-size:12px;color:#888;margin-top:3px;">Bordados y confección · El Salvador</div>
+<!-- ENCABEZADO con datos fiscales del emisor -->
+<div style="border-bottom:3px solid #2C1654;padding-bottom:12px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
+  <div style="flex:1;">
+    <div style="font-size:22px;font-weight:900;color:#2C1654;font-family:Georgia,serif;line-height:1.1;">${EMPRESA.razonSocial}</div>
+    <div style="font-size:10px;color:#666;margin-top:5px;line-height:1.5;">
+      ${EMPRESA.actividadEconomica}<br>
+      ${EMPRESA.direccion}<br>
+      Tel: ${EMPRESA.telefonos.join(" · ")}<br>
+      ${EMPRESA.email}<br>
+      <strong>NIT:</strong> ${EMPRESA.nit} &nbsp; <strong>NRC:</strong> ${EMPRESA.nrc}
+    </div>
   </div>
-  <div style="text-align:right;">
-    <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Cotización</div>
-    <div style="font-size:32px;font-weight:900;color:#9B59B6;line-height:1;">N°${num}</div>
-    <div style="font-size:11px;color:#aaa;margin-top:6px;">${fecha}</div>
+  <div style="text-align:right;border-left:3px solid #9B59B6;padding-left:14px;">
+    <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Cotización</div>
+    <div style="font-size:30px;font-weight:900;color:#9B59B6;line-height:1;">N° ${num}</div>
+    <div style="font-size:10px;color:#666;margin-top:6px;">Fecha: <strong>${fecha}</strong></div>
   </div>
 </div>
 
-<!-- CLIENTE -->
-<div style="background:#f8f4ff;border-radius:10px;padding:14px 16px;border-left:4px solid #9B59B6;margin-bottom:18px;">
-  <div style="font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Cotización para</div>
-  <div style="font-size:17px;font-weight:800;color:#2C1654;">${p.cliente || "Cliente"}</div>
-  ${p.telefono ? `<div style="font-size:12px;color:#555;margin-top:2px;">📱 ${p.telefono}</div>` : ""}
-  ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:2px;">Contacto: ${p.nombreContacto}</div>` : ""}
+<!-- DIRIGIDA A -->
+<div style="background:#f8f4ff;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+  <div class="lbl">Cotización dirigida a</div>
+  <div style="font-size:15px;font-weight:800;color:#2C1654;margin-top:3px;">${p.cliente || "Cliente"}</div>
+  ${p.nombreContacto ? `<div style="font-size:11px;color:#555;margin-top:2px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
+  ${p.telefono ? `<div style="font-size:11px;color:#555;">📱 ${p.telefono}</div>` : ""}
 </div>
 
-<!-- DETALLE -->
-<div style="font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📋 Detalle de la cotización</div>
+<p style="font-size:11px;color:#555;margin-bottom:10px;">
+  Por medio de la presente nos permitimos presentar la cotización de los productos solicitados con los siguientes detalles:
+</p>
+
+<!-- TABLA DETALLE -->
 ${items.length ? `
-<table style="border:1.5px solid #ddd;border-radius:8px;overflow:hidden;font-size:13px;margin-bottom:18px;">
-  <thead><tr style="background:#9B59B6;color:#fff;">
-    ${algunoTieneTipo ? `<th style="padding:8px 12px;text-align:left;">Prenda</th>` : ""}
-    <th style="padding:8px 12px;text-align:center;width:70px;">Talla</th>
-    <th style="padding:8px 12px;text-align:center;width:70px;">Cant.</th>
-    <th style="padding:8px 12px;text-align:right;width:100px;">Precio u.</th>
-    <th style="padding:8px 12px;text-align:right;width:100px;">Subtotal</th>
+<table style="border:1.5px solid #2C1654;font-size:11px;margin-bottom:14px;">
+  <thead><tr style="background:#2C1654;color:#fff;">
+    <th style="padding:7px 8px;text-align:center;width:36px;">N°</th>
+    <th style="padding:7px 10px;text-align:left;">Descripción</th>
+    <th style="padding:7px 8px;text-align:center;width:90px;">Medida</th>
+    <th style="padding:7px 8px;text-align:center;width:60px;">Cant.</th>
+    <th style="padding:7px 10px;text-align:right;width:90px;">Precio U.</th>
+    <th style="padding:7px 10px;text-align:right;width:100px;">Subtotal</th>
   </tr></thead>
   <tbody>
     ${items.map((it, i) => {
       const pr = parseFloat(it.precio) || 0;
       const sub = pr * it.qty;
-      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#fafafa"};border-bottom:1px solid #eee;">
-        ${algunoTieneTipo ? `<td style="padding:8px 12px;font-weight:700;color:#2C1654;">${it.tipo || "—"}${it.spec ? ` <span style="color:#888;font-weight:400;font-size:11px;">(${it.spec})</span>` : ""}</td>` : ""}
-        <td style="padding:8px 12px;text-align:center;font-weight:800;color:#E67E22;">${it.talla || "—"}</td>
-        <td style="padding:8px 12px;text-align:center;font-weight:700;">${it.qty}</td>
-        <td style="padding:8px 12px;text-align:right;color:#27AE60;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
-        <td style="padding:8px 12px;text-align:right;font-weight:800;color:#2C1654;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
+      // "Medida" intenta sacarse de talla (lo más común); si está vacía
+      // y spec parece una medida (contiene 'x' o 'm'), la usamos.
+      const medida = it.talla || (it.spec && /[\dxm,.]/i.test(it.spec) ? it.spec : "") || "—";
+      const descripcion = it.tipo || "—";
+      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f0fa"};border-bottom:1px solid #eee;">
+        <td style="padding:8px;text-align:center;font-weight:700;color:#666;">${i + 1}</td>
+        <td style="padding:8px 10px;color:#222;">${descripcion}</td>
+        <td style="padding:8px;text-align:center;font-weight:700;color:#2C1654;">${medida}</td>
+        <td style="padding:8px;text-align:center;font-weight:800;">${it.qty}</td>
+        <td style="padding:8px 10px;text-align:right;color:#27AE60;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#2C1654;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
       </tr>`;
     }).join("")}
-    <tr style="background:#f0f0f0;font-weight:800;border-top:2px solid #9B59B6;">
-      <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:9px 12px;color:#2C1654;">TOTAL</td>
-      <td style="padding:9px 12px;text-align:center;color:#2C1654;">${totPzas} pza${totPzas === 1 ? "" : "s"}</td>
-      <td></td>
-      <td style="padding:9px 12px;text-align:right;font-size:16px;color:#2C1654;">$${precioFinal.toFixed(2)}</td>
-    </tr>
   </tbody>
-</table>` : `<div style="background:#FAFAFA;border:1px dashed #ccc;border-radius:8px;padding:14px;font-size:13px;color:#888;margin-bottom:18px;">
-  Total cotizado: <strong style="color:#2C1654;font-size:16px;">$${precioFinal.toFixed(2)}</strong>
-</div>`}
+</table>` : ""}
+
+<!-- TOTALES -->
+<div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+  <table style="width:auto;min-width:280px;font-size:12px;border-collapse:collapse;">
+    <tr>
+      <td style="padding:5px 12px;text-align:right;color:#666;">SUBTOTAL:</td>
+      <td style="padding:5px 12px;text-align:right;font-weight:700;color:#2C1654;width:110px;">$${subtotal.toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td style="padding:5px 12px;text-align:right;color:#666;">IVA (13%):</td>
+      <td style="padding:5px 12px;text-align:right;font-weight:700;color:#2C1654;">$${iva.toFixed(2)}</td>
+    </tr>
+    <tr style="border-top:2px solid #2C1654;">
+      <td style="padding:7px 12px;text-align:right;font-weight:900;font-size:13px;color:#2C1654;">TOTAL:</td>
+      <td style="padding:7px 12px;text-align:right;font-weight:900;font-size:16px;color:#27AE60;">$${precioFinal.toFixed(2)}</td>
+    </tr>
+  </table>
+</div>
 
 ${p.descripcion ? `
-<div style="background:#F9F0FF;border:1.5px solid #D7BDE2;border-radius:9px;padding:13px;margin-bottom:18px;font-size:12px;color:#4A235A;line-height:1.6;">
-  ${p.descripcion}
+<div style="background:#F9F0FF;border-left:3px solid #9B59B6;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#4A235A;line-height:1.5;">
+  <strong>Observaciones:</strong><br>${p.descripcion}
 </div>` : ""}
 
-<!-- VALIDEZ Y CONDICIONES -->
-<div style="background:#FFF8E1;border:1.5px solid #FFE082;border-radius:9px;padding:14px 16px;margin-bottom:18px;font-size:12px;color:#856404;">
-  <div style="font-weight:800;margin-bottom:4px;">⏱️ Validez de esta cotización</div>
-  <div>Esta cotización es válida por <strong>${validez} días</strong> a partir de la fecha de emisión.</div>
-  <div style="margin-top:3px;">Vence el <strong>${venceStr}</strong>.</div>
+<!-- VALIDEZ + CONDICIONES -->
+<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#856404;line-height:1.5;">
+  <strong>⏱️ Validez:</strong> ${validez} días a partir de la fecha de emisión (vence el ${venceStr}).
 </div>
 
-<div style="font-size:11px;color:#888;line-height:1.5;margin-bottom:20px;">
-  • Los precios incluyen mano de obra y materiales según especificación.<br>
-  • Para confirmar el pedido se requiere un anticipo del 50%.<br>
-  • Fecha de entrega a coordinar al momento de confirmar.<br>
-  • Cambios al diseño o cantidades pueden modificar el precio final.
+<div style="font-size:10px;color:#666;line-height:1.6;margin-bottom:24px;border-top:1px dashed #ddd;padding-top:10px;">
+  <strong>Condiciones generales:</strong><br>
+  • Los precios incluyen IVA, mano de obra y materiales según especificación.<br>
+  • Forma de pago: anticipo del 50% al confirmar pedido, saldo contra entrega.<br>
+  • Fecha de entrega a coordinar al momento de la confirmación.<br>
+  • Cambios al diseño o cantidades pueden modificar el precio final.<br>
+  • Cotización emitida con base a especificaciones recibidas del cliente.
 </div>
 
-<!-- FIRMA -->
-<div style="margin-top:28px;text-align:center;">
-  <div style="border-top:1.5px solid #333;padding-top:8px;margin:0 auto;max-width:300px;">
-    <div style="font-size:11px;font-weight:700;color:#333;">Cotización emitida por</div>
-    <div style="font-size:12px;color:#555;margin-top:2px;">${TALLER}</div>
+<!-- FIRMA DEL REPRESENTANTE LEGAL -->
+<div style="margin-top:40px;text-align:center;">
+  <div style="border-top:1.5px solid #333;padding-top:8px;margin:0 auto;max-width:340px;">
+    <div style="font-size:12px;font-weight:800;color:#2C1654;">${EMPRESA.representanteLegal.nombre}</div>
+    <div style="font-size:10px;color:#666;margin-top:2px;">${EMPRESA.representanteLegal.cargo} — ${EMPRESA.razonSocial}</div>
+    <div style="font-size:10px;color:#666;">DUI: ${EMPRESA.representanteLegal.dui}</div>
   </div>
 </div>
 
-<div style="margin-top:24px;text-align:center;font-size:10px;color:#ccc;border-top:1px solid #f0f0f0;padding-top:12px;">
-  ${TALLER} · Cotización N°${num} · Generada el ${fecha}
+<div style="margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #f0f0f0;padding-top:10px;">
+  Cotización N° ${num} · ${EMPRESA.razonSocial} · ${fecha}
 </div>
 </body></html>`);
   w.document.close();
