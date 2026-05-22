@@ -1190,6 +1190,9 @@ function App() {
   const [seedDuplicar, setSeedDuplicar] = useState(null);
   const [modalIA, setModalIA] = useState(false);
   const [modalEstimador, setModalEstimador] = useState(false);
+  // Cuando abrimos el estimador con una cotización existente para
+  // ajustar parámetros y recalcular precios.
+  const [cotizacionEnEstimador, setCotizacionEnEstimador] = useState(null);
   const [modalArchivar, setModalArchivar] = useState(null);
   const [modalActMedidas, setModalActMedidas] = useState(null);
   const [masOpen, setMasOpen] = useState(false);
@@ -1850,6 +1853,10 @@ function App() {
             pedidos={pedidos}
             onImprimir={(c) => imprimirCotizacion(c)}
             onEditar={(c) => setModal(c)}
+            onReabrirEstimador={(c) => {
+              setCotizacionEnEstimador(c);
+              setModalEstimador(true);
+            }}
             onConvertirPedido={async (c) => {
               const ok = await pushConfirm({
                 titulo: "Convertir a pedido",
@@ -1955,9 +1962,27 @@ function App() {
       )}
       <EstimadorPrecio
         open={modalEstimador}
-        onClose={() => setModalEstimador(false)}
+        onClose={() => { setModalEstimador(false); setCotizacionEnEstimador(null); }}
         clientes={clientes}
         nextId={nextId}
+        cotizacionExistente={cotizacionEnEstimador}
+        onActualizarCotizacion={async (id, cot) => {
+          const existente = pedidos.find(p => p.id === id);
+          if (!existente) return;
+          const actualizado = {
+            ...existente,
+            cliente: cot.cliente,
+            telefono: cot.telefono,
+            tipoPrenda: cot.tipoPrenda,
+            tallasItems: cot.tallasItems,
+            modoRegistro: cot.modoRegistro,
+            precio: cot.precio,
+            desgloseEstimador: cot.desgloseEstimador,
+          };
+          setPedidos(prev => prev.map(p => p.id === id ? actualizado : p));
+          try { await gsGuardar(actualizado); } catch {}
+          pushToast(`COT-${String(id).padStart(4, "0")} actualizada con nuevos precios`, "success");
+        }}
         onGuardarCotizacion={(cot) => {
           // Abre el FormPedido precargado con los datos del estimador
           // (cliente, tel, items, precio) + flag esCotizacion=true. El
