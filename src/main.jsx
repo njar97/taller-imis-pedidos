@@ -1745,6 +1745,7 @@ function App() {
             bordados={bordados}
             cuellos={cuellos}
             esAdmin={esAdmin}
+            onAbrirPedido={(p) => setDet(p)}
           />
         )}
         {seccion === "cotizaciones" && esAdmin && (

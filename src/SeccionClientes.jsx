@@ -8,6 +8,7 @@ import {
   dbClientesGuardar as gsClientesGuardar,
   dbClientesBorrar  as gsClientesBorrar,
 } from "./lib/db.js";
+import DetalleClienteModal from "./DetalleClienteModal.jsx";
 
 import { useState } from "react";
 
@@ -231,10 +232,11 @@ function statsCliente(cli, pedidos, bordados, cuellos) {
   return { total: todos.length, activos, ultimaFecha: fechas[0] || "—", monto };
 }
 
-export default function SeccionClientes({ clientes, setClientes, pedidos, bordados, cuellos }) {
+export default function SeccionClientes({ clientes, setClientes, pedidos, bordados, cuellos, onAbrirPedido }) {
   const [busq, setBusq] = useState("");
   const [modal, setModal] = useState(null); // null | "nuevo" | cliente
   const [confirm, setConf] = useState(null);
+  const [detalle, setDetalle] = useState(null); // cliente cuyo historial mostrar
 
   const lista = clientes.filter(cl =>
     !busq ||
@@ -350,7 +352,15 @@ export default function SeccionClientes({ clientes, setClientes, pedidos, bordad
                       <strong style={{ color: "#555" }}>{st.ultimaFecha}</strong>
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
+                    {st.total > 0 && (
+                      <button
+                        onClick={() => setDetalle(cli)}
+                        style={{ padding: "7px 12px", borderRadius: 8, border: "1.5px solid #1A5276", background: "#EBF5FB", color: "#1A5276", cursor: "pointer", fontWeight: 700, fontSize: 12 }}
+                      >
+                        📜 Historial
+                      </button>
+                    )}
                     <button
                       onClick={() => setModal(cli)}
                       style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#9B59B6", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12 }}
@@ -383,6 +393,17 @@ export default function SeccionClientes({ clientes, setClientes, pedidos, bordad
         <ConfirmarEliminar
           onCancel={() => setConf(null)}
           onConfirm={() => eliminar(confirm)}
+        />
+      )}
+
+      {detalle && (
+        <DetalleClienteModal
+          cliente={detalle}
+          pedidos={pedidos}
+          bordados={bordados}
+          cuellos={cuellos}
+          onClose={() => setDetalle(null)}
+          onAbrirPedido={onAbrirPedido}
         />
       )}
     </div>
