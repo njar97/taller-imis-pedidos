@@ -23,6 +23,7 @@ export default function SeccionCotizaciones({
   onEliminar,
   onImprimir,
   onEditar,
+  onReabrirEstimador,
 }) {
   const [busq, setBusq] = useState("");
   const cotizaciones = useMemo(() => {
@@ -79,6 +80,7 @@ export default function SeccionCotizaciones({
               onEliminar={() => onEliminar(c)}
               onImprimir={() => onImprimir(c)}
               onEditar={() => onEditar(c)}
+              onReabrirEstimador={() => onReabrirEstimador && onReabrirEstimador(c)}
             />
           ))}
         </div>
@@ -87,7 +89,8 @@ export default function SeccionCotizaciones({
   );
 }
 
-function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar }) {
+function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador }) {
+  const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
   // Fecha de vencimiento de la cotización = fecha de creación + N días.
@@ -152,6 +155,11 @@ function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar }) {
         <button onClick={onImprimir} style={BTN("#9B59B6")}>
           📄 Imprimir
         </button>
+        {tieneDesglose && (
+          <button onClick={onReabrirEstimador} style={BTN("#E67E22")} title="Abrir esta cotización en el estimador para ajustar precios">
+            🔍 Estimador
+          </button>
+        )}
         <button onClick={onEditar} style={BTN("#1A5276")}>
           ✏️ Editar
         </button>

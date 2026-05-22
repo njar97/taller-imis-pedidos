@@ -644,7 +644,18 @@ function BloqueTotales({ costoTotal, precioSugerido, margen, setMargen, totalQty
 
 // ── Componente principal ────────────────────────────────────
 
-export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [], onGuardarCotizacion }) {
+export default function EstimadorPrecio({
+  open,
+  onClose,
+  onAplicar,
+  clientes = [],
+  onGuardarCotizacion,
+  // Modo edición: si viene un pedido con desgloseEstimador, precargamos
+  // el estimador con esos valores y al guardar invocamos onActualizarCotizacion
+  // en lugar de onGuardarCotizacion.
+  cotizacionExistente = null,
+  onActualizarCotizacion,
+}) {
   const [costos, setCostos] = useState({ tela: [], mano_obra: [], extra: [] });
   const [modo, setModo] = useState("confeccion"); // confeccion | bordado | cuello
 
@@ -691,7 +702,27 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
   useEffect(() => {
     if (!open) return;
     leerCostos().then(rows => setCostos(agruparCostos(rows)));
-  }, [open]);
+    // Precarga si nos pasaron una cotización existente con desglose
+    if (cotizacionExistente && cotizacionExistente.desgloseEstimador?.modo) {
+      const d = cotizacionExistente.desgloseEstimador;
+      setModo(d.modo);
+      if (typeof d.margen === "number") setMargen(d.margen);
+      if (d.modo === "confeccion" && Array.isArray(d.items) && d.items.length > 0) {
+        // Reasignamos ids únicos para evitar colisiones con items ya cargados
+        setItems(d.items.map((it, i) => ({
+          ...it,
+          id: Date.now() + i,
+          expandido: i === 0, // primero abierto
+        })));
+      }
+      if (d.modo === "bordado" && d.datos) setBordDatos({ ...d.datos });
+      if (d.modo === "cuello" && d.datos) setCuelloDatos({ ...d.datos });
+      // Cliente y teléfono del pedido
+      if (cotizacionExistente.cliente) setCliente(cotizacionExistente.cliente);
+      if (cotizacionExistente.telefono) setTelefono(cotizacionExistente.telefono);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, cotizacionExistente?.id]);
 
   // Recarga la tabla de costos desde la BD (usado tras un guardado inline).
   const refrescarCostos = async () => {
@@ -823,6 +854,12 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
       pushToast("Falta el nombre del cliente", "error");
       return;
     }
+    // Modo edición: actualizar el pedido existente con los nuevos valores
+    if (cotizacionExistente && onActualizarCotizacion) {
+      onActualizarCotizacion(cotizacionExistente.id, cot);
+      onClose();
+      return;
+    }
     if (onGuardarCotizacion) {
       onGuardarCotizacion(cot);
       onClose();
@@ -832,7 +869,7 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
   if (!open) return null;
 
   return (
-    <Modal onClose={onClose} title="💰 Estimador de precio (uso interno)">
+    <Modal onClose={onClose} title={cotizacionExistente ? `💰 Re-calcular COT-${String(cotizacionExistente.id).padStart(4, "0")}` : "💰 Estimador de precio (uso interno)"}>
       <div>
         {/* Selector de modo */}
         <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "#f0f0f0", padding: 3, borderRadius: 10 }}>
@@ -973,7 +1010,7 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
                 color: "#fff", fontWeight: 800, fontSize: 13,
                 cursor: cliente.trim() ? "pointer" : "not-allowed", fontFamily: "inherit",
               }}>
-              💾 Guardar y abrir cotización formal
+              {cotizacionExistente ? "💾 Actualizar precio en cotización" : "💾 Guardar y abrir cotización formal"}
             </button>
           )}
         </div>
