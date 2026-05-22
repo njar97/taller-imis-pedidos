@@ -5,6 +5,7 @@
 
 import { TALLER } from "./lib/constants.js";
 import { pushToast } from "./lib/feedback.js";
+import { pedirMagicLink } from "./lib/auth.js";
 
 import { useState } from "react";
 
@@ -37,7 +38,28 @@ export default function PantallaLogin({ onLogin }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
   const [open, setOpen] = useState(false);
+  const [openEmail, setOpenEmail] = useState(false);
+  const [email, setEmail] = useState("");
+  const [enviandoLink, setEnviandoLink] = useState(false);
+  const [linkEnviado, setLinkEnviado] = useState(false);
   const [paso, setPaso] = useState("inicio"); // "inicio" | "modulo"
+
+  async function enviarMagicLink() {
+    const e = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      pushToast("Email inválido", "error");
+      return;
+    }
+    setEnviandoLink(true);
+    const res = await pedirMagicLink(e);
+    setEnviandoLink(false);
+    if (res.ok) {
+      setLinkEnviado(true);
+      pushToast("Link enviado a " + e, "success", 5000);
+    } else {
+      pushToast("No pude enviar el link: " + (res.error || "error desconocido"), "error", 5000);
+    }
+  }
 
   async function entrarAdmin() {
     // Lockout de 5 minutos tras 5 intentos fallidos.
@@ -227,6 +249,70 @@ export default function PantallaLogin({ onLogin }) {
               {err && (
                 <div style={{ color: "#FF7979", fontSize: 13, fontWeight: 700, marginTop: 8, textAlign: "center" }}>
                   ⚠️ {err}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Magic link — opción alternativa */}
+        <div style={{ background: "#2C1654", border: "2px solid #4a2c7a", borderRadius: 12, overflow: "hidden", marginTop: 10 }}>
+          <button
+            onClick={() => setOpenEmail(!openEmail)}
+            style={{
+              width: "100%", padding: "14px 20px",
+              border: "none", background: "transparent",
+              color: "#fff", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 14, textAlign: "left",
+              fontFamily: "inherit",
+            }}
+          >
+            <span style={{ fontSize: 26 }}>✉️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>Iniciar con email (nuevo)</div>
+              <div style={{ fontSize: 11, color: "#9B59B6", marginTop: 2 }}>Te mandamos un link por correo</div>
+            </div>
+            <span style={{ fontSize: 18, color: "#555" }}>{openEmail ? "▾" : "▸"}</span>
+          </button>
+          {openEmail && (
+            <div style={{ padding: "0 20px 18px" }}>
+              {linkEnviado ? (
+                <div style={{ background: "#1a0a36", border: "1.5px solid #28A745", borderRadius: 8, padding: 12, fontSize: 12, color: "#7ee59a" }}>
+                  📬 Te enviamos un link de acceso a <strong>{email}</strong>.<br />
+                  Revisá tu correo y tocá el botón para entrar.
+                  <button
+                    onClick={() => { setLinkEnviado(false); setEmail(""); }}
+                    style={{ display: "block", marginTop: 8, padding: "4px 10px", background: "transparent", border: "1px solid #3a1f6b", color: "#9B59B6", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}
+                  >
+                    Usar otro email
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="email"
+                    value={email}
+                    placeholder="tu@email.com"
+                    onChange={e => setEmail(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && enviarMagicLink()}
+                    style={{
+                      flex: 1, padding: "11px 14px", borderRadius: 8,
+                      border: "1.5px solid #4a2c7a", background: "#1a0a36",
+                      color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit",
+                    }}
+                  />
+                  <button
+                    onClick={enviarMagicLink}
+                    disabled={enviandoLink}
+                    style={{
+                      padding: "11px 18px", borderRadius: 8, border: "none",
+                      background: enviandoLink ? "#555" : "#9B59B6", color: "#fff",
+                      fontWeight: 800, fontSize: 13, cursor: enviandoLink ? "wait" : "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {enviandoLink ? "..." : "Enviar"}
+                  </button>
                 </div>
               )}
             </div>
