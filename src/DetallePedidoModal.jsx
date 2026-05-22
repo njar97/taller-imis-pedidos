@@ -578,6 +578,9 @@ export default function DetallePedidoModal({
       </div>
 
       {esAdmin && <ResumenPrecios pConf={pConf} pBord={pBord} pCuel={pCuel} />}
+      {esAdmin && pedido.desgloseEstimador && pedido.desgloseEstimador.modo && (
+        <DesgloseEstimador desglose={pedido.desgloseEstimador} />
+      )}
 
       <div
         style={{
@@ -671,3 +674,73 @@ const labelStyle = {
   textTransform: "uppercase",
   marginBottom: 4,
 };
+
+// Muestra el desglose del estimador que se usó para armar el precio.
+// Solo se renderiza si pedido.desgloseEstimador tiene contenido.
+// Útil para revisar "¿por qué cobré X?" después de tiempo.
+function DesgloseEstimador({ desglose }) {
+  if (!desglose || !desglose.modo) return null;
+  const numb = v => parseFloat(v) || 0;
+
+  // Cálculo del costo de un item de confección (debe coincidir con la
+  // lógica del estimador). Si más adelante cambia el cálculo allá,
+  // hay que sincronizarlo acá o mover el helper a lib/dominio.js.
+  const costoBordado = punt => {
+    const n = parseInt(String(punt || "").replace(/[^0-9]/g, "")) || 0;
+    return n > 0 ? (n / 600) * (3.0 / 60) : 0;
+  };
+  const costoItem = it => {
+    const tela = numb(it.telaCostoYd) * numb(it.yardasPorPrenda) * numb(it.qty);
+    const modoMO = it.moModo === "prenda" || it.moModo === "hechura" ? "hechura" : "tiempo";
+    const mo = modoMO === "hechura"
+      ? numb(it.moCostoUnit) * numb(it.qty)
+      : numb(it.moCostoUnit) * numb(it.moHoras);
+    const bord = it.bordActivo ? costoBordado(it.bordPunt) * numb(it.qty) : 0;
+    const otros = (it.otros || []).reduce((s, o) => s + numb(o.qty) * numb(o.costo), 0);
+    return { tela, mo, bord, otros, total: tela + mo + bord + otros };
+  };
+  const fmt = v => "$" + (numb(v).toFixed(2));
+
+  return (
+    <details style={{ marginTop: 10, marginBottom: 8, background: "#FFFBF6", border: "1.5px dashed #E67E22", borderRadius: 10, padding: "10px 14px" }}>
+      <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 800, color: "#E67E22", textTransform: "uppercase", letterSpacing: .5 }}>
+        🔍 Desglose del estimador (cómo se calculó el precio)
+      </summary>
+      <div style={{ marginTop: 10, fontSize: 11, color: "#555" }}>
+        <div style={{ marginBottom: 6 }}>
+          <strong>Modo:</strong> {desglose.modo} · <strong>Margen aplicado:</strong> {desglose.margen}%
+        </div>
+        {desglose.modo === "confeccion" && Array.isArray(desglose.items) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {desglose.items.map((it, i) => {
+              const c = costoItem(it);
+              return (
+                <div key={i} style={{ background: "#fff", border: "1px solid #fde0b8", borderRadius: 6, padding: 8 }}>
+                  <div style={{ fontWeight: 800, color: "#2C1654", marginBottom: 4 }}>
+                    {i + 1}. {it.tipoPrenda || "(sin tipo)"} × {it.qty}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#666", lineHeight: 1.6 }}>
+                    {numb(it.telaCostoYd) > 0 && <div>🧵 Tela <strong>{it.telaNombre || "—"}</strong>: ${numb(it.telaCostoYd)}/yd × {it.yardasPorPrenda} yd × {it.qty} = <strong>{fmt(c.tela)}</strong></div>}
+                    {numb(it.moCostoUnit) > 0 && <div>✂️ Mano de obra ({it.moModo === "tiempo" || it.moModo === "hora" ? "por tiempo" : "por hechura"}): ${numb(it.moCostoUnit)} × {it.moModo === "tiempo" || it.moModo === "hora" ? `${it.moHoras} h` : `${it.qty} pza`} = <strong>{fmt(c.mo)}</strong></div>}
+                    {it.bordActivo && <div>🪡 Bordado: {it.bordPunt} puntadas × {it.qty} pza = <strong>{fmt(c.bord)}</strong></div>}
+                    {(it.otros || []).length > 0 && (
+                      <div>➕ Otros: {it.otros.map(o => `${o.qty}× ${o.nombre} $${o.costo}`).join(", ")} = <strong>{fmt(c.otros)}</strong></div>
+                    )}
+                    <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px dashed #fde0b8", color: "#E67E22", fontWeight: 700 }}>
+                      Costo del item: <strong>{fmt(c.total)}</strong> · Precio con margen {desglose.margen}%: <strong style={{ color: "#27AE60" }}>{fmt(c.total * (1 + desglose.margen / 100))}</strong>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {(desglose.modo === "bordado" || desglose.modo === "cuello") && desglose.datos && (
+          <pre style={{ background: "#fff", padding: 8, borderRadius: 6, fontSize: 10, overflow: "auto", color: "#444" }}>
+{JSON.stringify(desglose.datos, null, 2)}
+          </pre>
+        )}
+      </div>
+    </details>
+  );
+}

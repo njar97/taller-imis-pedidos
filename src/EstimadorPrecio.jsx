@@ -745,22 +745,21 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
   const armarCotizacion = () => {
     if (!cliente.trim()) return null;
     if (modo === "confeccion") {
-      const tallasItems = items
-        .filter(it => num(it.qty) > 0 && (it.tipoPrenda || "").trim())
-        .map(it => {
-          const costo = costoItem(it).total;
-          const precioItem = costo * (1 + margen / 100);
-          const precioUnit = it.qty > 0 ? precioItem / num(it.qty) : 0;
-          return {
-            id: it.id,
-            tipo: (it.tipoPrenda || "").trim(),
-            talla: "",
-            qty: num(it.qty),
-            precio: parseFloat(precioUnit.toFixed(2)),
-            spec: "",
-            grupo: "adulto",
-          };
-        });
+      const itemsValidos = items.filter(it => num(it.qty) > 0 && (it.tipoPrenda || "").trim());
+      const tallasItems = itemsValidos.map(it => {
+        const costo = costoItem(it).total;
+        const precioItem = costo * (1 + margen / 100);
+        const precioUnit = it.qty > 0 ? precioItem / num(it.qty) : 0;
+        return {
+          id: it.id,
+          tipo: (it.tipoPrenda || "").trim(),
+          talla: "",
+          qty: num(it.qty),
+          precio: parseFloat(precioUnit.toFixed(2)),
+          spec: "",
+          grupo: "adulto",
+        };
+      });
       return {
         cliente: cliente.trim(),
         telefono: telefono.trim(),
@@ -769,6 +768,8 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
         modoRegistro: "tallas",
         precio: precioSugerido.toFixed(2),
         validezDias: 15,
+        // Snapshot del estimador: permite re-abrirlo y ajustar
+        desgloseEstimador: { modo: "confeccion", margen, items: itemsValidos },
       };
     }
     if (modo === "bordado") {
@@ -790,6 +791,7 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
         modoRegistro: "tallas",
         precio: precioSugerido.toFixed(2),
         validezDias: 15,
+        desgloseEstimador: { modo: "bordado", margen, datos: bordDatos },
       };
     }
     // cuello
@@ -811,6 +813,7 @@ export default function EstimadorPrecio({ open, onClose, onAplicar, clientes = [
       modoRegistro: "tallas",
       precio: precioSugerido.toFixed(2),
       validezDias: 15,
+      desgloseEstimador: { modo: "cuello", margen, datos: cuelloDatos },
     };
   };
 
