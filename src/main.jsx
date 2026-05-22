@@ -391,6 +391,7 @@ function imprimirCotizacion(p) {
   <div style="font-size:15px;font-weight:800;color:#2C1654;margin-top:3px;">${p.cliente || "Cliente"}</div>
   ${p.nombreContacto ? `<div style="font-size:11px;color:#555;margin-top:2px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
   ${p.telefono ? `<div style="font-size:11px;color:#555;">📱 ${p.telefono}</div>` : ""}
+  ${p.procesoRef ? `<div style="font-size:11px;color:#9B59B6;margin-top:4px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
 </div>
 
 <p style="font-size:11px;color:#555;margin-bottom:10px;">
@@ -449,6 +450,14 @@ ${items.length ? `
 ${p.descripcion ? `
 <div style="background:#F9F0FF;border-left:3px solid #9B59B6;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#4A235A;line-height:1.5;">
   <strong>Observaciones:</strong><br>${p.descripcion}
+</div>` : ""}
+
+<!-- CONDICIONES FORMALES (opcionales — solo si tienen contenido) -->
+${(p.plazoEntrega || p.lugarEntrega || p.formaPago) ? `
+<div style="background:#FAFAFA;border:1px solid #ddd;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:11px;color:#333;line-height:1.5;">
+  ${p.plazoEntrega ? `<div style="margin-bottom:6px;"><strong style="color:#2C1654;">📅 Plazo de entrega:</strong> ${p.plazoEntrega}</div>` : ""}
+  ${p.lugarEntrega ? `<div style="margin-bottom:6px;"><strong style="color:#2C1654;">📍 Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
+  ${p.formaPago ? `<div><strong style="color:#2C1654;">💳 Forma de pago:</strong> ${p.formaPago}</div>` : ""}
 </div>` : ""}
 
 <!-- VALIDEZ + CONDICIONES -->

@@ -18,6 +18,7 @@ export const SECCIONES_FORM = [
   { id: "sec-factura",   icon: "🧾", label: "Factura",   color: "#E67E22", opcional: true },
   { id: "sec-obs",       icon: "📌", label: "Notas",     color: "#888",    opcional: true },
   { id: "sec-fotos",     icon: "📸", label: "Fotos",     color: "#E91E8C", opcional: true },
+  { id: "sec-formales",  icon: "📋", label: "Cotización",color: "#9B59B6", opcional: true },
 ];
 
 export default function FormNav({ erroresIds = [] }) {
