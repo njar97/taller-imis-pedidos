@@ -9,6 +9,7 @@
 
 import { TALLER } from "./lib/constants.js";
 import { fmt$ } from "./lib/dominio.js";
+import PushSwitch from "./PushSwitch.jsx";
 
 function NavButton({ item, activo, bloqueado, matAgotados, esAdmin, onClick }) {
   return (
@@ -241,6 +242,7 @@ export default function SidebarDesktop({
             💰 Estimador de precio
           </button>
         )}
+        <PushSwitch />
         <button
           onClick={refrescar}
           disabled={refrescando}

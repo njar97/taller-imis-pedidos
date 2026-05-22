@@ -38,6 +38,15 @@ export default defineConfig({
       // En lugar de eso, src/lib/sw.js dispara un callback para que el
       // usuario pueda decidir cuándo recargar (evita pisar trabajo en curso).
       registerType: 'prompt',
+      // injectManifest = usamos nuestro propio service-worker.js para poder
+      // agregar handlers custom (push, notificationclick). Workbox sigue
+      // manejando precache/routing pero a través de imports en src/service-worker.js.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.js',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,ico,png,webmanifest}'],
+      },
       includeAssets: ['favicon.svg', 'pwa-icon.svg'],
       manifest: {
         name: 'Taller IMIS — Sistema de Pedidos',
@@ -68,30 +77,6 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'maskable',
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,ico,png,webmanifest}'],
-        navigateFallback: '/taller-imis-pedidos/index.html',
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) =>
-              url.origin === 'https://cdn.sheetjs.com' ||
-              url.origin === 'https://cdnjs.cloudflare.com',
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'cdn-libs',
-              expiration: {
-                maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 días
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: ({ url }) => url.hostname === 'api.anthropic.com',
-            handler: 'NetworkOnly',
           },
         ],
       },
