@@ -205,6 +205,7 @@ import {
   PEDIDO_BASE,
 } from "./lib/dominio.js";
 import { EMPRESA } from "./lib/empresa.js";
+import { nombrePDF } from "./lib/pdfNombre.js";
 
 // Helpers de imágenes
 import {
@@ -343,9 +344,10 @@ function imprimirCotizacion(p) {
   const subtotal = precioFinal / (1 + ivaRate);
   const iva = precioFinal - subtotal;
 
+  const titulo = nombrePDF("COT", p.id, p.cliente);
   const w = window.open("", "_blank", "width=820,height=1100");
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Cotización N°${num} — ${p.cliente}</title>
+<title>${titulo}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:28px 36px;font-size:12px;line-height:1.4;}
@@ -354,9 +356,14 @@ function imprimirCotizacion(p) {
   .lbl{font-size:9px;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:.6px;}
 </style></head><body>
 
-<div class="no-print" style="text-align:right;margin-bottom:14px;display:flex;gap:8px;justify-content:flex-end;">
-  <button onclick="window.print()" style="padding:10px 22px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / PDF</button>
-  <button onclick="window.close()" style="padding:10px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+<div class="no-print" style="margin-bottom:14px;">
+  <div style="background:#F3E5F5;border:1px solid #d4b3df;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#6B2D8B;">
+    💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;">
+    <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+    <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+  </div>
 </div>
 
 <!-- ENCABEZADO con datos fiscales del emisor -->
@@ -517,9 +524,10 @@ function imprimirRecibo(p) {
   })()}
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
+  const tituloRecibo = nombrePDF("Recibo", p.id, p.cliente);
   const w = window.open("", "_blank", "width=780,height=1050");
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Recibo N°${num}</title>
+  <title>${tituloRecibo}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
@@ -529,9 +537,14 @@ function imprimirRecibo(p) {
   </style></head><body>
 
   <!-- Botones no-print -->
-  <div class="no-print" style="text-align:right;margin-bottom:20px;display:flex;gap:8px;justify-content:flex-end;">
-    <button onclick="window.print()" style="padding:10px 22px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir</button>
-    <button onclick="window.close()" style="padding:10px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+  <div class="no-print" style="margin-bottom:20px;">
+    <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
+      💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloRecibo}.pdf</strong>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
   </div>
 
   <!-- ENCABEZADO -->
@@ -710,9 +723,10 @@ async function imprimirProduccion(p, todosPedidos = []) {
         ${imagenes.map(img => `<div style="text-align:center;"><img src="${imgSrc(img)}" style="max-width:160px;max-height:160px;border-radius:8px;border:1.5px solid #e0e0e0;display:block;"/><div style="font-size:9px;color:#aaa;margin-top:3px;">${img.nombre || ""}</div></div>`).join("")}
       </div>
     </div>` : "";
+  const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
   const w = window.open("", "_blank", "width=820,height=1100");
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Orden Producción N°${num}</title>
+  <title>${tituloProd}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:24px 30px;font-size:13px;}
@@ -729,9 +743,14 @@ async function imprimirProduccion(p, todosPedidos = []) {
     .ok .campo-val{color:#155724;}
   </style></head><body>
 
-  <div class="no-print" style="text-align:right;margin-bottom:16px;display:flex;gap:8px;justify-content:flex-end;">
-    <button onclick="window.print()" style="padding:10px 22px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir</button>
-    <button onclick="window.close()" style="padding:10px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+  <div class="no-print" style="margin-bottom:16px;">
+    <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
+      💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloProd}.pdf</strong>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
   </div>
 
   <!-- ENCABEZADO: taller + N° + entrega + QR -->
