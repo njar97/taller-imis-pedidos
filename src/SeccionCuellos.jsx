@@ -63,7 +63,7 @@ const CUEL_DEF = {
   linkDrive: "", linkDriveId: "",
   descripcion: "",
   precioU: "", precioT: "", anticipo: "",
-  fechaEntrega: "", estatus: "Tomado", notas: "",
+  fechaEntrega: "", estatus: "Pendiente", notas: "",
 };
 
 // Configuración de las 3 piezas (cuello, puño, banda) para el toggle
@@ -646,7 +646,7 @@ function TablaCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambia
           const saldo = parseFloat(c.precioT || 0) - parseFloat(c.anticipo || 0);
           const dias = diasC(c.fechaEntrega);
           const urg = dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(c.estatus);
-          const col = CUEL_EC[c.estatus] || CUEL_EC["Tomado"];
+          const col = CUEL_EC[c.estatus] || CUEL_EC["Pendiente"];
           return (
             <tr key={c.id} onClick={() => setDetalle(c)} style={{ background: "#fff", cursor: "pointer" }}>
               <td style={{ padding: "9px", borderRadius: "9px 0 0 9px", fontWeight: 800, fontFamily: "monospace", fontSize: 10, color: "#B85C00" }}>
@@ -753,7 +753,7 @@ function CardsCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambia
         const saldo = parseFloat(cu.precioT || 0) - parseFloat(cu.anticipo || 0);
         const dias = diasC(cu.fechaEntrega);
         const urg = dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(cu.estatus);
-        const col = CUEL_EC[cu.estatus] || CUEL_EC["Tomado"];
+        const col = CUEL_EC[cu.estatus] || CUEL_EC["Pendiente"];
         return (
           <div
             key={cu.id}

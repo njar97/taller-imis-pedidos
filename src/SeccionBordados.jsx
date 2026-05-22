@@ -67,7 +67,7 @@ const BORD_DEF = {
   linkDstUrl: "", linkDstId: "", linkDstFolderId: "",
   imagenRefUrl: "", imagenRefId: "",
   precioU: "", precioT: "", anticipo: "", abonos: [],
-  fechaEntrega: "", estatus: "Tomado", notas: "",
+  fechaEntrega: "", estatus: "Diseño", notas: "",
 };
 
 const redond25 = v => Math.round(v * 4) / 4;
@@ -1084,7 +1084,7 @@ function TablaBordados({ lista, esAdmin, setDetalle, setModal, setConfirm, cambi
           const saldo = parseFloat(b.precioT || 0) - parseFloat(b.anticipo || 0);
           const dias = diasB(b.fechaEntrega);
           const urg = dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(b.estatus);
-          const col = BORD_EC[b.estatus] || BORD_EC["Tomado"];
+          const col = BORD_EC[b.estatus] || BORD_EC["Diseño"];
           return (
             <tr key={b.id} onClick={() => setDetalle(b)} style={{ background: "#fff", cursor: "pointer" }}>
               <td style={{ padding: "9px 9px", borderRadius: "9px 0 0 9px", fontWeight: 800, fontFamily: "monospace", fontSize: 10, color: "#1A5F5A" }}>
@@ -1179,7 +1179,7 @@ function CardsBordados({ lista, esAdmin, setDetalle, setModal, setConfirm, cambi
         const saldo = parseFloat(b.precioT || 0) - parseFloat(b.anticipo || 0);
         const dias = diasB(b.fechaEntrega);
         const urg = dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(b.estatus);
-        const col = BORD_EC[b.estatus] || BORD_EC["Tomado"];
+        const col = BORD_EC[b.estatus] || BORD_EC["Diseño"];
         return (
           <div
             key={b.id}
