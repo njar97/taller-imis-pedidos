@@ -497,9 +497,9 @@ export default function SeccionCuellos({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      {/* ── Header ── */}
-      <div style={{ padding: "12px 16px", background: "#fff", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <div style={{ flex: 1 }}>
+      {/* ── Header ── (responsive: en mobile se apila, en desktop una fila) */}
+      <div style={{ padding: "12px 16px", background: "#fff", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 140px", minWidth: 0 }}>
           <h1 style={{ margin: 0, fontSize: 16, color: "#B85C00", fontWeight: 800, fontFamily: "Georgia,serif" }}>
             🧶 Tejido de Cuellos
           </h1>
@@ -508,18 +508,15 @@ export default function SeccionCuellos({
             {esAdmin && ` · ${fmt$C(porCobrar)} por cobrar`}
           </div>
         </div>
-        <div style={{ background: "#FFF4E6", border: "1px solid #FFCC80", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#B85C00", fontWeight: 700 }}>
-          Módulo activo — en espera de tejedora
-        </div>
         <input
           value={busq}
           onChange={e => setBusq(e.target.value)}
           placeholder="🔍 Buscar..."
-          style={{ padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e0e0e0", fontSize: 13, outline: "none", width: 160 }}
+          style={{ padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e0e0e0", fontSize: 13, outline: "none", flex: "1 1 120px", minWidth: 100, fontFamily: "inherit" }}
         />
         <button
           onClick={() => setModal("nuevo")}
-          style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "#B85C00", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}
+          style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "#B85C00", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}
         >
           🧶 Nuevo
         </button>
