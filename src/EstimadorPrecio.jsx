@@ -449,9 +449,10 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefresca
           )}
           <div style={{ fontSize: 10, color: "#E67E22", textAlign: "right", marginTop: 2 }}>= {fmt$(c.otros)}</div>
 
-          {/* Subtotal del item */}
-          <div style={{ marginTop: 8, padding: 6, background: "#F5F5F5", borderRadius: 6, fontSize: 12, fontWeight: 700, color: "#444", textAlign: "right" }}>
-            Costo del item: <span style={{ color: "#2C1654" }}>{fmt$(c.total)}</span>
+          {/* Subtotal del item: costo unitario + costo total */}
+          <div style={{ marginTop: 8, padding: 6, background: "#F5F5F5", borderRadius: 6, fontSize: 11, fontWeight: 700, color: "#444", display: "flex", justifyContent: "space-between" }}>
+            <span>Costo c/u: <span style={{ color: "#2C1654" }}>{fmt$(c.total / (num(it.qty) || 1))}</span></span>
+            <span>Costo total: <span style={{ color: "#2C1654" }}>{fmt$(c.total)}</span></span>
           </div>
         </div>
       )}

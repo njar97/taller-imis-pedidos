@@ -714,6 +714,10 @@ function DesgloseEstimador({ desglose }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {desglose.items.map((it, i) => {
               const c = costoItem(it);
+              const qty = numb(it.qty) || 1;
+              const costoUnit = c.total / qty;
+              const precioTotalItem = c.total * (1 + desglose.margen / 100);
+              const precioUnit = precioTotalItem / qty;
               return (
                 <div key={i} style={{ background: "#fff", border: "1px solid #fde0b8", borderRadius: 6, padding: 8 }}>
                   <div style={{ fontWeight: 800, color: "#2C1654", marginBottom: 4 }}>
@@ -726,8 +730,19 @@ function DesgloseEstimador({ desglose }) {
                     {(it.otros || []).length > 0 && (
                       <div>➕ Otros: {it.otros.map(o => `${o.qty}× ${o.nombre} $${o.costo}`).join(", ")} = <strong>{fmt(c.otros)}</strong></div>
                     )}
-                    <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px dashed #fde0b8", color: "#E67E22", fontWeight: 700 }}>
-                      Costo del item: <strong>{fmt(c.total)}</strong> · Precio con margen {desglose.margen}%: <strong style={{ color: "#27AE60" }}>{fmt(c.total * (1 + desglose.margen / 100))}</strong>
+                    <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed #fde0b8", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 11 }}>
+                      <div style={{ color: "#E67E22" }}>
+                        Costo unit: <strong>{fmt(costoUnit)}</strong>
+                      </div>
+                      <div style={{ color: "#E67E22", textAlign: "right" }}>
+                        Costo total: <strong>{fmt(c.total)}</strong>
+                      </div>
+                      <div style={{ color: "#27AE60" }}>
+                        Precio unit: <strong>{fmt(precioUnit)}</strong>
+                      </div>
+                      <div style={{ color: "#27AE60", textAlign: "right" }}>
+                        Precio total ({desglose.margen}%): <strong>{fmt(precioTotalItem)}</strong>
+                      </div>
                     </div>
                   </div>
                 </div>
