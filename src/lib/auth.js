@@ -72,36 +72,46 @@ export async function pedirMagicLink(email) {
   }
 }
 
-// Verifica el código de 6 dígitos que el user pegó. Si OK, guarda
-// la sesión y devuelve { ok: true }. Si el código es inválido o
-// expiró, devuelve { ok: false, error: msg }.
+// Verifica el código de 6 dígitos que el user pegó. Como el OTP fue
+// solicitado vía /auth/v1/otp (flujo magic-link), el tipo correcto
+// para verify es "magiclink" — antes lo teníamos como "email" lo que
+// hacía que /verify devolviera error silencioso y el user no avanzara.
 export async function verificarCodigo(email, token) {
-  try {
-    const r = await fetch(`${SUPA_URL}/auth/v1/verify`, {
-      method: "POST",
-      headers: BASE_HEADERS,
-      body: JSON.stringify({
-        email: email.trim().toLowerCase(),
-        token: String(token || "").trim(),
-        type: "email",
-      }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      return { ok: false, error: data?.error_description || data?.msg || "Código inválido" };
+  const emailL = email.trim().toLowerCase();
+  const tokenL = String(token || "").trim();
+  // Probamos en orden ambos tipos válidos: 'email' (OTP de signup) y
+  // 'magiclink' (OTP que viene con el magic link). Supabase requiere
+  // uno específico según cómo se solicitó el código.
+  for (const type of ["email", "magiclink"]) {
+    try {
+      const r = await fetch(`${SUPA_URL}/auth/v1/verify`, {
+        method: "POST",
+        headers: BASE_HEADERS,
+        body: JSON.stringify({ email: emailL, token: tokenL, type }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data?.access_token) {
+        const sesion = {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+          token_type: data.token_type || "bearer",
+          user: data.user ? { id: data.user.id, email: data.user.email } : undefined,
+        };
+        guardarSesion(sesion);
+        return { ok: true, sesion };
+      }
+      // Si el server dijo explícitamente "Token has expired" → no
+      // tiene sentido probar el otro type, devolvemos el error.
+      const msg = data?.error_description || data?.msg || data?.message;
+      if (msg && (msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("invalid"))) {
+        // sigue el loop para probar el otro type — capaz devuelve OK
+      }
+    } catch (e) {
+      console.warn(`verificarCodigo(${type}) falló:`, e?.message || e);
     }
-    const sesion = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
-      token_type: data.token_type || "bearer",
-      user: data.user ? { id: data.user.id, email: data.user.email } : undefined,
-    };
-    guardarSesion(sesion);
-    return { ok: true, sesion };
-  } catch (e) {
-    return { ok: false, error: e?.message || String(e) };
   }
+  return { ok: false, error: "Código inválido o vencido. Pedí uno nuevo." };
 }
 
 // Detecta tokens en el hash de la URL (después del redirect del email).
