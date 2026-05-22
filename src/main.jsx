@@ -69,6 +69,7 @@ import ConexionStatus from "./ConexionStatus.jsx";
 
 // Banner "Instalar como app" (PWA — Android/Chrome + iOS Safari)
 import InstallPrompt from "./InstallPrompt.jsx";
+import RecordatorioInicio from "./RecordatorioInicio.jsx";
 
 // ErrorBoundary — pantalla de fallback si React revienta
 import ErrorBoundary from "./ErrorBoundary.jsx";
@@ -2090,6 +2091,13 @@ function App() {
       <ConfirmDialog />
       <ConexionStatus />
       <InstallPrompt />
+      {esAdmin && (
+        <RecordatorioInicio
+          pedidos={pedidos}
+          onIrAVencidos={() => { setSec("pedidos"); setFiltro("Vencidos"); }}
+          onIrAProximos={() => { setSec("calendario"); }}
+        />
+      )}
     </div>
   );
 }
