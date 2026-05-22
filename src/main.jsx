@@ -1074,7 +1074,25 @@ async function gsCatalogoLeer() {
 const gsCatalogoGuardar = dbCatalogoGuardar;
 function App() {
   const [rol, setRol] = useState(null);
+  const [sesionEmail, setSesionEmail] = useState(null); // email del user logueado via magic link
   const [seccion, setSec] = useState("pedidos");
+
+  // Al cargar: recoger sesión del hash (vuelta del magic link) y/o de
+  // localStorage si ya había sesión guardada. Si hay sesión activa,
+  // auto-login como admin.
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      const { recogerSesionDesdeURL, sesionActual } = await import("./lib/auth.js");
+      let s = await recogerSesionDesdeURL();
+      if (!s) s = sesionActual();
+      if (s && s.user?.email && !cancelado) {
+        setSesionEmail(s.user.email);
+        setRol("admin");
+      }
+    })();
+    return () => { cancelado = true; };
+  }, []);
   const [pedidos, setPedidos] = useState(() => {
     try {
       const d = localStorage.getItem("imis_pedidos");
@@ -1668,6 +1686,12 @@ function App() {
         refrescando={refrescando}
         setRol={setRol}
         onAbrirEstimador={() => setModalEstimador(true)}
+        sesionEmail={sesionEmail}
+        onCerrarSesion={async () => {
+          const { cerrarSesion } = await import("./lib/auth.js");
+          await cerrarSesion();
+          setSesionEmail(null);
+        }}
       />
       <main
         style={{

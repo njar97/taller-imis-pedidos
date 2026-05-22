@@ -93,6 +93,8 @@ export default function SidebarDesktop({
   refrescando,
   setRol,
   onAbrirEstimador,
+  sesionEmail,
+  onCerrarSesion,
 }) {
   const muestraSync =
     (sync === "ok" || sync === "error" || sync === "error_fotos") && syncInfo;
@@ -261,8 +263,16 @@ export default function SidebarDesktop({
         >
           {refrescando ? "⏳ Actualizando..." : "🔄 Actualizar"}
         </button>
+        {sesionEmail && (
+          <div style={{ fontSize: 10, color: "#9B59B6", textAlign: "center", marginBottom: 4, padding: "4px 6px", background: "rgba(155,89,182,0.1)", borderRadius: 6, wordBreak: "break-all" }}>
+            ✉️ {sesionEmail}
+          </div>
+        )}
         <button
-          onClick={() => setRol(null)}
+          onClick={() => {
+            if (onCerrarSesion) onCerrarSesion();
+            setRol(null);
+          }}
           style={{
             width: "100%",
             padding: "7px",
