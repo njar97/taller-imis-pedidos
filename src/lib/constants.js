@@ -34,17 +34,22 @@ export const EC = {
 };
 
 // ── Bordados ─────────────────────────────────────────────
+// Simplificado el 21-may-2026: de 7 estados a 4. Cancelado se convierte
+// en soft-delete (papelera). Los estados viejos quedan en EC para que
+// pedidos legacy sin migrar no rompan la UI.
 export const BORD_E = [
-  "Tomado", "Diseño Wilcom", "Prueba bordado", "En producción",
-  "Listo", "Entregado", "Cancelado",
+  "Diseño", "Bordado", "Listo", "Entregado",
 ];
 export const BORD_EC = {
-  "Tomado":          { bg: "#FFF8E1", fg: "#7B5E00" },
-  "Diseño Wilcom":   { bg: "#E8F5E9", fg: "#1B5E20" },
-  "Prueba bordado":  { bg: "#E3F2FD", fg: "#0D47A1" },
-  "En producción":   { bg: "#FCE4EC", fg: "#880E4F" },
+  "Diseño":          { bg: "#E8F5E9", fg: "#1B5E20" },
+  "Bordado":         { bg: "#FCE4EC", fg: "#880E4F" },
   "Listo":           { bg: "#D4EDDA", fg: "#155724" },
   "Entregado":       { bg: "#E2E3E5", fg: "#383D41" },
+  // Legacy
+  "Tomado":          { bg: "#E8F5E9", fg: "#1B5E20" },
+  "Diseño Wilcom":   { bg: "#E8F5E9", fg: "#1B5E20" },
+  "Prueba bordado":  { bg: "#E8F5E9", fg: "#1B5E20" },
+  "En producción":   { bg: "#FCE4EC", fg: "#880E4F" },
   "Cancelado":       { bg: "#F8D7DA", fg: "#721C24" },
 };
 export const SOPORTES_BORD = [
@@ -59,13 +64,17 @@ export const POSICIONES_BORD = [
 export const DISENO_EST = ["Pendiente diseñar", "En Wilcom", "Diseño listo", "Diseño del cliente"];
 
 // ── Cuellos ──────────────────────────────────────────────
-export const CUEL_E = ["Tomado", "En tejido", "Control calidad", "Listo", "Entregado", "Cancelado"];
+// Simplificado el 21-may-2026: de 6 estados a 4.
+export const CUEL_E = ["Pendiente", "Tejido", "Listo", "Entregado"];
 export const CUEL_EC = {
-  "Tomado":          { bg: "#FFF8E1", fg: "#7B5E00" },
-  "En tejido":       { bg: "#E0F7FA", fg: "#006064" },
-  "Control calidad": { bg: "#F3E5F5", fg: "#4A148C" },
+  "Pendiente":       { bg: "#FFF8E1", fg: "#7B5E00" },
+  "Tejido":          { bg: "#E0F7FA", fg: "#006064" },
   "Listo":           { bg: "#D4EDDA", fg: "#155724" },
   "Entregado":       { bg: "#E2E3E5", fg: "#383D41" },
+  // Legacy
+  "Tomado":          { bg: "#FFF8E1", fg: "#7B5E00" },
+  "En tejido":       { bg: "#E0F7FA", fg: "#006064" },
+  "Control calidad": { bg: "#E0F7FA", fg: "#006064" },
   "Cancelado":       { bg: "#F8D7DA", fg: "#721C24" },
 };
 export const TIPOS_CUELLO = ["Redondo básico", "V básico", "Polo (con abertura)", "Con tapa de botones", "Bebé", "Deportivo cuadrado", "Especial/otro"];

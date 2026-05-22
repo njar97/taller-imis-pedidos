@@ -576,7 +576,7 @@ function TablaYCards({
                 fecha: new Date().toISOString().split("T")[0],
                 fechaInicio: "",
                 fechaEntrega: "",
-                estatus: "Tomado",
+                estatus: "Corte",
                 anticipo: "",
                 abonos: [],
                 imagenes: [],
