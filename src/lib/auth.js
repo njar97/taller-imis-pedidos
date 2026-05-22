@@ -44,9 +44,9 @@ function limpiarSesion() {
 // Envía el magic link al email. Devuelve true si el endpoint respondió OK
 // (NO significa que el user haya clickeado, solo que el correo se mandó).
 export async function pedirMagicLink(email) {
-  // GH Pages sirve la app en /taller-imis-pedidos/ y exige slash final
-  // para resolver. Sin slash, GH redirige y pierde el hash con tokens.
-  // Por eso forzamos el path completo con slash al final.
+  // Mandamos email con token OTP (6 dígitos). El email también incluye
+  // un link como fallback, pero por defecto el flujo es pegar el código.
+  // Esto evita los problemas de redirección con GH Pages.
   const path = window.location.pathname.endsWith("/")
     ? window.location.pathname
     : window.location.pathname + "/";
@@ -67,6 +67,38 @@ export async function pedirMagicLink(email) {
       return { ok: false, error: txt };
     }
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
+// Verifica el código de 6 dígitos que el user pegó. Si OK, guarda
+// la sesión y devuelve { ok: true }. Si el código es inválido o
+// expiró, devuelve { ok: false, error: msg }.
+export async function verificarCodigo(email, token) {
+  try {
+    const r = await fetch(`${SUPA_URL}/auth/v1/verify`, {
+      method: "POST",
+      headers: BASE_HEADERS,
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        token: String(token || "").trim(),
+        type: "email",
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return { ok: false, error: data?.error_description || data?.msg || "Código inválido" };
+    }
+    const sesion = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      token_type: data.token_type || "bearer",
+      user: data.user ? { id: data.user.id, email: data.user.email } : undefined,
+    };
+    guardarSesion(sesion);
+    return { ok: true, sesion };
   } catch (e) {
     return { ok: false, error: e?.message || String(e) };
   }

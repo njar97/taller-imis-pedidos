@@ -5,7 +5,7 @@
 
 import { TALLER } from "./lib/constants.js";
 import { pushToast } from "./lib/feedback.js";
-import { pedirMagicLink } from "./lib/auth.js";
+import { pedirMagicLink, verificarCodigo } from "./lib/auth.js";
 
 import { useState } from "react";
 
@@ -40,7 +40,9 @@ export default function PantallaLogin({ onLogin }) {
   const [open, setOpen] = useState(false);
   const [openEmail, setOpenEmail] = useState(false);
   const [email, setEmail] = useState("");
+  const [codigo, setCodigo] = useState("");
   const [enviandoLink, setEnviandoLink] = useState(false);
+  const [verificando, setVerificando] = useState(false);
   const [linkEnviado, setLinkEnviado] = useState(false);
   const [paso, setPaso] = useState("inicio"); // "inicio" | "modulo"
 
@@ -55,9 +57,25 @@ export default function PantallaLogin({ onLogin }) {
     setEnviandoLink(false);
     if (res.ok) {
       setLinkEnviado(true);
-      pushToast("Link enviado a " + e, "success", 5000);
+      pushToast("Código enviado a " + e, "success", 5000);
     } else {
-      pushToast("No pude enviar el link: " + (res.error || "error desconocido"), "error", 5000);
+      pushToast("No pude enviar el código: " + (res.error || "error desconocido"), "error", 5000);
+    }
+  }
+
+  async function entrarConCodigo() {
+    if (!codigo.trim()) {
+      pushToast("Pegá el código del email", "error");
+      return;
+    }
+    setVerificando(true);
+    const res = await verificarCodigo(email, codigo);
+    setVerificando(false);
+    if (res.ok) {
+      pushToast("Sesión iniciada", "success");
+      onLogin("admin");
+    } else {
+      pushToast("Código inválido o vencido: " + res.error, "error", 5000);
     }
   }
 
@@ -277,12 +295,45 @@ export default function PantallaLogin({ onLogin }) {
           {openEmail && (
             <div style={{ padding: "0 20px 18px" }}>
               {linkEnviado ? (
-                <div style={{ background: "#1a0a36", border: "1.5px solid #28A745", borderRadius: 8, padding: 12, fontSize: 12, color: "#7ee59a" }}>
-                  📬 Te enviamos un link de acceso a <strong>{email}</strong>.<br />
-                  Revisá tu correo y tocá el botón para entrar.
+                <div>
+                  <div style={{ background: "#1a0a36", border: "1.5px solid #28A745", borderRadius: 8, padding: 12, fontSize: 12, color: "#7ee59a", marginBottom: 10 }}>
+                    📬 Código enviado a <strong>{email}</strong>. Revisá tu correo y pegá el código de 6 dígitos aquí abajo.
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={codigo}
+                      placeholder="123456"
+                      onChange={e => setCodigo(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={e => e.key === "Enter" && entrarConCodigo()}
+                      autoFocus
+                      style={{
+                        flex: 1, padding: "11px 14px", borderRadius: 8,
+                        border: "1.5px solid #4a2c7a", background: "#1a0a36",
+                        color: "#fff", fontSize: 22, outline: "none",
+                        textAlign: "center", letterSpacing: 8,
+                        fontFamily: "monospace",
+                      }}
+                    />
+                    <button
+                      onClick={entrarConCodigo}
+                      disabled={verificando}
+                      style={{
+                        padding: "11px 18px", borderRadius: 8, border: "none",
+                        background: verificando ? "#555" : "#28A745", color: "#fff",
+                        fontWeight: 800, fontSize: 13, cursor: verificando ? "wait" : "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      {verificando ? "..." : "Entrar"}
+                    </button>
+                  </div>
                   <button
-                    onClick={() => { setLinkEnviado(false); setEmail(""); }}
-                    style={{ display: "block", marginTop: 8, padding: "4px 10px", background: "transparent", border: "1px solid #3a1f6b", color: "#9B59B6", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}
+                    onClick={() => { setLinkEnviado(false); setCodigo(""); }}
+                    style={{ marginTop: 8, padding: "4px 10px", background: "transparent", border: "1px solid #3a1f6b", color: "#9B59B6", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}
                   >
                     Usar otro email
                   </button>
