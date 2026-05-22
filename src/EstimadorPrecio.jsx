@@ -405,14 +405,46 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefresca
           </div>
           {it.otros && it.otros.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {it.otros.map(o => (
-                <div key={o.id} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 24px", gap: 3 }}>
-                  <input style={{ ...INP, padding: "4px 6px", fontSize: 11 }} value={o.nombre} placeholder="Item" onChange={e => editOtro(o.id, "nombre", e.target.value)} />
-                  <input type="number" min="0" style={{ ...INP, padding: "4px 6px", textAlign: "center", fontSize: 11 }} value={o.qty} onChange={e => editOtro(o.id, "qty", e.target.value)} />
-                  <input type="number" step="0.01" min="0" style={{ ...INP, padding: "4px 6px", textAlign: "center", fontSize: 11, color: "#27AE60", fontWeight: 700 }} value={o.costo} onChange={e => editOtro(o.id, "costo", e.target.value)} />
-                  <button onClick={() => delOtro(o.id)} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", fontSize: 14 }}>×</button>
-                </div>
-              ))}
+              {it.otros.map(o => {
+                const nombreLimpio = (o.nombre || "").trim();
+                const costoVal = Number(o.costo);
+                // Está memorizado si existe un chip en costos.extra con el mismo nombre
+                const yaMemorizado = costos.extra.some(x => x.nombre.toLowerCase() === nombreLimpio.toLowerCase());
+                const puedeGuardar = nombreLimpio.length > 0 && Number.isFinite(costoVal) && costoVal > 0 && !yaMemorizado;
+                const guardarExtra = async () => {
+                  const guardado = await upsertCosto({
+                    categoria: "extra",
+                    nombre: nombreLimpio,
+                    unidad: "unidad",
+                    costo: costoVal,
+                  });
+                  if (guardado) {
+                    pushToast(`"${nombreLimpio}" guardado como chip rápido`, "success");
+                    if (onRefrescarCostos) await onRefrescarCostos();
+                  } else {
+                    pushToast("No pude guardar el extra", "error");
+                  }
+                };
+                return (
+                  <div key={o.id} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 24px 24px", gap: 3 }}>
+                    <input style={{ ...INP, padding: "4px 6px", fontSize: 11 }} value={o.nombre} placeholder="Item" onChange={e => editOtro(o.id, "nombre", e.target.value)} />
+                    <input type="number" min="0" style={{ ...INP, padding: "4px 6px", textAlign: "center", fontSize: 11 }} value={o.qty} onChange={e => editOtro(o.id, "qty", e.target.value)} />
+                    <input type="number" step="0.01" min="0" style={{ ...INP, padding: "4px 6px", textAlign: "center", fontSize: 11, color: "#27AE60", fontWeight: 700 }} value={o.costo} onChange={e => editOtro(o.id, "costo", e.target.value)} />
+                    {puedeGuardar ? (
+                      <button
+                        onClick={guardarExtra}
+                        title={`Memorizar "${nombreLimpio}" como chip rápido`}
+                        style={{ background: "#E67E22", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, borderRadius: 4, padding: 0 }}
+                      >💾</button>
+                    ) : yaMemorizado ? (
+                      <span title="Ya está guardado como chip" style={{ color: "#27AE60", fontSize: 12, textAlign: "center", alignSelf: "center" }}>✓</span>
+                    ) : (
+                      <span></span>
+                    )}
+                    <button onClick={() => delOtro(o.id)} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", fontSize: 14 }}>×</button>
+                  </div>
+                );
+              })}
             </div>
           )}
           <div style={{ fontSize: 10, color: "#E67E22", textAlign: "right", marginTop: 2 }}>= {fmt$(c.otros)}</div>
