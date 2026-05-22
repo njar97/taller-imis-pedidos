@@ -10,6 +10,8 @@
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
+import { descargarICSPedido } from "./lib/calendarioICS.js";
+import { pushToast } from "./lib/feedback.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
@@ -600,6 +602,31 @@ export default function DetallePedidoModal({
             }}
           >
             📄 PDF
+          </button>
+        )}
+        {pedido.fechaEntrega && (
+          <button
+            onClick={() => {
+              if (descargarICSPedido(pedido)) {
+                pushToast("Evento .ics descargado — abre con tu calendario", "success");
+              } else {
+                pushToast("Sin fecha de entrega", "error");
+              }
+            }}
+            title="Descargar archivo .ics para agregar al calendario del teléfono (alarma 1 día antes)"
+            style={{
+              padding: "9px 16px",
+              borderRadius: 8,
+              border: "1.5px solid #1A5276",
+              background: "#fff",
+              color: "#1A5276",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: 13,
+              fontFamily: "inherit",
+            }}
+          >
+            📅 Calendario
           </button>
         )}
         <button
