@@ -299,43 +299,44 @@ export default function PantallaLogin({ onLogin }) {
                   <div style={{ background: "#1a0a36", border: "1.5px solid #28A745", borderRadius: 8, padding: 12, fontSize: 12, color: "#7ee59a", marginBottom: 10 }}>
                     📬 Código enviado a <strong>{email}</strong>. Revisá tu correo y pegá el código de 6 dígitos aquí abajo.
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={6}
-                      value={codigo}
-                      placeholder="123456"
-                      onChange={e => setCodigo(e.target.value.replace(/\D/g, ""))}
-                      onKeyDown={e => e.key === "Enter" && entrarConCodigo()}
-                      autoFocus
-                      style={{
-                        flex: 1, padding: "11px 14px", borderRadius: 8,
-                        border: "1.5px solid #4a2c7a", background: "#1a0a36",
-                        color: "#fff", fontSize: 22, outline: "none",
-                        textAlign: "center", letterSpacing: 8,
-                        fontFamily: "monospace",
-                      }}
-                    />
-                    <button
-                      onClick={entrarConCodigo}
-                      disabled={verificando}
-                      style={{
-                        padding: "11px 18px", borderRadius: 8, border: "none",
-                        background: verificando ? "#555" : "#28A745", color: "#fff",
-                        fontWeight: 800, fontSize: 13, cursor: verificando ? "wait" : "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      {verificando ? "..." : "Entrar"}
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={codigo}
+                    placeholder="000000"
+                    onChange={e => setCodigo(e.target.value.replace(/\D/g, ""))}
+                    onKeyDown={e => e.key === "Enter" && entrarConCodigo()}
+                    autoFocus
+                    style={{
+                      width: "100%", padding: "12px 14px", borderRadius: 8,
+                      border: "1.5px solid #4a2c7a", background: "#1a0a36",
+                      color: "#fff", fontSize: 26, outline: "none",
+                      textAlign: "center", letterSpacing: 6,
+                      fontFamily: "monospace", marginBottom: 10,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <button
+                    onClick={entrarConCodigo}
+                    disabled={verificando || codigo.length !== 6}
+                    style={{
+                      width: "100%", padding: "13px", borderRadius: 8, border: "none",
+                      background: verificando ? "#555" : (codigo.length === 6 ? "#28A745" : "#3a1f6b"),
+                      color: "#fff", fontWeight: 800, fontSize: 15,
+                      cursor: (verificando || codigo.length !== 6) ? "not-allowed" : "pointer",
+                      fontFamily: "inherit", marginBottom: 8,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    {verificando ? "⏳ Verificando..." : "✅ Entrar"}
+                  </button>
                   <button
                     onClick={() => { setLinkEnviado(false); setCodigo(""); }}
-                    style={{ marginTop: 8, padding: "4px 10px", background: "transparent", border: "1px solid #3a1f6b", color: "#9B59B6", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}
+                    style={{ width: "100%", padding: "8px", background: "transparent", border: "1px solid #3a1f6b", color: "#9B59B6", borderRadius: 6, cursor: "pointer", fontSize: 11, fontFamily: "inherit", boxSizing: "border-box" }}
                   >
-                    Usar otro email
+                    ← Usar otro email
                   </button>
                 </div>
               ) : (
