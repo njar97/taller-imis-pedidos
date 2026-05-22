@@ -46,6 +46,7 @@ import CardPedido from "./CardPedido.jsx";
 import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
 import EstimadorPrecio from "./EstimadorPrecio.jsx";
 import SeccionCotizaciones from "./SeccionCotizaciones.jsx";
+import SeccionCalendario from "./SeccionCalendario.jsx";
 import QRCode from "qrcode";
 
 // Formulario de pedido (decompilado a JSX)
@@ -1745,6 +1746,14 @@ function App() {
             bordados={bordados}
             cuellos={cuellos}
             esAdmin={esAdmin}
+            onAbrirPedido={(p) => setDet(p)}
+          />
+        )}
+        {seccion === "calendario" && (
+          <SeccionCalendario
+            pedidos={pedidos}
+            bordados={bordados}
+            cuellos={cuellos}
             onAbrirPedido={(p) => setDet(p)}
           />
         )}
