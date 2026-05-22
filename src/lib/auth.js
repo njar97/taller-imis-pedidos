@@ -44,7 +44,13 @@ function limpiarSesion() {
 // Envía el magic link al email. Devuelve true si el endpoint respondió OK
 // (NO significa que el user haya clickeado, solo que el correo se mandó).
 export async function pedirMagicLink(email) {
-  const redirectTo = window.location.origin + window.location.pathname;
+  // GH Pages sirve la app en /taller-imis-pedidos/ y exige slash final
+  // para resolver. Sin slash, GH redirige y pierde el hash con tokens.
+  // Por eso forzamos el path completo con slash al final.
+  const path = window.location.pathname.endsWith("/")
+    ? window.location.pathname
+    : window.location.pathname + "/";
+  const redirectTo = window.location.origin + path;
   try {
     const r = await fetch(`${SUPA_URL}/auth/v1/otp`, {
       method: "POST",
