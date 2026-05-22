@@ -164,4 +164,10 @@ export const PEDIDO_BASE = {
   abonos: [],
   personas: [],
   modoRegistro: "tallas",
+  // Condiciones formales para cotización (todos opcionales). Si tienen
+  // contenido se renderizan como secciones en el PDF de cotización.
+  procesoRef: "",      // ej. "Proceso COMPRASAL — Ministerio de Cultura"
+  plazoEntrega: "",    // ej. "15 días hábiles desde la firma de la orden"
+  lugarEntrega: "",    // ej. "Col. Escalón, San Salvador, Nivel 2"
+  formaPago: "",       // ej. "Crédito a 30 días contra entrega + acta"
 };

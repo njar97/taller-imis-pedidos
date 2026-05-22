@@ -1137,6 +1137,48 @@ export default function FormPedido({
         <UploaderImagenes imagenes={f.imagenes} onChange={imgs => s("imagenes", imgs)} />
       </SeccionOpcional>
 
+      {/* ── Condiciones formales (cotización) ─────────────── */}
+      <SeccionOpcional
+        id="sec-formales"
+        titulo="Condiciones formales (para cotización)"
+        icon="📋"
+        color="#9B59B6"
+        defaultOpen={!!(f.procesoRef || f.plazoEntrega || f.lugarEntrega || f.formaPago)}
+      >
+        <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
+          Estos campos solo aparecen en el PDF cuando se imprime como <strong>cotización formal</strong>.
+          Útil para licitaciones / gobierno donde se exige plazo, lugar, forma de pago, etc.
+        </div>
+        <label style={LBL}>Referencia del proceso (ej. licitación, COMPRASAL)</label>
+        <input
+          style={{ ...INP, marginBottom: 8 }}
+          value={f.procesoRef || ""}
+          placeholder="Ej: COMPRASAL — Ministerio de Cultura"
+          onChange={e => s("procesoRef", e.target.value)}
+        />
+        <label style={LBL}>Plazo de entrega</label>
+        <input
+          style={{ ...INP, marginBottom: 8 }}
+          value={f.plazoEntrega || ""}
+          placeholder="Ej: 15 días hábiles desde la firma de la orden de compra"
+          onChange={e => s("plazoEntrega", e.target.value)}
+        />
+        <label style={LBL}>Lugar de entrega</label>
+        <textarea
+          style={{ ...INP, resize: "vertical", minHeight: 50, marginBottom: 8 }}
+          value={f.lugarEntrega || ""}
+          placeholder="Ej: Alameda Manuel E. Araujo y Av. Olímpica, Edif. 3553, Col. Escalón, San Salvador (Nivel 2)"
+          onChange={e => s("lugarEntrega", e.target.value)}
+        />
+        <label style={LBL}>Forma de pago</label>
+        <textarea
+          style={{ ...INP, resize: "vertical", minHeight: 50 }}
+          value={f.formaPago || ""}
+          placeholder="Ej: Crédito a 30 días calendario contra entrega total + acta de recepción. Factura Consumidor Final."
+          onChange={e => s("formaPago", e.target.value)}
+        />
+      </SeccionOpcional>
+
       {/* ── Estatus ─────────────────────────────────── */}
       <div style={{ marginTop: 10 }}>
         <label style={LBL}>Estatus del pedido</label>
