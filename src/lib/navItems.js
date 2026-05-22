@@ -6,7 +6,6 @@
 const ADMIN_NAV = [
   { id: "estadisticas", label: "Estadísticas", icon: "📊" },
   { id: "calendario",   label: "Calendario",   icon: "📅" },
-  { id: "resumen",      label: "Resumen tallas", icon: "📋", soloAdmin: true },
   { id: "pedidos",      label: "Confección",   icon: "✂️" },
   { id: "cotizaciones", label: "Cotizaciones", icon: "🧮", soloAdmin: true },
   { id: "bordados",     label: "Bordados",     icon: "🪡" },
