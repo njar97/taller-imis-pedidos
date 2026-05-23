@@ -48,6 +48,8 @@ import EstimadorPrecio from "./EstimadorPrecio.jsx";
 import SeccionCotizaciones from "./SeccionCotizaciones.jsx";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import SeccionCalendario from "./SeccionCalendario.jsx";
+import SeccionConfig from "./SeccionConfig.jsx";
+import { leerConfigTotal } from "./lib/config.js";
 import QRCode from "qrcode";
 
 // Formulario de pedido (decompilado a JSX)
@@ -476,14 +478,24 @@ ${(p.plazoEntrega || p.lugarEntrega || p.formaPago) ? `
   • Cotización emitida con base a especificaciones recibidas del cliente.
 </div>
 
-<!-- FIRMA DEL REPRESENTANTE LEGAL -->
-<div style="margin-top:40px;text-align:center;">
-  <div style="border-top:1.5px solid #333;padding-top:8px;margin:0 auto;max-width:340px;">
-    <div style="font-size:12px;font-weight:800;color:#2C1654;">${EMPRESA.representanteLegal.nombre}</div>
-    <div style="font-size:10px;color:#666;margin-top:2px;">${EMPRESA.representanteLegal.cargo} — ${EMPRESA.razonSocial}</div>
-    <div style="font-size:10px;color:#666;">DUI: ${EMPRESA.representanteLegal.dui}</div>
-  </div>
-</div>
+<!-- FIRMA DEL REPRESENTANTE LEGAL + SELLO -->
+${(() => {
+  const cfg = (typeof window !== "undefined" ? window.__TALLER_CONFIG__ : null) || {};
+  const firma = cfg.firma?.url;
+  const sello = cfg.sello?.url;
+  return `
+  <div style="margin-top:40px;text-align:center;position:relative;">
+    ${sello ? `<img src="${sello}" style="position:absolute;right:10%;top:-20px;max-width:90px;max-height:90px;opacity:0.85;" alt="sello" />` : ""}
+    <div style="display:inline-block;text-align:center;max-width:340px;position:relative;">
+      ${firma ? `<img src="${firma}" style="max-width:200px;max-height:60px;display:block;margin:0 auto -10px;position:relative;z-index:1;" alt="firma" />` : ""}
+      <div style="border-top:1.5px solid #333;padding-top:8px;">
+        <div style="font-size:12px;font-weight:800;color:#2C1654;">${EMPRESA.representanteLegal.nombre}</div>
+        <div style="font-size:10px;color:#666;margin-top:2px;">${EMPRESA.representanteLegal.cargo} — ${EMPRESA.razonSocial}</div>
+        <div style="font-size:10px;color:#666;">DUI: ${EMPRESA.representanteLegal.dui}</div>
+      </div>
+    </div>
+  </div>`;
+})()}
 
 <div style="margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #f0f0f0;padding-top:10px;">
   Cotización N° ${num} · ${EMPRESA.razonSocial} · ${fecha}
@@ -1197,6 +1209,14 @@ function App() {
   const [cotizacionEnEstimador, setCotizacionEnEstimador] = useState(null);
   // Modal de versiones independiente (se abre desde SeccionCotizaciones)
   const [pedidoVerVersiones, setPedidoVerVersiones] = useState(null);
+  // Config global del taller (firma, sello, etc.) cargada al iniciar.
+  // Vive como global accesible desde imprimirCotizacion / imprimirRecibo.
+  const [cargaConfigTick, setCargaConfigTick] = useState(0);
+  useEffect(() => {
+    leerConfigTotal().then(c => {
+      if (typeof window !== "undefined") window.__TALLER_CONFIG__ = c || {};
+    });
+  }, [cargaConfigTick]);
   const [modalArchivar, setModalArchivar] = useState(null);
   const [modalActMedidas, setModalActMedidas] = useState(null);
   const [masOpen, setMasOpen] = useState(false);
@@ -1857,6 +1877,9 @@ function App() {
             cuellos={cuellos}
             onAbrirPedido={(p) => setDet(p)}
           />
+        )}
+        {seccion === "config" && esAdmin && (
+          <SeccionConfig onConfigCambia={() => setCargaConfigTick(t => t + 1)} />
         )}
         {seccion === "cotizaciones" && esAdmin && (
           <SeccionCotizaciones

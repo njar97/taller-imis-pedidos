@@ -14,6 +14,7 @@ const ADMIN_NAV = [
   { id: "catalogo",     label: "Catálogo",     icon: "🧵" },
   { id: "clientes",     label: "Clientes",     icon: "👥" },
   { id: "papelera",     label: "Papelera",     icon: "🗑️", soloAdmin: true },
+  { id: "config",       label: "Configuración",icon: "⚙️", soloAdmin: true },
 ];
 
 const NAV_OPERARIO = {
