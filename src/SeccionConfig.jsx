@@ -65,7 +65,8 @@ export default function SeccionConfig({ onConfigCambia }) {
   }
 
   return (
-    <div style={{ padding: "14px 16px", maxWidth: 720, margin: "0 auto" }}>
+    <div style={{ height: "100%", overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch" }}>
+    <div style={{ padding: "14px 16px 80px", maxWidth: 720, margin: "0 auto" }}>
       <h1 style={{ margin: 0, fontSize: 18, color: "#2C1654", fontWeight: 800, fontFamily: "Georgia,serif" }}>
         ⚙️ Configuración del taller
       </h1>
@@ -122,6 +123,7 @@ export default function SeccionConfig({ onConfigCambia }) {
         💡 Después de subir, abrí cualquier cotización (ej. COT-0017) y tocá <strong>📄 Imprimir</strong>.
         La firma aparece sobre la línea del Representante Legal y el sello al costado.
       </div>
+    </div>
     </div>
   );
 }
