@@ -16,6 +16,7 @@ import { imgSrc } from "./lib/imagenes.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
 import { leerVersiones, restaurarVersion } from "./lib/versiones.js";
+import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
@@ -540,12 +541,82 @@ export default function DetallePedidoModal({
   const pBord = bVinc ? parseFloat(bVinc.precioT || 0) : 0;
   const pCuel = cVinc ? parseFloat(cVinc.precioT || 0) : 0;
   const [verVersiones, setVerVersiones] = useState(false);
+  const [edRec, setEdRec] = useState(() => leerSnapshotReciente(pedido.id));
+
+  const deshacerEdicionReciente = async () => {
+    if (!edRec || !edRec.snapshot) return;
+    const ok = await pushConfirm({
+      titulo: "Deshacer última edición",
+      msg: `¿Volver al estado anterior del ${new Date(edRec.timestamp).toLocaleString("es-SV")}? Los cambios actuales se reemplazan.`,
+      okLabel: "Sí, deshacer",
+    });
+    if (!ok) return;
+    const snap = { ...edRec.snapshot };
+    // No queremos sobreescribir el id ni deleted_at
+    const idGuardado = pedido.id;
+    delete snap.deleted_at;
+    snap.id = idGuardado;
+    // Hacemos PATCH directo via REST con keys camelCase → snake_case
+    // ya las maneja keysToSnake en db.js. Usamos el callback de save
+    // del componente padre vía la prop onAbrirEdicion no aplica acá.
+    // Hacemos fetch directo:
+    try {
+      const SUPA = "https://kszdievqesveluzcnzsh.supabase.co/rest/v1";
+      const KEY = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
+      // Pre-snake-case del snapshot (los campos en BD están en snake)
+      const r = await fetch(`${SUPA}/taller_pedidos?id=eq.${idGuardado}`, {
+        method: "PATCH",
+        headers: {
+          apikey: KEY, Authorization: "Bearer " + KEY,
+          "Content-Type": "application/json", Prefer: "return=minimal",
+        },
+        body: JSON.stringify(snap),
+      });
+      if (r.ok) {
+        limpiarSnapshot(idGuardado);
+        setEdRec(null);
+        pushToast("Edición deshecha. Recargá para ver los datos restaurados.", "success", 5000);
+        onClose();
+      } else {
+        pushToast("No pude restaurar la edición", "error");
+      }
+    } catch (e) {
+      pushToast("Error al deshacer: " + e.message, "error");
+    }
+  };
+
+  const minsDesde = edRec ? Math.floor((Date.now() - edRec.timestamp) / 60000) : 0;
 
   return (
     <Modal
       title={"📋 N°" + String(pedido.id).padStart(4, "0") + " — " + pedido.cliente}
       onClose={onClose}
     >
+      {edRec && (
+        <div style={{
+          background: "#FFF8E1", border: "1.5px solid #FFE082", borderRadius: 10,
+          padding: "10px 14px", marginBottom: 12, display: "flex",
+          alignItems: "center", gap: 10, justifyContent: "space-between",
+        }}>
+          <div style={{ fontSize: 12, color: "#856404", flex: 1 }}>
+            ↩️ <strong>Editado hace {minsDesde} min</strong>
+            <div style={{ fontSize: 11, opacity: .85 }}>Si fue por error, podés deshacer la última edición.</div>
+          </div>
+          <button onClick={deshacerEdicionReciente} style={{
+            padding: "7px 14px", borderRadius: 8, border: "none",
+            background: "#E67E22", color: "#fff", fontWeight: 800, fontSize: 12,
+            cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+          }}>
+            ↩️ Deshacer
+          </button>
+          <button onClick={() => { limpiarSnapshot(pedido.id); setEdRec(null); }}
+            title="Descartar este aviso"
+            style={{
+              background: "none", border: "none", color: "#856404",
+              fontSize: 18, cursor: "pointer", padding: 0, lineHeight: 1,
+            }}>×</button>
+        </div>
+      )}
       <StatusYCosturera
         pedido={pedido}
         onCambiarEstatus={onCambiarEstatus}

@@ -277,7 +277,7 @@ export default function FormPedido({
       ].filter(Boolean)
     : [];
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
     setIntentoGuardar(true);
     if (!validez.cliente) {
       pushToast("Falta el nombre del cliente", "error");
@@ -303,6 +303,25 @@ export default function FormPedido({
     }
     if (f.fechaInicio && f.fechaInicio > f.fechaEntrega) {
       pushToast("⚠️ La fecha de inicio es posterior a la de entrega", "info");
+    }
+    // Confirmación al editar (no nuevo) si cambian campos críticos.
+    // Para detectarlos comparamos f con initial (lo que vino al abrir).
+    if (initial && initial.id) {
+      const cambiosCriticos = [];
+      const num = v => parseFloat(v) || 0;
+      if (num(f.precio) !== num(initial.precio)) cambiosCriticos.push(`precio (${initial.precio || 0} → ${f.precio || 0})`);
+      if (JSON.stringify(f.tallasItems || []) !== JSON.stringify(initial.tallasItems || [])) cambiosCriticos.push("ítems / tallas");
+      if (JSON.stringify(f.personas || []) !== JSON.stringify(initial.personas || [])) cambiosCriticos.push("personas / beneficiarios");
+      if ((f.cliente || "").trim() !== (initial.cliente || "").trim()) cambiosCriticos.push("cliente");
+      if (f.fechaEntrega !== initial.fechaEntrega) cambiosCriticos.push("fecha entrega");
+      if (cambiosCriticos.length > 0) {
+        const ok = await pushConfirm({
+          titulo: "Confirmar cambios",
+          msg: `Vas a modificar: ${cambiosCriticos.join(", ")}. Los valores anteriores quedan en el historial. ¿Guardar?`,
+          okLabel: "Sí, guardar",
+        });
+        if (!ok) return;
+      }
     }
     limpiarBorrador();
     // Strip claves con prefijo _ (state local del banner de medidas) que
