@@ -206,6 +206,7 @@ import {
 } from "./lib/dominio.js";
 import { EMPRESA } from "./lib/empresa.js";
 import { nombrePDF } from "./lib/pdfNombre.js";
+import { guardarSnapshot as guardarSnapshotEdicion } from "./lib/edicionReciente.js";
 
 // Helpers de imágenes
 import {
@@ -1469,6 +1470,12 @@ function App() {
       ? _esNuevo
       : (modal === "nuevo" || (modal && typeof modal === "object" && !modal.id));
     const idPedido = esNuevo ? nextId : (modal || {}).id || form.id;
+    // Si NO es nuevo y el modal es el pedido completo previo, guardamos
+    // snapshot del estado anterior en localStorage para 'deshacer' por 1h.
+    // El historial completo en BD igual va por el trigger.
+    if (!esNuevo && modal && typeof modal === "object" && modal.id) {
+      try { guardarSnapshotEdicion(modal); } catch {}
+    }
     const baseP = esNuevo ? {
       ...form,
       id: idPedido,
