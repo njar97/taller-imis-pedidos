@@ -46,6 +46,7 @@ import CardPedido from "./CardPedido.jsx";
 import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
 import EstimadorPrecio from "./EstimadorPrecio.jsx";
 import SeccionCotizaciones from "./SeccionCotizaciones.jsx";
+import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import SeccionCalendario from "./SeccionCalendario.jsx";
 import QRCode from "qrcode";
 
@@ -1194,6 +1195,8 @@ function App() {
   // Cuando abrimos el estimador con una cotización existente para
   // ajustar parámetros y recalcular precios.
   const [cotizacionEnEstimador, setCotizacionEnEstimador] = useState(null);
+  // Modal de versiones independiente (se abre desde SeccionCotizaciones)
+  const [pedidoVerVersiones, setPedidoVerVersiones] = useState(null);
   const [modalArchivar, setModalArchivar] = useState(null);
   const [modalActMedidas, setModalActMedidas] = useState(null);
   const [masOpen, setMasOpen] = useState(false);
@@ -1864,6 +1867,7 @@ function App() {
               setCotizacionEnEstimador(c);
               setModalEstimador(true);
             }}
+            onVerVersiones={(c) => setPedidoVerVersiones(c)}
             onConvertirPedido={async (c) => {
               const ok = await pushConfirm({
                 titulo: "Convertir a pedido",
@@ -2210,6 +2214,13 @@ function App() {
       <ConfirmDialog />
       <ConexionStatus />
       <InstallPrompt />
+      {pedidoVerVersiones && (
+        <ModalVersionesPedido
+          pedido={pedidoVerVersiones}
+          onClose={() => setPedidoVerVersiones(null)}
+          onRestaurado={() => { setPedidoVerVersiones(null); refrescar(); }}
+        />
+      )}
       {esAdmin && (
         <RecordatorioInicio
           pedidos={pedidos}

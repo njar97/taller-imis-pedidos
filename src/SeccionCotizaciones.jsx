@@ -24,6 +24,7 @@ export default function SeccionCotizaciones({
   onImprimir,
   onEditar,
   onReabrirEstimador,
+  onVerVersiones,
 }) {
   const [busq, setBusq] = useState("");
   const cotizaciones = useMemo(() => {
@@ -81,6 +82,7 @@ export default function SeccionCotizaciones({
               onImprimir={() => onImprimir(c)}
               onEditar={() => onEditar(c)}
               onReabrirEstimador={() => onReabrirEstimador && onReabrirEstimador(c)}
+              onVerVersiones={() => onVerVersiones && onVerVersiones(c)}
             />
           ))}
         </div>
@@ -89,7 +91,7 @@ export default function SeccionCotizaciones({
   );
 }
 
-function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador }) {
+function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones }) {
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
@@ -162,6 +164,9 @@ function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onRe
         )}
         <button onClick={onEditar} style={BTN("#1A5276")}>
           ✏️ Editar
+        </button>
+        <button onClick={onVerVersiones} style={BTN("#888", true)} title="Ver versiones anteriores de esta cotización">
+          🕗 Versiones
         </button>
         <button onClick={onEliminar} style={BTN("#E74C3C", true)}>
           🗑️
