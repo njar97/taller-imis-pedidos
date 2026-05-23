@@ -137,7 +137,41 @@ function Seccion({ titulo, color, children }) {
   );
 }
 
+// Rota una URL de imagen N grados y devuelve un File listo para subir.
+async function rotarImagen(url, grados) {
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    i.crossOrigin = "anonymous";
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = url + "?cb=" + Date.now(); // bust cache
+  });
+  const rad = (grados * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(rad));
+  const cos = Math.abs(Math.cos(rad));
+  const newW = Math.round(img.width * cos + img.height * sin);
+  const newH = Math.round(img.width * sin + img.height * cos);
+  const canvas = document.createElement("canvas");
+  canvas.width = newW;
+  canvas.height = newH;
+  const ctx = canvas.getContext("2d");
+  ctx.translate(newW / 2, newH / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -img.width / 2, -img.height / 2);
+  return new Promise(resolve => {
+    canvas.toBlob(blob => {
+      const file = new File([blob], "rotated.png", { type: "image/png" });
+      resolve(file);
+    }, "image/png");
+  });
+}
+
 function ImagenConfig({ imagen, subiendo, onSubir, onEliminar, placeholder, ayuda }) {
+  const rotar = async (grados) => {
+    if (!imagen?.url) return;
+    const file = await rotarImagen(imagen.url, grados);
+    if (file) onSubir(file);
+  };
   return (
     <div>
       {imagen?.url ? (
@@ -145,9 +179,29 @@ function ImagenConfig({ imagen, subiendo, onSubir, onEliminar, placeholder, ayud
           <img
             src={imagen.url}
             alt="preview"
-            style={{ maxWidth: 200, maxHeight: 120, background: "#fafafa", border: "1px solid #eee", borderRadius: 8, padding: 6 }}
+            style={{ maxWidth: 200, maxHeight: 200, background: "#fafafa", border: "1px solid #eee", borderRadius: 8, padding: 6 }}
           />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 160 }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                onClick={() => rotar(-90)}
+                disabled={subiendo}
+                title="Rotar 90° izquierda"
+                style={btnRot}
+              >↺ -90°</button>
+              <button
+                onClick={() => rotar(90)}
+                disabled={subiendo}
+                title="Rotar 90° derecha"
+                style={btnRot}
+              >↻ +90°</button>
+              <button
+                onClick={() => rotar(180)}
+                disabled={subiendo}
+                title="Rotar 180°"
+                style={btnRot}
+              >↻↻ 180°</button>
+            </div>
             <label style={{
               padding: "7px 12px", borderRadius: 6, border: "1.5px solid #9B59B6",
               background: "#fff", color: "#9B59B6", cursor: "pointer", fontWeight: 700,
@@ -189,3 +243,17 @@ function ImagenConfig({ imagen, subiendo, onSubir, onEliminar, placeholder, ayud
     </div>
   );
 }
+
+const btnRot = {
+  flex: 1,
+  padding: "5px 4px",
+  borderRadius: 6,
+  border: "1.5px solid #E67E22",
+  background: "#fff",
+  color: "#E67E22",
+  cursor: "pointer",
+  fontSize: 10,
+  fontWeight: 700,
+  fontFamily: "inherit",
+  whiteSpace: "nowrap",
+};
