@@ -7,6 +7,7 @@ import { dbCuelBorrar as gsCuelBorrar, dbCuelGuardar as gsCuelGuardar } from "./
 import { pushToast } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { Modal } from "./lib/Modal.jsx";
+import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import { subirArchivoSupabase } from "./supabaseStorage.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
@@ -449,6 +450,7 @@ export default function SeccionCuellos({
   const [modal, setModal] = useState(null);
   const [detalle, setDetalle] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [verVersionesId, setVerVersionesId] = useState(null);
 
   const lista = cuellos.filter(c => {
     const q = busq.toLowerCase();
@@ -596,6 +598,15 @@ export default function SeccionCuellos({
           }}
           onConfirmar={() => setConfirm(detalle.id)}
           exportarPedidoPDF={exportarPedidoPDF}
+        />
+      )}
+
+      {/* ── Versiones anteriores ── */}
+      {verVersionesId !== null && (
+        <ModalVersionesPedido
+          tipo="cuello"
+          pedido={{ id: verVersionesId }}
+          onClose={() => setVerVersionesId(null)}
         />
       )}
 
@@ -829,6 +840,15 @@ function CardsCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambia
               >
                 ✏️ Editar
               </button>
+              {esAdmin && (
+                <button
+                  onClick={() => setVerVersionesId(cu.id)}
+                  style={{ padding: "9px 12px", borderRadius: 8, border: "1.5px solid #888", background: "#fff", cursor: "pointer", fontSize: 13, color: "#666" }}
+                  title="Ver versiones anteriores"
+                >
+                  🕗
+                </button>
+              )}
               {esAdmin && (
                 <button
                   onClick={() => setConfirm(cu.id)}

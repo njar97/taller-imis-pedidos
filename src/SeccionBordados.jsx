@@ -8,6 +8,7 @@ import { dbBordBorrar as gsBordBorrar, dbBordGuardar as gsBordGuardar } from "./
 import { pushToast } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { Modal } from "./lib/Modal.jsx";
+import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import { driveDownloadUrl, driveViewUrl, extractDriveId, comprimirImagen } from "./lib/imagenes.js";
 import { subirArchivoSupabase, subirFotoSupabase } from "./supabaseStorage.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
@@ -827,6 +828,7 @@ export default function SeccionBordados({
   const [modal, setModal] = useState(null); // null | "nuevo" | bordado
   const [detalle, setDetalle] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [verVersionesId, setVerVersionesId] = useState(null);
 
   const lista = bordados.filter(b => {
     const q = busq.toLowerCase();
@@ -996,6 +998,15 @@ export default function SeccionBordados({
           }}
           onConfirmar={() => setConfirm(detalle.id)}
           exportarPedidoPDF={exportarPedidoPDF}
+        />
+      )}
+
+      {/* ── Versiones anteriores ── */}
+      {verVersionesId !== null && (
+        <ModalVersionesPedido
+          tipo="bordado"
+          pedido={{ id: verVersionesId }}
+          onClose={() => setVerVersionesId(null)}
         />
       )}
 
@@ -1285,6 +1296,15 @@ function CardsBordados({ lista, esAdmin, setDetalle, setModal, setConfirm, cambi
               >
                 ✏️ Editar
               </button>
+              {esAdmin && (
+                <button
+                  onClick={() => setVerVersionesId(b.id)}
+                  style={{ padding: "9px 12px", borderRadius: 8, border: "1.5px solid #888", background: "#fff", cursor: "pointer", fontSize: 13, color: "#666" }}
+                  title="Ver versiones anteriores"
+                >
+                  🕗
+                </button>
+              )}
               {esAdmin && (
                 <button
                   onClick={() => setConfirm(b.id)}

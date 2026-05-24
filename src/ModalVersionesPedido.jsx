@@ -4,29 +4,30 @@
 
 import { useEffect, useState } from "react";
 import { Modal } from "./lib/Modal.jsx";
-import { leerVersiones, restaurarVersion } from "./lib/versiones.js";
+import { leerVersionesDe, restaurarVersionDe } from "./lib/versiones.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 
-const camposClave = ["precio", "estatus", "cliente", "telefono", "fecha_entrega", "tallas_items", "tipo_prenda", "notas", "descripcion"];
+const camposClave = ["precio", "precio_t", "estatus", "cliente", "telefono", "fecha_entrega", "tallas_items", "tipo_prenda", "soporte", "tipo", "material", "notas", "descripcion", "diseño", "puntadas"];
 const toCamel = s => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
 
-export default function ModalVersionesPedido({ pedido, onClose, onRestaurado }) {
+// tipo: 'pedido' | 'bordado' | 'cuello'
+export default function ModalVersionesPedido({ pedido, onClose, onRestaurado, tipo = "pedido" }) {
   const [versiones, setVersiones] = useState(null);
   const [restaurando, setRestaurando] = useState(false);
 
   useEffect(() => {
-    leerVersiones(pedido.id).then(setVersiones);
-  }, [pedido.id]);
+    leerVersionesDe(tipo, pedido.id).then(setVersiones);
+  }, [pedido.id, tipo]);
 
   const restaurar = async (v) => {
     const ok = await pushConfirm({
       titulo: "Restaurar versión",
-      msg: `¿Restaurar este pedido al estado del ${new Date(v.creado_en).toLocaleString("es-SV")}? Los cambios actuales se guardarán como versión por si querés volver.`,
+      msg: `¿Restaurar este ${tipo} al estado del ${new Date(v.creado_en).toLocaleString("es-SV")}? Los cambios actuales se guardarán como versión por si querés volver.`,
       okLabel: "Sí, restaurar",
     });
     if (!ok) return;
     setRestaurando(true);
-    const exito = await restaurarVersion(v.id, pedido.id);
+    const exito = await restaurarVersionDe(tipo, v.id, pedido.id);
     setRestaurando(false);
     if (exito) {
       pushToast("Versión restaurada. Recargá la página para ver cambios.", "success");
@@ -38,15 +39,15 @@ export default function ModalVersionesPedido({ pedido, onClose, onRestaurado }) 
   };
 
   return (
-    <Modal title={`🕗 Versiones de N°${String(pedido.id).padStart(4, "0")}`} onClose={onClose}>
+    <Modal title={`🕗 Versiones de ${tipo === "bordado" ? "BORD" : tipo === "cuello" ? "CUEL" : "N°"}${String(pedido.id).padStart(tipo === "pedido" ? 4 : 3, "0")}`} onClose={onClose}>
       <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
-        Cada vez que guardás cambios en este pedido, queda un snapshot automático del estado anterior.
+        Cada vez que guardás cambios en este {tipo}, queda un snapshot automático del estado anterior.
         Tocá <strong>Restaurar</strong> en una versión para volver a ese estado.
       </div>
       {versiones === null && <div style={{ textAlign: "center", padding: 20, color: "#aaa" }}>⏳ Cargando...</div>}
       {versiones && versiones.length === 0 && (
         <div style={{ textAlign: "center", padding: 20, color: "#aaa", fontSize: 12 }}>
-          Sin versiones anteriores. Este pedido es la versión actual.
+          Sin versiones anteriores. Este {tipo} es la versión actual.
         </div>
       )}
       {versiones && versiones.length > 0 && (
@@ -68,9 +69,11 @@ export default function ModalVersionesPedido({ pedido, onClose, onRestaurado }) 
                       {i === 0 && <span style={{ marginLeft: 6, fontSize: 9, background: "#E67E22", color: "#fff", padding: "2px 6px", borderRadius: 4 }}>MÁS RECIENTE</span>}
                     </div>
                     <div style={{ fontSize: 10, color: "#666", marginTop: 4 }}>
-                      Precio: <strong>${snap.precio || "0"}</strong>
+                      Precio: <strong>${snap.precio || snap.precio_t || "0"}</strong>
                       {" · "}Estatus: <strong>{snap.estatus || "—"}</strong>
-                      {" · "}Items: <strong>{(snap.tallas_items || []).length}</strong>
+                      {tipo === "pedido" && <>{" · "}Items: <strong>{(snap.tallas_items || []).length}</strong></>}
+                      {tipo === "bordado" && snap.soporte && <>{" · "}Soporte: <strong>{snap.soporte}</strong></>}
+                      {tipo === "cuello" && snap.tipo && <>{" · "}Tipo: <strong>{snap.tipo}</strong></>}
                     </div>
                     {cambios.length > 0 && (
                       <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>

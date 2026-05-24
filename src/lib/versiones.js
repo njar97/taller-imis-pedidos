@@ -1,11 +1,9 @@
-// Historial de versiones de pedidos.
-// La tabla taller_pedido_versiones se llena automáticamente vía
-// trigger BEFORE UPDATE en BD (lib/db.js no hace nada extra).
-// Cada vez que un pedido cambia, se guarda el estado anterior.
+// Historial de versiones genérico. Sirve para pedidos, bordados y
+// cuellos — cada uno tiene su tabla de versiones y trigger BEFORE
+// UPDATE en BD que guarda el OLD automático.
 //
-// Esta lib expone:
-//   - leerVersiones(pedidoId): lista de versiones (más nueva primero)
-//   - restaurarVersion(versionId, pedidoId): hace UPDATE con snapshot
+// Configuración de las 3 entidades en TABLAS abajo. Cada función
+// recibe el "tipo" (pedido | bordado | cuello) o usa la específica.
 
 import { withRetry } from "./retry.js";
 
@@ -18,44 +16,50 @@ const HEADERS = {
   "Content-Type": "application/json",
 };
 
-export async function leerVersiones(pedidoId) {
+const TABLAS = {
+  pedido:  { tabla: "taller_pedidos",  versiones: "taller_pedido_versiones",  fkCol: "pedido_id"  },
+  bordado: { tabla: "taller_bordados", versiones: "taller_bordado_versiones", fkCol: "bordado_id" },
+  cuello:  { tabla: "taller_cuellos",  versiones: "taller_cuello_versiones",  fkCol: "cuello_id"  },
+};
+
+// Genérica
+export async function leerVersionesDe(tipo, registroId) {
+  const cfg = TABLAS[tipo];
+  if (!cfg) return [];
   try {
-    const url = `${REST}/taller_pedido_versiones?pedido_id=eq.${pedidoId}&order=creado_en.desc&limit=50`;
+    const url = `${REST}/${cfg.versiones}?${cfg.fkCol}=eq.${registroId}&order=creado_en.desc&limit=50`;
     const r = await withRetry(() => fetch(url, { headers: HEADERS }));
     if (!r.ok) return [];
     return await r.json();
   } catch (e) {
-    console.warn("leerVersiones falló:", e.message);
+    console.warn("leerVersionesDe falló:", e.message);
     return [];
   }
 }
 
-// Restaura una versión del pedido. Patch del pedido con el snapshot.
-// NOTA: esto a su vez creará UNA nueva versión (la actual antes de
-// restaurar) por el trigger — ese es el comportamiento deseado para
-// poder "des-restaurar".
-export async function restaurarVersion(versionId, pedidoId) {
+export async function restaurarVersionDe(tipo, versionId, registroId) {
+  const cfg = TABLAS[tipo];
+  if (!cfg) return false;
   try {
-    // 1) Obtener el snapshot
-    const rGet = await fetch(`${REST}/taller_pedido_versiones?id=eq.${versionId}&select=snapshot`, {
-      headers: HEADERS,
-    });
+    const rGet = await fetch(`${REST}/${cfg.versiones}?id=eq.${versionId}&select=snapshot`, { headers: HEADERS });
     if (!rGet.ok) return false;
     const rows = await rGet.json();
     if (!rows[0]?.snapshot) return false;
     const snap = rows[0].snapshot;
-    // No queremos sobreescribir el id ni deleted_at ni creado_en
     delete snap.id;
     delete snap.deleted_at;
-    // 2) Patch del pedido con el snapshot
-    const rPut = await fetch(`${REST}/taller_pedidos?id=eq.${pedidoId}`, {
+    const rPut = await fetch(`${REST}/${cfg.tabla}?id=eq.${registroId}`, {
       method: "PATCH",
       headers: { ...HEADERS, Prefer: "return=minimal" },
       body: JSON.stringify(snap),
     });
     return rPut.ok;
   } catch (e) {
-    console.warn("restaurarVersion falló:", e.message);
+    console.warn("restaurarVersionDe falló:", e.message);
     return false;
   }
 }
+
+// Backwards compat — los call-sites viejos asumen tipo='pedido'
+export const leerVersiones = id => leerVersionesDe("pedido", id);
+export const restaurarVersion = (vid, id) => restaurarVersionDe("pedido", vid, id);
