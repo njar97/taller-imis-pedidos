@@ -17,6 +17,7 @@ import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
 import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
+import { useState } from "react";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
