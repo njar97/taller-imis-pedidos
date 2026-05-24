@@ -25,6 +25,7 @@ export default function SeccionCotizaciones({
   onEditar,
   onReabrirEstimador,
   onVerVersiones,
+  onEnviarEmail,
 }) {
   const [busq, setBusq] = useState("");
   const cotizaciones = useMemo(() => {
@@ -83,6 +84,7 @@ export default function SeccionCotizaciones({
               onEditar={() => onEditar(c)}
               onReabrirEstimador={() => onReabrirEstimador && onReabrirEstimador(c)}
               onVerVersiones={() => onVerVersiones && onVerVersiones(c)}
+              onEnviarEmail={() => onEnviarEmail && onEnviarEmail(c)}
             />
           ))}
         </div>
@@ -91,7 +93,7 @@ export default function SeccionCotizaciones({
   );
 }
 
-function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones }) {
+function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
@@ -156,6 +158,9 @@ function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onRe
         </button>
         <button onClick={onImprimir} style={BTN("#9B59B6")}>
           📄 Imprimir
+        </button>
+        <button onClick={onEnviarEmail} style={BTN("#27AE60")} title="Enviar por email al cliente">
+          📧 Email
         </button>
         {tieneDesglose && (
           <button onClick={onReabrirEstimador} style={BTN("#E67E22")} title="Abrir esta cotización en el estimador para ajustar precios">

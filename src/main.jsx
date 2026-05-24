@@ -47,6 +47,7 @@ import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
 import EstimadorPrecio from "./EstimadorPrecio.jsx";
 import SeccionCotizaciones from "./SeccionCotizaciones.jsx";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
+import ModalEnviarCotizacion from "./ModalEnviarCotizacion.jsx";
 import SeccionCalendario from "./SeccionCalendario.jsx";
 import SeccionConfig from "./SeccionConfig.jsx";
 import { leerConfigTotal } from "./lib/config.js";
@@ -1209,6 +1210,7 @@ function App() {
   const [cotizacionEnEstimador, setCotizacionEnEstimador] = useState(null);
   // Modal de versiones independiente (se abre desde SeccionCotizaciones)
   const [pedidoVerVersiones, setPedidoVerVersiones] = useState(null);
+  const [cotEnviarEmail, setCotEnviarEmail] = useState(null);
   // Config global del taller (firma, sello, etc.) cargada al iniciar.
   // Vive como global accesible desde imprimirCotizacion / imprimirRecibo.
   const [cargaConfigTick, setCargaConfigTick] = useState(0);
@@ -1891,6 +1893,7 @@ function App() {
               setModalEstimador(true);
             }}
             onVerVersiones={(c) => setPedidoVerVersiones(c)}
+            onEnviarEmail={(c) => setCotEnviarEmail(c)}
             onConvertirPedido={async (c) => {
               const ok = await pushConfirm({
                 titulo: "Convertir a pedido",
@@ -2242,6 +2245,12 @@ function App() {
           pedido={pedidoVerVersiones}
           onClose={() => setPedidoVerVersiones(null)}
           onRestaurado={() => { setPedidoVerVersiones(null); refrescar(); }}
+        />
+      )}
+      {cotEnviarEmail && (
+        <ModalEnviarCotizacion
+          cotizacion={cotEnviarEmail}
+          onClose={() => setCotEnviarEmail(null)}
         />
       )}
       {esAdmin && (
