@@ -22,6 +22,7 @@ import { SelectorTallas } from "./SelectorTallas.jsx";
 import FormNav from "./FormNav.jsx";
 import { leerRecientes, marcarReciente } from "./lib/recientesPrendas.js";
 import { contactPickerOK, elegirContacto } from "./lib/contactPicker.js";
+import { leerPlantillas, guardarPlantilla } from "./lib/plantillas.js";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 
@@ -1164,6 +1165,21 @@ export default function FormPedido({
         color="#9B59B6"
         defaultOpen={!!(f.procesoRef || f.plazoEntrega || f.lugarEntrega || f.formaPago)}
       >
+        <PlantillasCotizacionPicker
+          aplicar={pl => setF(prev => ({
+            ...prev,
+            procesoRef: pl.proceso_ref || prev.procesoRef,
+            plazoEntrega: pl.plazo_entrega || prev.plazoEntrega,
+            lugarEntrega: pl.lugar_entrega || prev.lugarEntrega,
+            formaPago: pl.forma_pago || prev.formaPago,
+          }))}
+          datosActuales={{
+            procesoRef: f.procesoRef,
+            plazoEntrega: f.plazoEntrega,
+            lugarEntrega: f.lugarEntrega,
+            formaPago: f.formaPago,
+          }}
+        />
         <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>
           Estos campos solo aparecen en el PDF cuando se imprime como <strong>cotización formal</strong>.
           Útil para licitaciones / gobierno donde se exige plazo, lugar, forma de pago, etc.
@@ -1219,6 +1235,113 @@ export default function FormPedido({
           {initial ? "💾 Guardar cambios" : "💾 Crear pedido"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Mini-componente para cargar y guardar plantillas de cotización
+function PlantillasCotizacionPicker({ aplicar, datosActuales }) {
+  const [plantillas, setPlantillas] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [guardandoNombre, setGuardandoNombre] = useState("");
+  const [mostrandoGuardar, setMostrandoGuardar] = useState(false);
+
+  useEffect(() => {
+    leerPlantillas().then(rows => { setPlantillas(rows); setCargando(false); });
+  }, []);
+
+  const refrescar = async () => {
+    const rows = await leerPlantillas();
+    setPlantillas(rows);
+  };
+
+  const guardar = async () => {
+    const n = guardandoNombre.trim();
+    if (!n) { pushToast("Pone un nombre", "error"); return; }
+    const res = await guardarPlantilla({
+      nombre: n,
+      procesoRef: datosActuales.procesoRef || "",
+      plazoEntrega: datosActuales.plazoEntrega || "",
+      lugarEntrega: datosActuales.lugarEntrega || "",
+      formaPago: datosActuales.formaPago || "",
+    });
+    if (res.ok) {
+      pushToast(`Plantilla "${n}" guardada`, "success");
+      setGuardandoNombre("");
+      setMostrandoGuardar(false);
+      refrescar();
+    } else {
+      pushToast(`No pude guardar: ${res.error}`, "error");
+    }
+  };
+
+  const tieneDatos = !!(datosActuales.procesoRef || datosActuales.plazoEntrega || datosActuales.lugarEntrega || datosActuales.formaPago);
+
+  return (
+    <div style={{ marginBottom: 12, padding: 10, background: "#F3E5F5", borderRadius: 8, border: "1px solid #d4b3df" }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: "#6B2D8B", textTransform: "uppercase", letterSpacing: .4, marginBottom: 6 }}>
+        📋 Plantillas
+      </div>
+      {cargando ? (
+        <div style={{ fontSize: 11, color: "#888" }}>⏳ Cargando...</div>
+      ) : plantillas.length === 0 ? (
+        <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>
+          No tenés plantillas guardadas. Llena los campos de abajo y guardá tu primera.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+          {plantillas.map(pl => (
+            <button
+              key={pl.id}
+              onClick={() => aplicar(pl)}
+              title={`Cargar: ${pl.nombre}`}
+              style={{
+                padding: "4px 10px", borderRadius: 14, border: "1.5px solid #9B59B6",
+                background: "#fff", color: "#9B59B6", cursor: "pointer",
+                fontSize: 11, fontWeight: 700, fontFamily: "inherit",
+              }}
+            >
+              📋 {pl.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+      {tieneDatos && !mostrandoGuardar && (
+        <button
+          onClick={() => setMostrandoGuardar(true)}
+          style={{
+            padding: "4px 10px", borderRadius: 14, border: "1.5px dashed #9B59B6",
+            background: "transparent", color: "#9B59B6", cursor: "pointer",
+            fontSize: 10, fontWeight: 700, fontFamily: "inherit",
+          }}
+        >
+          💾 Guardar estos campos como plantilla
+        </button>
+      )}
+      {mostrandoGuardar && (
+        <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+          <input
+            style={{ ...INP, flex: 1, padding: "5px 8px", fontSize: 12 }}
+            value={guardandoNombre}
+            onChange={e => setGuardandoNombre(e.target.value)}
+            placeholder="Nombre (ej: Ministerio Cultura)"
+            autoFocus
+            onKeyDown={e => e.key === "Enter" && guardar()}
+          />
+          <button
+            onClick={guardar}
+            style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#27AE60", color: "#fff", fontWeight: 800, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
+          >
+            Guardar
+          </button>
+          <button
+            onClick={() => { setMostrandoGuardar(false); setGuardandoNombre(""); }}
+            style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid #ccc", background: "#fff", color: "#888", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

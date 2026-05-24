@@ -1904,6 +1904,33 @@ function App() {
               const actualizado = { ...c, esCotizacion: false, estatus: "Corte" };
               setPedidos(prev => prev.map(p => p.id === c.id ? actualizado : p));
               try { await gsGuardar(actualizado); } catch {}
+              // Si el cliente NO existe en el CRM, lo agregamos automático.
+              // Match case-insensitive por nombre normalizado.
+              const nombre = (c.cliente || "").trim();
+              if (nombre) {
+                const yaExiste = clientes.some(cl =>
+                  (cl.nombre || "").trim().toLowerCase() === nombre.toLowerCase()
+                );
+                if (!yaExiste) {
+                  const nuevoCliente = {
+                    id: clientes.length > 0 ? Math.max(...clientes.map(x => x.id || 0)) + 1 : 1,
+                    nombre,
+                    telefono: c.telefono || "",
+                    tipo: c.tipoCliente || "persona",
+                    contacto: c.nombreContacto || "",
+                    nit: c.nit || "",
+                    nrc: c.nrc || "",
+                    razonSocial: c.razonSocial || "",
+                    dirFiscal: c.dirFiscal || "",
+                    notas: `Agregado al convertir COT-${String(c.id).padStart(4, "0")}`,
+                    medidas: c.medidas || {},
+                    fecha: new Date().toISOString().split("T")[0],
+                  };
+                  setClientes(prev => [...prev, nuevoCliente]);
+                  try { await gsClientesGuardar(nuevoCliente); } catch {}
+                  pushToast(`Cliente "${nombre}" agregado al CRM`, "success", 4000);
+                }
+              }
               pushToast("Cotización convertida a pedido ✓", "success");
               setSec("pedidos");
             }}

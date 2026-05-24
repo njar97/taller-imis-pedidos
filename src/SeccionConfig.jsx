@@ -7,7 +7,7 @@
 // 'sello'). Al cargar la app, leerConfigTotal() las trae.
 
 import { useEffect, useState } from "react";
-import { EMPRESA } from "./lib/empresa.js";
+import { EMPRESA_DEFAULT, getEmpresa } from "./lib/empresa.js";
 import { leerConfigTotal, guardarConfig } from "./lib/config.js";
 import { subirArchivoSupabase } from "./supabaseStorage.js";
 import { pushToast } from "./lib/feedback.js";
@@ -74,26 +74,20 @@ export default function SeccionConfig({ onConfigCambia }) {
         Datos que aparecen en cotizaciones y recibos. Solo admin.
       </div>
 
-      {/* Datos fiscales (read-only por ahora — están en código) */}
-      <Seccion titulo="📋 Datos fiscales (en código)" color="#9B59B6">
-        <div style={{ fontSize: 12, color: "#666", lineHeight: 1.6 }}>
-          <div><strong>Razón social:</strong> {EMPRESA.razonSocial}</div>
-          <div><strong>NIT:</strong> {EMPRESA.nit}</div>
-          <div><strong>NRC:</strong> {EMPRESA.nrc}</div>
-          <div><strong>Actividad:</strong> {EMPRESA.actividadEconomica}</div>
-          <div><strong>Dirección:</strong> {EMPRESA.direccion}</div>
-          <div><strong>Teléfonos:</strong> {EMPRESA.telefonos.join(" · ")}</div>
-          <div><strong>Email:</strong> {EMPRESA.email}</div>
-          <div style={{ marginTop: 6 }}>
-            <strong>Representante Legal:</strong> {EMPRESA.representanteLegal.nombre}
-            <br /><span style={{ color: "#888" }}>DUI: {EMPRESA.representanteLegal.dui}</span>
-          </div>
-        </div>
-        <div style={{ marginTop: 10, padding: 8, background: "#FFF8E1", borderRadius: 6, fontSize: 11, color: "#856404" }}>
-          ⚠️ Estos datos están en código. Si cambian, hay que editar <code>src/lib/empresa.js</code> y volver a desplegar.
-          En el próximo PR los movemos a la BD para que sean editables desde acá.
-        </div>
-      </Seccion>
+      {/* Datos fiscales editables */}
+      <DatosFiscalesEditor
+        actual={config.empresa || getEmpresa()}
+        onGuardar={async (datos) => {
+          const ok = await guardarConfig("empresa", datos);
+          if (ok) {
+            setConfig(c => ({ ...c, empresa: datos }));
+            pushToast("Datos del taller actualizados", "success");
+            if (onConfigCambia) onConfigCambia();
+          } else {
+            pushToast("No pude guardar los datos", "error");
+          }
+        }}
+      />
 
       {/* Firma del representante legal */}
       <Seccion titulo="🖋️ Firma del Representante Legal" color="#27AE60">
@@ -259,3 +253,131 @@ const btnRot = {
   fontFamily: "inherit",
   whiteSpace: "nowrap",
 };
+
+function DatosFiscalesEditor({ actual, onGuardar }) {
+  // Datos editables. telefonos como string separado por coma para que sea
+  // más fácil editar, convertimos a array al guardar.
+  const [editando, setEditando] = useState(false);
+  const [d, setD] = useState(() => ({
+    razonSocial: actual.razonSocial,
+    nit: actual.nit,
+    nrc: actual.nrc,
+    actividadEconomica: actual.actividadEconomica,
+    direccion: actual.direccion,
+    telefonosStr: (actual.telefonos || []).join(", "),
+    email: actual.email,
+    rlNombre: actual.representanteLegal?.nombre || "",
+    rlDui: actual.representanteLegal?.dui || "",
+    rlCargo: actual.representanteLegal?.cargo || "Representante Legal",
+  }));
+
+  const guardar = () => {
+    const datos = {
+      razonSocial: d.razonSocial.trim(),
+      nit: d.nit.trim(),
+      nrc: d.nrc.trim(),
+      actividadEconomica: d.actividadEconomica.trim(),
+      direccion: d.direccion.trim(),
+      telefonos: d.telefonosStr.split(",").map(t => t.trim()).filter(Boolean),
+      email: d.email.trim(),
+      representanteLegal: {
+        nombre: d.rlNombre.trim(),
+        dui: d.rlDui.trim(),
+        cargo: d.rlCargo.trim() || "Representante Legal",
+      },
+    };
+    onGuardar(datos);
+    setEditando(false);
+  };
+
+  if (!editando) {
+    return (
+      <Seccion titulo="📋 Datos fiscales" color="#9B59B6">
+        <div style={{ fontSize: 12, color: "#666", lineHeight: 1.7 }}>
+          <div><strong>Razón social:</strong> {actual.razonSocial}</div>
+          <div><strong>NIT:</strong> {actual.nit}</div>
+          <div><strong>NRC:</strong> {actual.nrc}</div>
+          <div><strong>Actividad:</strong> {actual.actividadEconomica}</div>
+          <div><strong>Dirección:</strong> {actual.direccion}</div>
+          <div><strong>Teléfonos:</strong> {(actual.telefonos || []).join(" · ")}</div>
+          <div><strong>Email:</strong> {actual.email}</div>
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed #eee" }}>
+            <strong>Representante Legal:</strong> {actual.representanteLegal?.nombre}
+            <br /><span style={{ color: "#888" }}>DUI: {actual.representanteLegal?.dui} · {actual.representanteLegal?.cargo}</span>
+          </div>
+        </div>
+        <button
+          onClick={() => setEditando(true)}
+          style={{
+            marginTop: 12, padding: "8px 16px", borderRadius: 8,
+            border: "1.5px solid #9B59B6", background: "#fff",
+            color: "#9B59B6", cursor: "pointer", fontWeight: 700,
+            fontSize: 12, fontFamily: "inherit",
+          }}
+        >
+          ✏️ Editar datos fiscales
+        </button>
+      </Seccion>
+    );
+  }
+
+  return (
+    <Seccion titulo="📋 Datos fiscales (editando)" color="#9B59B6">
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Campo lbl="Razón social" val={d.razonSocial} onCh={v => setD({ ...d, razonSocial: v })} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <Campo lbl="NIT" val={d.nit} onCh={v => setD({ ...d, nit: v })} placeholder="0000-000000-000-0" />
+          <Campo lbl="NRC" val={d.nrc} onCh={v => setD({ ...d, nrc: v })} placeholder="000000-0" />
+        </div>
+        <Campo lbl="Actividad económica" val={d.actividadEconomica} onCh={v => setD({ ...d, actividadEconomica: v })} />
+        <Campo lbl="Dirección" val={d.direccion} onCh={v => setD({ ...d, direccion: v })} textarea />
+        <Campo lbl="Teléfonos (separados por coma)" val={d.telefonosStr} onCh={v => setD({ ...d, telefonosStr: v })} placeholder="2451-1620, 7866-9963" />
+        <Campo lbl="Email" val={d.email} onCh={v => setD({ ...d, email: v })} type="email" />
+
+        <div style={{ marginTop: 6, paddingTop: 8, borderTop: "1px dashed #ddd" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "#9B59B6", marginBottom: 8, textTransform: "uppercase", letterSpacing: .5 }}>
+            👤 Representante Legal
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Campo lbl="Nombre completo" val={d.rlNombre} onCh={v => setD({ ...d, rlNombre: v })} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <Campo lbl="DUI" val={d.rlDui} onCh={v => setD({ ...d, rlDui: v })} placeholder="00000000-0" />
+              <Campo lbl="Cargo" val={d.rlCargo} onCh={v => setD({ ...d, rlCargo: v })} />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <button
+            onClick={() => setEditando(false)}
+            style={{ flex: 1, padding: "9px", borderRadius: 8, border: "1.5px solid #ccc", background: "#fff", color: "#666", cursor: "pointer", fontWeight: 700, fontFamily: "inherit", fontSize: 13 }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            style={{ flex: 2, padding: "9px", borderRadius: 8, border: "none", background: "#27AE60", color: "#fff", cursor: "pointer", fontWeight: 800, fontFamily: "inherit", fontSize: 13 }}
+          >
+            💾 Guardar cambios
+          </button>
+        </div>
+      </div>
+    </Seccion>
+  );
+}
+
+function Campo({ lbl, val, onCh, placeholder, type, textarea }) {
+  const Comp = textarea ? "textarea" : "input";
+  return (
+    <div>
+      <label style={LBL}>{lbl}</label>
+      <Comp
+        type={type || "text"}
+        style={textarea ? { ...INP, minHeight: 50, resize: "vertical" } : INP}
+        value={val || ""}
+        placeholder={placeholder}
+        onChange={e => onCh(e.target.value)}
+      />
+    </div>
+  );
+}
