@@ -133,10 +133,34 @@ export async function verificarCodigo(email, token) {
   }
   return {
     ok: false,
-    error: ultimoError
-      ? `Servidor: ${ultimoError}`
-      : "Código inválido o vencido. Pedí uno nuevo.",
+    error: traducirErrorAuth(ultimoError) || "Código inválido o vencido. Pedí uno nuevo.",
   };
+}
+
+// Traduce los códigos/mensajes que devuelve GoTrue a frases en español
+// que el usuario pueda entender. Si no hay match, devuelve null.
+function traducirErrorAuth(msg) {
+  if (!msg) return null;
+  const m = String(msg).toLowerCase();
+  if (m.includes("otp_expired") || m.includes("expired") || m.includes("token has expired")) {
+    return "El código venció. Pedí uno nuevo.";
+  }
+  if (m.includes("invalid") && (m.includes("token") || m.includes("otp") || m.includes("code"))) {
+    return "Código incorrecto. Revisá los dígitos del email.";
+  }
+  if (m.includes("rate") && m.includes("limit")) {
+    return "Pediste códigos muy seguido. Esperá un minuto y probá de nuevo.";
+  }
+  if (m.includes("over_email_send_rate_limit")) {
+    return "Demasiados códigos enviados. Esperá unos minutos.";
+  }
+  if (m.includes("email") && m.includes("not") && m.includes("authorized")) {
+    return "Email no autorizado. Pedile al admin que te agregue.";
+  }
+  if (m.startsWith("http ") || /^http \d/.test(m)) {
+    return `Error de servidor (${msg}). Probá de nuevo en un momento.`;
+  }
+  return msg;
 }
 
 // Detecta tokens en el hash de la URL (después del redirect del email).

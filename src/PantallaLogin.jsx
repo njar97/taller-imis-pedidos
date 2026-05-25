@@ -28,8 +28,12 @@ const wrap = {
   padding: 24,
 };
 
+const ULTIMO_EMAIL_KEY = "TALLER_ULTIMO_EMAIL";
+
 export default function PantallaLogin({ onLogin }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    try { return localStorage.getItem(ULTIMO_EMAIL_KEY) || ""; } catch { return ""; }
+  });
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [verificando, setVerificando] = useState(false);
@@ -46,6 +50,7 @@ export default function PantallaLogin({ onLogin }) {
     const res = await pedirMagicLink(e);
     setEnviando(false);
     if (res.ok) {
+      try { localStorage.setItem(ULTIMO_EMAIL_KEY, e); } catch {}
       setPaso("codigo");
       pushToast("Código enviado a " + e, "success", 5000);
     } else {

@@ -94,6 +94,7 @@ export default function SidebarDesktop({
   setRol,
   onAbrirEstimador,
   sesionEmail,
+  sesionUser,
   onCerrarSesion,
 }) {
   const muestraSync =
@@ -264,8 +265,24 @@ export default function SidebarDesktop({
           {refrescando ? "⏳ Actualizando..." : "🔄 Actualizar"}
         </button>
         {sesionEmail && (
-          <div style={{ fontSize: 10, color: "#9B59B6", textAlign: "center", marginBottom: 4, padding: "4px 6px", background: "rgba(155,89,182,0.1)", borderRadius: 6, wordBreak: "break-all" }}>
-            ✉️ {sesionEmail}
+          <div style={{ marginBottom: 4, padding: "6px 8px", background: "rgba(155,89,182,0.1)", borderRadius: 6 }}>
+            {sesionUser?.nombre && (
+              <div style={{ fontSize: 11, color: "#fff", fontWeight: 700, marginBottom: 2 }}>
+                {sesionUser.nombre}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 5, justifyContent: "space-between" }}>
+              <span style={{ fontSize: 9, color: "#9B59B6", wordBreak: "break-all", flex: 1, lineHeight: 1.3 }}>
+                ✉️ {sesionEmail}
+              </span>
+              {sesionUser?.rol && (
+                <span style={{
+                  fontSize: 8, fontWeight: 800, padding: "2px 6px", borderRadius: 4,
+                  background: sesionUser.rol === "admin" ? "#9B59B6" : "#1A5F5A",
+                  color: "#fff", textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0,
+                }}>{sesionUser.rol}</span>
+              )}
+            </div>
           </div>
         )}
         <button
