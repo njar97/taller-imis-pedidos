@@ -198,16 +198,72 @@ export async function recogerSesionDesdeURL() {
   return sesion;
 }
 
+// Sincrono: devuelve la sesion guardada SIN tocar la red. Si el token
+// expiro, devuelve null. Util para checks rapidos donde no queremos
+// bloquear el render. Para casos donde necesitamos garantizar sesion
+// valida usa sesionActualConRefresh().
 export function sesionActual() {
   const s = leerSesion();
   if (!s) return null;
-  // Expirada
   if (s.expires_at && s.expires_at * 1000 < Date.now()) {
-    // TODO: intentar refresh con refresh_token (Paso 2)
-    limpiarSesion();
     return null;
   }
   return s;
+}
+
+// Asincrono: si el token expiro pero hay refresh_token, lo usa para
+// pedir un access_token nuevo a Supabase. Guarda la sesion renovada
+// y la devuelve. Si refresh falla, limpia y devuelve null.
+export async function sesionActualConRefresh() {
+  const s = leerSesion();
+  if (!s) return null;
+  const expiradoYa = s.expires_at && s.expires_at * 1000 < Date.now();
+  // Si vence en menos de 60 segundos lo renovamos proactivamente para
+  // evitar que se venza en medio de una request.
+  const proximoAVencer = s.expires_at && s.expires_at * 1000 < Date.now() + 60_000;
+  if (!expiradoYa && !proximoAVencer) return s;
+  if (!s.refresh_token) {
+    limpiarSesion();
+    return null;
+  }
+  const nuevo = await refrescarToken(s.refresh_token);
+  if (!nuevo) {
+    limpiarSesion();
+    return null;
+  }
+  // Preservamos el user (rol/nombre/modulos) que ya teniamos.
+  const sesionNueva = { ...nuevo, user: s.user || nuevo.user };
+  guardarSesion(sesionNueva);
+  return sesionNueva;
+}
+
+// Llama a /auth/v1/token?grant_type=refresh_token con el refresh_token
+// guardado para conseguir un access_token nuevo. Devuelve la sesion
+// renovada (sin user) o null.
+async function refrescarToken(refresh_token) {
+  try {
+    const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: BASE_HEADERS,
+      body: JSON.stringify({ refresh_token }),
+    });
+    if (!r.ok) {
+      console.warn("refrescarToken HTTP", r.status);
+      return null;
+    }
+    const data = await r.json();
+    if (!data?.access_token) return null;
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token || refresh_token,
+      expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      token_type: data.token_type || "bearer",
+      user: data.user ? { id: data.user.id, email: data.user.email } : undefined,
+    };
+  } catch (e) {
+    console.warn("refrescarToken excepcion:", e?.message || e);
+    return null;
+  }
 }
 
 export async function cerrarSesion() {
