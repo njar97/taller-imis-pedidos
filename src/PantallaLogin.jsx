@@ -140,11 +140,11 @@ export default function PantallaLogin({ onLogin }) {
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              maxLength={6}
+              maxLength={8}
               value={codigo}
               placeholder="000000"
               onChange={e => setCodigo(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={e => e.key === "Enter" && entrarConCodigo()}
+              onKeyDown={e => e.key === "Enter" && codigo.length >= 6 && entrarConCodigo()}
               autoFocus
               style={{
                 width: "100%", padding: "14px", borderRadius: 8,
@@ -156,12 +156,12 @@ export default function PantallaLogin({ onLogin }) {
             />
             <button
               onClick={entrarConCodigo}
-              disabled={verificando || codigo.length !== 6}
+              disabled={verificando || codigo.length < 6}
               style={{
                 width: "100%", padding: "14px", borderRadius: 8, border: "none",
-                background: verificando ? "#555" : (codigo.length === 6 ? "#27AE60" : "#3a1f6b"),
+                background: verificando ? "#555" : (codigo.length >= 6 ? "#27AE60" : "#3a1f6b"),
                 color: "#fff", fontWeight: 800, fontSize: 15,
-                cursor: (verificando || codigo.length !== 6) ? "not-allowed" : "pointer",
+                cursor: (verificando || codigo.length < 6) ? "not-allowed" : "pointer",
                 fontFamily: "inherit", marginBottom: 10, boxSizing: "border-box",
               }}
             >
