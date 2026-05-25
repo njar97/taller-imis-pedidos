@@ -9,6 +9,7 @@ import {
   leerItems, guardarItem, guardarItemsBulk, borrarItem,
   leerAsignaciones, guardarAsignacion, borrarAsignacion,
 } from "./lib/inventario.js";
+import { leerPendientes, marcarProcesados, marcarIgnorado } from "./lib/dtePendientes.js";
 import { subirFotoSupabase } from "./supabaseStorage.js";
 import { comprimirImagen } from "./lib/imagenes.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
@@ -309,20 +310,30 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
   const [catFiltro, setCatF] = useState("todos");
   const [verDet, setVerDet] = useState(null);
   const [editando, setEditando] = useState(null); // item | "nuevo" | null
+  const [pendientes, setPendientes] = useState([]); // facturas empujadas por dte_web
+  const [mostrarPendientes, setMostrarPendientes] = useState(false);
 
   // Cargar desde Supabase en mount. Solo si el state local está vacío
   // (evita re-fetch cuando volvés a entrar a la sección).
   useEffect(() => {
     let cancelado = false;
     (async () => {
-      const [its, asigs] = await Promise.all([leerItems(), leerAsignaciones()]);
+      const [its, asigs, pend] = await Promise.all([
+        leerItems(), leerAsignaciones(), leerPendientes()
+      ]);
       if (cancelado) return;
       setInventario(its);
       setAsignaciones(asigs);
+      setPendientes(pend);
       setCargandoBD(false);
     })();
     return () => { cancelado = true; };
   }, []);
+
+  const refrescarPendientes = async () => {
+    const pend = await leerPendientes();
+    setPendientes(pend);
+  };
 
   const cargarDB = async e => {
     const file = e.target.files[0];
@@ -341,9 +352,18 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
   };
 
   const confirmarSel = async elegidos => {
+    // Para items que vienen de la bandeja DTE, el id es string ('dte-X-Y')
+    // y necesitamos uno numérico estable para la BD. Generamos uno
+    // derivado: doc_id * 1000 + numero_item (asume max 999 items/doc).
+    const itemsConId = elegidos.map(it => {
+      if (it.pendiente_id) {
+        return { ...it, id: it.doc_id * 1000 + (it.numero_item || 0) };
+      }
+      return it;
+    });
     // Conservar campos enriquecidos (foto/spec/notas) si el item ya existía
     const mapa = Object.fromEntries(inventario.map(m => [m.id, m]));
-    const itemsParaGuardar = elegidos.map(it => {
+    const itemsParaGuardar = itemsConId.map(it => {
       const prev = mapa[it.id];
       return prev
         ? { ...prev, categoria: it.categoria, cantidad: it.cantidad, total: it.total }
@@ -354,6 +374,14 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
       pushToast(`No pude guardar: ${res.error}`, "error", 5000);
       return;
     }
+    // Marcar pendientes como procesados (los que vinieron de la bandeja)
+    const procesados = itemsConId
+      .filter(it => it.pendiente_id)
+      .map(it => ({ pendiente_id: it.pendiente_id, inventario_id: it.id }));
+    if (procesados.length > 0) {
+      await marcarProcesados(procesados);
+      await refrescarPendientes();
+    }
     // Actualiza state local con los items guardados (preserva foto_url etc)
     const ids = new Set(itemsParaGuardar.map(i => i.id));
     setInventario(prev => [
@@ -362,6 +390,7 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
     ]);
     pushToast(`${res.count} ítem(s) importados`, "success");
     setRaw(null);
+    setMostrarPendientes(false);
   };
 
   const guardarItemManual = async (item) => {
@@ -463,6 +492,36 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
       {error && (
         <div style={{ background: "#F8D7DA", borderRadius: 8, padding: "10px 14px", color: "#721C24", fontSize: 13, marginBottom: 12 }}>
           ⚠️ {error}
+        </div>
+      )}
+
+      {pendientes.length > 0 && !mostrarPendientes && (
+        <div style={{
+          background: "linear-gradient(135deg,#FFF8E1,#FFECB3)",
+          border: "2px solid #FFC107",
+          borderRadius: 12, padding: "12px 16px", marginBottom: 12,
+          display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+        }}>
+          <div style={{ fontSize: 30 }}>📥</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#856404" }}>
+              {pendientes.length} {pendientes.length === 1 ? "ítem nuevo" : "ítems nuevos"} desde Facturas DTE
+            </div>
+            <div style={{ fontSize: 11, color: "#856404", marginTop: 2 }}>
+              Tu sistema DTE registró facturas nuevas. Revisalas y agregalas al inventario.
+            </div>
+          </div>
+          <button
+            onClick={() => setMostrarPendientes(true)}
+            style={{
+              padding: "10px 18px", borderRadius: 8, border: "none",
+              background: "#E67E22", color: "#fff",
+              fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+              whiteSpace: "nowrap",
+            }}
+          >
+            📋 Revisar e importar
+          </button>
         </div>
       )}
 
@@ -693,6 +752,13 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
 
       {itemsCrudo && (
         <ModalSeleccion items={itemsCrudo} onConfirmar={confirmarSel} onCancelar={() => setRaw(null)} />
+      )}
+      {mostrarPendientes && pendientes.length > 0 && (
+        <ModalSeleccion
+          items={pendientes}
+          onConfirmar={confirmarSel}
+          onCancelar={() => setMostrarPendientes(false)}
+        />
       )}
       {modalAsig && (
         <ModalAsignar
