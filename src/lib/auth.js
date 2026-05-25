@@ -2,15 +2,16 @@
 // porque la app no usa @supabase/supabase-js — fetch directo a los
 // endpoints GoTrue.
 //
-// Flujo de magic link:
-//   1. user pide login con su email
-//   2. Supabase manda email con link tipo:
-//      https://<proyecto>.supabase.co/auth/v1/verify?token=...&type=magiclink&redirect_to=<URL>
-//   3. user clickea el link → Supabase verifica → redirige a redirect_to
-//      con #access_token=... en el hash
-//   4. al cargar la app, parseamos el hash, guardamos sesion, limpiamos URL
+// Flujo:
+//   1. user pide login con su email → recibe código OTP de 6 dígitos
+//   2. user pega el código → /auth/v1/verify devuelve access_token
+//   3. validamos contra taller_usuarios (whitelist). Si no está o
+//      activo=false, cerramos sesion y devolvemos { ok:false }.
+//   4. guardamos sesion + user (con rol/modulos) en localStorage.
 //
 // Almacenamiento: sesion en localStorage (access_token + refresh_token).
+
+import { buscarUsuarioPorEmail, marcarUltimoLogin } from "./usuarios.js";
 
 const SUPA_URL = "https://kszdievqesveluzcnzsh.supabase.co";
 const SUPA_ANON = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
@@ -41,12 +42,18 @@ function limpiarSesion() {
 
 // ── API pública ─────────────────────────────────────────
 
-// Envía el magic link al email. Devuelve true si el endpoint respondió OK
-// (NO significa que el user haya clickeado, solo que el correo se mandó).
+// Envía el código OTP al email. Devuelve true si el endpoint respondió
+// OK (NO significa que el user lo haya pegado, solo que el correo salió).
+// IMPORTANTE: antes de pedirlo, validamos que el email esté en la
+// whitelist. Así evitamos mandar correos a cualquiera que se le ocurra
+// poner un email random.
 export async function pedirMagicLink(email) {
-  // Mandamos email con token OTP (6 dígitos). El email también incluye
-  // un link como fallback, pero por defecto el flujo es pegar el código.
-  // Esto evita los problemas de redirección con GH Pages.
+  const e = email.trim().toLowerCase();
+  // Pre-check whitelist
+  const u = await buscarUsuarioPorEmail(e);
+  if (!u || !u.activo) {
+    return { ok: false, error: "Email no autorizado. Pedile al admin que te agregue." };
+  }
   const path = window.location.pathname.endsWith("/")
     ? window.location.pathname
     : window.location.pathname + "/";
@@ -56,7 +63,7 @@ export async function pedirMagicLink(email) {
       method: "POST",
       headers: BASE_HEADERS,
       body: JSON.stringify({
-        email: email.trim().toLowerCase(),
+        email: e,
         options: { email_redirect_to: redirectTo },
         create_user: true,
       }),
@@ -91,21 +98,29 @@ export async function verificarCodigo(email, token) {
       });
       const data = await r.json().catch(() => ({}));
       if (r.ok && data?.access_token) {
+        // Validación post-OTP contra la whitelist. Cubre la (rara) race
+        // condition donde el admin desactivó al usuario entre pedir el
+        // código y pegarlo.
+        const wl = await buscarUsuarioPorEmail(emailL);
+        if (!wl || !wl.activo) {
+          return { ok: false, error: "Email no autorizado." };
+        }
         const sesion = {
           access_token: data.access_token,
           refresh_token: data.refresh_token,
           expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
           token_type: data.token_type || "bearer",
-          user: data.user ? { id: data.user.id, email: data.user.email } : undefined,
+          user: {
+            id: data.user?.id,
+            email: emailL,
+            nombre: wl.nombre,
+            rol: wl.rol,
+            modulos: wl.modulos || null,
+          },
         };
         guardarSesion(sesion);
+        marcarUltimoLogin(emailL);
         return { ok: true, sesion };
-      }
-      // Si el server dijo explícitamente "Token has expired" → no
-      // tiene sentido probar el otro type, devolvemos el error.
-      const msg = data?.error_description || data?.msg || data?.message;
-      if (msg && (msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("invalid"))) {
-        // sigue el loop para probar el otro type — capaz devuelve OK
       }
     } catch (e) {
       console.warn(`verificarCodigo(${type}) falló:`, e?.message || e);

@@ -1258,21 +1258,42 @@ async function gsCatalogoLeer() {
 const gsCatalogoGuardar = dbCatalogoGuardar;
 function App() {
   const [rol, setRol] = useState(null);
-  const [sesionEmail, setSesionEmail] = useState(null); // email del user logueado via magic link
+  const [sesionUser, setSesionUser] = useState(null); // { email, nombre, rol, modulos }
   const [seccion, setSec] = useState("pedidos");
 
-  // Al cargar: recoger sesión del hash (vuelta del magic link) y/o de
-  // localStorage si ya había sesión guardada. Si hay sesión activa,
-  // auto-login como admin.
+  // Al cargar: recuperar sesion previa de localStorage. Si el rol es
+  // admin, entra directo. Si es operario, mostramos PantallaLogin paso
+  // "modulo" (solo si tiene varios) — para simplificar, si tiene 1
+  // modulo en su whitelist entra a ese. Si no, vuelve a login.
   useEffect(() => {
     let cancelado = false;
     (async () => {
-      const { recogerSesionDesdeURL, sesionActual } = await import("./lib/auth.js");
+      const { recogerSesionDesdeURL, sesionActual, cerrarSesion } = await import("./lib/auth.js");
+      const { buscarUsuarioPorEmail } = await import("./lib/usuarios.js");
       let s = await recogerSesionDesdeURL();
       if (!s) s = sesionActual();
-      if (s && s.user?.email && !cancelado) {
-        setSesionEmail(s.user.email);
+      if (!s?.user?.email || cancelado) return;
+      // Re-validar contra whitelist en cada arranque (admin pudo
+      // desactivar al usuario después del último login).
+      const wl = await buscarUsuarioPorEmail(s.user.email);
+      if (!wl || !wl.activo) {
+        await cerrarSesion();
+        return;
+      }
+      if (cancelado) return;
+      const u = { ...s.user, rol: wl.rol, nombre: wl.nombre, modulos: wl.modulos };
+      setSesionUser(u);
+      if (u.rol === "admin") {
         setRol("admin");
+      } else {
+        const mods = Array.isArray(u.modulos) && u.modulos.length > 0
+          ? u.modulos : ["pedidos", "bordados", "cuellos"];
+        if (mods.length === 1) setRol("operario_" + mods[0]);
+        // si tiene varios, queda en null y se renderiza PantallaLogin;
+        // PantallaLogin no detecta sesion previa, así que el usuario
+        // tendría que volver a entrar el código. Para evitarlo,
+        // entramos al primer modulo permitido por default.
+        else setRol("operario_" + mods[0]);
       }
     })();
     return () => { cancelado = true; };
@@ -1890,11 +1911,13 @@ function App() {
         refrescando={refrescando}
         setRol={setRol}
         onAbrirEstimador={() => setModalEstimador(true)}
-        sesionEmail={sesionEmail}
+        sesionEmail={sesionUser?.email}
+        sesionUser={sesionUser}
         onCerrarSesion={async () => {
           const { cerrarSesion } = await import("./lib/auth.js");
           await cerrarSesion();
-          setSesionEmail(null);
+          setSesionUser(null);
+          setRol(null);
         }}
       />
       <main
