@@ -2013,6 +2013,8 @@ function App() {
             bordados={bordados}
             cuellos={cuellos}
             onAbrirPedido={(p) => setDet(p)}
+            onAbrirBordado={() => setSec("bordados")}
+            onAbrirCuello={() => setSec("cuellos")}
           />
         )}
         {seccion === "config" && esAdmin && (
