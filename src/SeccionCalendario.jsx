@@ -3,7 +3,7 @@
 // con los items que tienen fechaEntrega ese día. Click en un chip
 // abre el detalle del pedido.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { EC, BORD_EC, CUEL_EC } from "./lib/constants.js";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -11,12 +11,28 @@ const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const todayStr = () => new Date().toISOString().split("T")[0];
 
-export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirPedido }) {
+export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirPedido, onAbrirBordado, onAbrirCuello }) {
   const hoy = todayStr();
   const [base, setBase] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
+  // Día expandido (cuando tocás "+N más"): mostramos popover con todos los items del día.
+  const [diaExpandido, setDiaExpandido] = useState(null);
+
+  // Cerrar el popover con Escape
+  useEffect(() => {
+    if (!diaExpandido) return;
+    const onKey = e => { if (e.key === "Escape") setDiaExpandido(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [diaExpandido]);
+
+  const abrirItem = (it) => {
+    if (it._tipo === "ped" && onAbrirPedido) onAbrirPedido(it);
+    else if (it._tipo === "bord" && onAbrirBordado) onAbrirBordado(it);
+    else if (it._tipo === "cuel" && onAbrirCuello) onAbrirCuello(it);
+  };
 
   // Indexa todos los items por fechaEntrega (YYYY-MM-DD).
   const indice = useMemo(() => {
@@ -112,7 +128,7 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
       <div style={{ flex: 1, overflow: "auto", padding: 8 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {grilla.map((sem, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
               {sem.map((d, j) => {
                 if (!d) return <div key={j} style={{ minHeight: 70 }} />;
                 const key = fmtKey(d);
@@ -124,11 +140,13 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
                     key={j}
                     style={{
                       minHeight: 70,
+                      minWidth: 0,
                       background: esHoy ? "#FFF3E0" : esPasado ? "#fafafa" : "#fff",
                       border: "1.5px solid " + (esHoy ? "#E67E22" : "#eee"),
                       borderRadius: 6,
                       padding: 4,
                       display: "flex", flexDirection: "column", gap: 2,
+                      overflow: "hidden",
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 800, color: esHoy ? "#E67E22" : esPasado ? "#bbb" : "#444", textAlign: "right", paddingRight: 2 }}>
@@ -137,24 +155,35 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
                     {items.slice(0, 3).map((it, k) => (
                       <button
                         key={`${it._tipo}-${it.id}-${k}`}
-                        onClick={() => it._tipo === "ped" && onAbrirPedido && onAbrirPedido(it)}
+                        onClick={() => abrirItem(it)}
                         title={`${it.cliente} · ${it.tipoPrenda || it.soporte || it.material || ""} · ${it.estatus || ""}`}
                         style={{
+                          width: "100%", maxWidth: "100%", minWidth: 0,
                           padding: "2px 4px", borderRadius: 4, border: "none",
                           background: it.color, color: "#fff",
                           fontSize: 9, fontWeight: 700, fontFamily: "inherit",
-                          cursor: it._tipo === "ped" ? "pointer" : "default",
+                          cursor: "pointer",
                           textAlign: "left",
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          display: "block",
+                          boxSizing: "border-box",
                         }}
                       >
                         {it._tipo === "ped" ? "📋" : it._tipo === "bord" ? "🪡" : "🧶"} {it.cliente || "—"}
                       </button>
                     ))}
                     {items.length > 3 && (
-                      <div style={{ fontSize: 9, color: "#888", textAlign: "center", fontWeight: 700 }}>
+                      <button
+                        onClick={() => setDiaExpandido({ fecha: key, items })}
+                        style={{
+                          width: "100%", padding: "2px 4px", border: "none",
+                          background: "#f0f0f0", color: "#555",
+                          fontSize: 9, fontWeight: 700, textAlign: "center",
+                          borderRadius: 4, cursor: "pointer", fontFamily: "inherit",
+                        }}
+                      >
                         +{items.length - 3} más
-                      </div>
+                      </button>
                     )}
                   </div>
                 );
@@ -163,6 +192,73 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
           ))}
         </div>
       </div>
+
+      {/* Popover de día expandido */}
+      {diaExpandido && (
+        <div
+          onClick={() => setDiaExpandido(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 200, padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 14, width: "100%", maxWidth: 420,
+              maxHeight: "85vh", display: "flex", flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: "16px 18px", borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#2C1654", fontFamily: "Georgia,serif" }}>
+                  📅 {(() => {
+                    const [y, m, d] = diaExpandido.fecha.split("-").map(Number);
+                    const fecha = new Date(y, m - 1, d);
+                    return fecha.toLocaleDateString("es-SV", { weekday: "long", day: "numeric", month: "long" });
+                  })()}
+                </div>
+                <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+                  {diaExpandido.items.length} entrega{diaExpandido.items.length === 1 ? "" : "s"}
+                </div>
+              </div>
+              <button
+                onClick={() => setDiaExpandido(null)}
+                style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#bbb" }}
+              >✕</button>
+            </div>
+            <div style={{ overflow: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              {diaExpandido.items.map((it, k) => (
+                <button
+                  key={`${it._tipo}-${it.id}-${k}`}
+                  onClick={() => { abrirItem(it); setDiaExpandido(null); }}
+                  style={{
+                    padding: "10px 12px", borderRadius: 8, border: "none",
+                    background: it.color, color: "#fff",
+                    textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+                    display: "flex", alignItems: "center", gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>
+                    {it._tipo === "ped" ? "📋" : it._tipo === "bord" ? "🪡" : "🧶"}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>
+                      {it.cliente || "—"}
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.85, marginTop: 1 }}>
+                      {it.tipoPrenda || it.soporte || it.material || ""}
+                      {it.estatus ? ` · ${it.estatus}` : ""}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Leyenda */}
       <div style={{ padding: "8px 16px", background: "#fafafa", borderTop: "1px solid #eee", display: "flex", gap: 14, fontSize: 10, color: "#666", flexShrink: 0, flexWrap: "wrap" }}>
