@@ -89,6 +89,7 @@ export async function verificarCodigo(email, token) {
   // Probamos en orden ambos tipos válidos: 'email' (OTP de signup) y
   // 'magiclink' (OTP que viene con el magic link). Supabase requiere
   // uno específico según cómo se solicitó el código.
+  let ultimoError = null;
   for (const type of ["email", "magiclink"]) {
     try {
       const r = await fetch(`${SUPA_URL}/auth/v1/verify`, {
@@ -97,6 +98,10 @@ export async function verificarCodigo(email, token) {
         body: JSON.stringify({ email: emailL, token: tokenL, type }),
       });
       const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        ultimoError = data?.error_description || data?.msg || data?.message || `HTTP ${r.status}`;
+        console.warn(`verify(${type}) HTTP ${r.status}:`, data);
+      }
       if (r.ok && data?.access_token) {
         // Validación post-OTP contra la whitelist. Cubre la (rara) race
         // condition donde el admin desactivó al usuario entre pedir el
@@ -126,7 +131,12 @@ export async function verificarCodigo(email, token) {
       console.warn(`verificarCodigo(${type}) falló:`, e?.message || e);
     }
   }
-  return { ok: false, error: "Código inválido o vencido. Pedí uno nuevo." };
+  return {
+    ok: false,
+    error: ultimoError
+      ? `Servidor: ${ultimoError}`
+      : "Código inválido o vencido. Pedí uno nuevo.",
+  };
 }
 
 // Detecta tokens en el hash de la URL (después del redirect del email).
