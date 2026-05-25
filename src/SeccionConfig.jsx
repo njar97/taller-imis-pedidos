@@ -12,6 +12,7 @@ import { leerConfigTotal, guardarConfig } from "./lib/config.js";
 import { subirArchivoSupabase, subirFotoSupabase } from "./supabaseStorage.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { leerEquipos, guardarEquipo, borrarEquipo } from "./lib/capacidad.js";
+import { imprimirDeclaracionCapacidad } from "./lib/declaracionCapacidad.js";
 import { comprimirImagen } from "./lib/imagenes.js";
 
 const INP = {
@@ -423,8 +424,8 @@ function CapacidadEditor() {
   return (
     <Seccion titulo="🛠️ Capacidad instalada" color="#E67E22">
       <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
-        Equipo del taller para declaraciones formales en licitaciones de gobierno (COMPRASAL).
-        Se puede incluir como anexo del PDF de cotización marcando un toggle al editar la cotización.
+        Inventario del taller — equipo propio + servicios subcontratados. Sirve para generar la
+        declaración formal de capacidad instalada (anexo COMPRASAL u oferta técnica).
       </div>
 
       <SubBloque titulo="🏛️ Equipo propio (en taller)" color="#27AE60" equipos={propios} onEditar={setEditando} onEliminar={eliminar} />
@@ -440,6 +441,20 @@ function CapacidadEditor() {
         }}
       >
         + Agregar equipo
+      </button>
+
+      <button
+        onClick={imprimirDeclaracionCapacidad}
+        disabled={equipos.length === 0}
+        style={{
+          width: "100%", padding: "11px", borderRadius: 8,
+          border: "none", background: equipos.length === 0 ? "#ccc" : "#2C1654",
+          color: "#fff", cursor: equipos.length === 0 ? "not-allowed" : "pointer",
+          fontWeight: 800, fontSize: 13, fontFamily: "inherit", marginTop: 8,
+        }}
+        title={equipos.length === 0 ? "Agregá al menos un equipo primero" : "Generar PDF para anexar a oferta técnica"}
+      >
+        📄 Generar declaración formal (PDF)
       </button>
 
       {editando && (
