@@ -170,6 +170,7 @@ export const PEDIDO_BASE = {
   plazoEntrega: "",    // ej. "15 días hábiles desde la firma de la orden"
   lugarEntrega: "",    // ej. "Col. Escalón, San Salvador, Nivel 2"
   formaPago: "",       // ej. "Crédito a 30 días contra entrega + acta"
+  incluirAnexoCapacidad: false, // si true, el PDF incluye anexo declaración capacidad instalada
   // Snapshot del estimador cuando se guardó como cotización. Permite
   // ver cómo se llegó al precio (tela $/yd, mano obra, etc.) y
   // re-abrir en el estimador para ajustar parámetros.
