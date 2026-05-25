@@ -10,7 +10,8 @@ import { useEffect, useState } from "react";
 import { EMPRESA_DEFAULT, getEmpresa } from "./lib/empresa.js";
 import { leerConfigTotal, guardarConfig } from "./lib/config.js";
 import { subirArchivoSupabase } from "./supabaseStorage.js";
-import { pushToast } from "./lib/feedback.js";
+import { pushToast, pushConfirm } from "./lib/feedback.js";
+import { leerEquipos, guardarEquipo, borrarEquipo } from "./lib/capacidad.js";
 
 const INP = {
   width: "100%", padding: "8px 10px", borderRadius: 8,
@@ -112,6 +113,11 @@ export default function SeccionConfig({ onConfigCambia }) {
           ayuda="Subí PNG con fondo transparente. Tamaño recomendado: 200×200 px."
         />
       </Seccion>
+
+      {/* Capacidad instalada */}
+      <CapacidadEditor />
+
+
 
       <div style={{ marginTop: 14, padding: 10, background: "#EBF5FB", borderRadius: 8, border: "1px solid #BBDEFB", fontSize: 11, color: "#1A5276" }}>
         💡 Después de subir, abrí cualquier cotización (ej. COT-0017) y tocá <strong>📄 Imprimir</strong>.
@@ -378,6 +384,173 @@ function Campo({ lbl, val, onCh, placeholder, type, textarea }) {
         placeholder={placeholder}
         onChange={e => onCh(e.target.value)}
       />
+    </div>
+  );
+}
+
+function CapacidadEditor() {
+  const [equipos, setEquipos] = useState(null);
+  const [editando, setEditando] = useState(null); // null | "nuevo" | equipo
+
+  const refrescar = async () => {
+    const list = await leerEquipos();
+    setEquipos(list);
+  };
+  useEffect(() => { refrescar(); }, []);
+
+  if (equipos === null) {
+    return <Seccion titulo="🛠️ Capacidad instalada" color="#E67E22">
+      <div style={{ padding: 16, color: "#aaa" }}>⏳ Cargando...</div>
+    </Seccion>;
+  }
+
+  const propios = equipos.filter(e => e.tipo === "propio");
+  const subc = equipos.filter(e => e.tipo === "subcontratado");
+
+  const eliminar = async (e) => {
+    const ok = await pushConfirm({
+      titulo: "Eliminar equipo",
+      msg: `¿Eliminar "${e.nombre}" de la capacidad instalada?`,
+      okLabel: "Eliminar", danger: true,
+    });
+    if (!ok) return;
+    await borrarEquipo(e.id);
+    refrescar();
+    pushToast("Equipo eliminado", "success");
+  };
+
+  return (
+    <Seccion titulo="🛠️ Capacidad instalada" color="#E67E22">
+      <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
+        Equipo del taller para declaraciones formales en licitaciones de gobierno (COMPRASAL).
+        Se puede incluir como anexo del PDF de cotización marcando un toggle al editar la cotización.
+      </div>
+
+      <SubBloque titulo="🏛️ Equipo propio (en taller)" color="#27AE60" equipos={propios} onEditar={setEditando} onEliminar={eliminar} />
+      <SubBloque titulo="🤝 Servicios subcontratados" color="#9B59B6" equipos={subc} onEditar={setEditando} onEliminar={eliminar} />
+
+      <button
+        onClick={() => setEditando("nuevo")}
+        style={{
+          width: "100%", padding: "10px", borderRadius: 8,
+          border: "2px dashed #E67E22", background: "#FFFBF6",
+          color: "#E67E22", cursor: "pointer", fontWeight: 800,
+          fontSize: 13, fontFamily: "inherit", marginTop: 6,
+        }}
+      >
+        + Agregar equipo
+      </button>
+
+      {editando && (
+        <EditorEquipo
+          inicial={editando === "nuevo" ? null : editando}
+          onClose={() => setEditando(null)}
+          onGuardado={() => { setEditando(null); refrescar(); }}
+        />
+      )}
+    </Seccion>
+  );
+}
+
+function SubBloque({ titulo, color, equipos, onEditar, onEliminar }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 800, color, marginBottom: 6 }}>
+        {titulo}
+      </div>
+      {equipos.length === 0 ? (
+        <div style={{ fontSize: 11, color: "#aaa", fontStyle: "italic", padding: 8 }}>
+          (Aún no agregaste equipo de este tipo)
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {equipos.map(e => (
+            <div key={e.id} style={{ background: "#fff", border: "1px solid #eee", borderRadius: 8, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#2C1654" }}>
+                  {e.nombre} <span style={{ color: "#888", fontWeight: 400 }}>· {e.cantidad} u.</span>
+                </div>
+                {e.especificacion && <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>📐 {e.especificacion}</div>}
+                {e.proposito && <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>💡 {e.proposito}</div>}
+              </div>
+              <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                <button onClick={() => onEditar(e)} style={{ padding: "4px 8px", border: "1px solid #ccc", background: "#fff", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}>
+                  ✏️
+                </button>
+                <button onClick={() => onEliminar(e)} style={{ padding: "4px 8px", border: "1px solid #fdd", background: "#fff8f8", borderRadius: 5, cursor: "pointer", fontSize: 11, color: "#DC3545", fontFamily: "inherit" }}>
+                  🗑️
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EditorEquipo({ inicial, onClose, onGuardado }) {
+  const [eq, setEq] = useState(() => inicial ? { ...inicial } : {
+    nombre: "", tipo: "propio", cantidad: 1, especificacion: "", proposito: "", notas: "",
+  });
+
+  const guardar = async () => {
+    if (!eq.nombre.trim()) { pushToast("Falta el nombre del equipo", "error"); return; }
+    const res = await guardarEquipo(eq);
+    if (res.ok) {
+      pushToast(inicial ? "Equipo actualizado" : "Equipo agregado", "success");
+      onGuardado();
+    } else {
+      pushToast(`No pude guardar: ${res.error}`, "error");
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: 18, width: "100%", maxWidth: 460 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h2 style={{ margin: 0, fontSize: 15, color: "#E67E22", fontFamily: "Georgia,serif" }}>
+            🛠️ {inicial ? "Editar equipo" : "Agregar equipo"}
+          </h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#bbb" }}>✕</button>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          {[
+            { id: "propio", label: "🏛️ Propio (taller)" },
+            { id: "subcontratado", label: "🤝 Subcontratado" },
+          ].map(t => {
+            const sel = eq.tipo === t.id;
+            return (
+              <button key={t.id} onClick={() => setEq({ ...eq, tipo: t.id })} style={{
+                flex: 1, padding: "8px", borderRadius: 8,
+                border: "1.5px solid " + (sel ? "#E67E22" : "#e0e0e0"),
+                background: sel ? "#E67E22" : "#fff",
+                color: sel ? "#fff" : "#666",
+                fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+              }}>{t.label}</button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Campo lbl="Nombre del equipo" val={eq.nombre} onCh={v => setEq({ ...eq, nombre: v })} placeholder="Ej: Máquina de coser dos agujas" />
+          <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: 8 }}>
+            <Campo lbl="Cantidad" val={eq.cantidad} onCh={v => setEq({ ...eq, cantidad: parseInt(v) || 1 })} type="number" />
+            <Campo lbl="Especificación técnica" val={eq.especificacion} onCh={v => setEq({ ...eq, especificacion: v })} placeholder="Ej: Ancho ≥ 1.60 m" />
+          </div>
+          <Campo lbl="Propósito (para qué sirve)" val={eq.proposito} onCh={v => setEq({ ...eq, proposito: v })} placeholder="Ej: Costuras paralelas en bordes" textarea />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+          <button onClick={onClose} style={{ padding: "9px 16px", borderRadius: 8, border: "1.5px solid #ccc", background: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
+            Cancelar
+          </button>
+          <button onClick={guardar} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#27AE60", color: "#fff", cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}>
+            💾 Guardar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

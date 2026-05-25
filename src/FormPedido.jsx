@@ -1212,6 +1212,22 @@ export default function FormPedido({
           placeholder="Ej: Crédito a 30 días calendario contra entrega total + acta de recepción. Factura Consumidor Final."
           onChange={e => s("formaPago", e.target.value)}
         />
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: 10, background: "#FFFBF6", border: "1px solid #fcd3a0", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>
+          <input
+            type="checkbox"
+            checked={!!f.incluirAnexoCapacidad}
+            onChange={e => s("incluirAnexoCapacidad", e.target.checked)}
+            style={{ width: 18, height: 18, cursor: "pointer" }}
+          />
+          <span style={{ color: "#E67E22", fontWeight: 700 }}>🛠️ Incluir anexo de capacidad instalada</span>
+        </label>
+        {f.incluirAnexoCapacidad && (
+          <div style={{ fontSize: 11, color: "#856404", marginTop: 4, paddingLeft: 26 }}>
+            El PDF tendrá una página anexa con la declaración del equipo del taller (propio + subcontratado).
+            Editá los equipos desde <strong>⚙️ Configuración → Capacidad instalada</strong>.
+          </div>
+        )}
       </SeccionOpcional>
 
       {/* ── Estatus ─────────────────────────────────── */}

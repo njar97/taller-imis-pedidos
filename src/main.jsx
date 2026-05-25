@@ -327,7 +327,16 @@ async function imprimirPedido(p, esAdmin, todosPedidos = []) {
 // fiscales, tabla descripción/medida/cant/precio, IVA 13% desglosado,
 // firma del representante legal). Sin desglose interno de costos —
 // solo lo que el cliente debe ver.
-function imprimirCotizacion(p) {
+async function imprimirCotizacion(p) {
+  // Si el pedido pide anexo de capacidad, leemos los equipos antes
+  // de armar el HTML.
+  let equiposCapacidad = null;
+  if (p.incluirAnexoCapacidad) {
+    try {
+      const mod = await import("./lib/capacidad.js");
+      equiposCapacidad = await mod.leerEquipos();
+    } catch (e) { console.warn("No pude leer equipos:", e); }
+  }
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
   const validez = p.validezDias || 15;
@@ -501,6 +510,103 @@ ${(() => {
 <div style="margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #f0f0f0;padding-top:10px;">
   Cotización N° ${num} · ${EMPRESA.razonSocial} · ${fecha}
 </div>
+
+${(p.incluirAnexoCapacidad && equiposCapacidad && equiposCapacidad.length > 0) ? (() => {
+  const propios = equiposCapacidad.filter(e => e.tipo === "propio");
+  const subc    = equiposCapacidad.filter(e => e.tipo === "subcontratado");
+  const filaEq = (e) => `
+    <tr>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:700;color:#2C1654;">${e.nombre}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;">${e.cantidad}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;color:#555;">${e.especificacion || "—"}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;color:#666;">${e.proposito || "—"}</td>
+    </tr>`;
+  return `
+<!-- ============ ANEXO: CAPACIDAD INSTALADA ============ -->
+<div style="page-break-before:always;"></div>
+
+<div style="text-align:center;margin-bottom:24px;border-bottom:3px double #2C1654;padding-bottom:14px;">
+  <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Anexo a la cotización N° ${num}</div>
+  <div style="font-size:18px;font-weight:900;color:#2C1654;font-family:Georgia,serif;">DECLARACIÓN DE CAPACIDAD INSTALADA</div>
+  <div style="font-size:11px;color:#666;margin-top:4px;">${EMPRESA.razonSocial}</div>
+</div>
+
+<div style="font-size:11px;color:#333;line-height:1.6;margin-bottom:16px;">
+  Por medio de la presente, <strong>${EMPRESA.razonSocial}</strong>, representada legalmente por
+  <strong>${EMPRESA.representanteLegal.nombre}</strong> (DUI ${EMPRESA.representanteLegal.dui}),
+  declara contar con la capacidad instalada que se detalla a continuación para la ejecución del
+  contrato/orden derivado de la presente cotización.
+</div>
+
+${propios.length > 0 ? `
+<div style="font-size:11px;font-weight:800;color:#27AE60;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #27AE60;padding-bottom:4px;margin:14px 0 8px;">
+  🏛️ Equipo propio del taller
+</div>
+<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden;">
+  <thead>
+    <tr style="background:#27AE60;color:#fff;">
+      <th style="padding:8px 10px;text-align:left;">Equipo / Maquinaria</th>
+      <th style="padding:8px 10px;text-align:center;width:70px;">Cant.</th>
+      <th style="padding:8px 10px;text-align:left;width:30%;">Especificación</th>
+      <th style="padding:8px 10px;text-align:left;width:30%;">Propósito</th>
+    </tr>
+  </thead>
+  <tbody>${propios.map(filaEq).join("")}</tbody>
+</table>
+` : ""}
+
+${subc.length > 0 ? `
+<div style="font-size:11px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #9B59B6;padding-bottom:4px;margin:18px 0 8px;">
+  🤝 Servicios subcontratados
+</div>
+<div style="font-size:10px;color:#666;font-style:italic;margin-bottom:6px;line-height:1.5;">
+  Para procesos específicos, ${EMPRESA.razonSocial} subcontrata a proveedores externos especializados
+  con quienes mantiene relación comercial vigente para garantizar la disponibilidad del servicio durante
+  la ejecución del contrato.
+</div>
+<table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden;">
+  <thead>
+    <tr style="background:#9B59B6;color:#fff;">
+      <th style="padding:8px 10px;text-align:left;">Servicio / Equipo</th>
+      <th style="padding:8px 10px;text-align:center;width:70px;">Cant.</th>
+      <th style="padding:8px 10px;text-align:left;width:30%;">Especificación</th>
+      <th style="padding:8px 10px;text-align:left;width:30%;">Propósito</th>
+    </tr>
+  </thead>
+  <tbody>${subc.map(filaEq).join("")}</tbody>
+</table>
+` : ""}
+
+<div style="font-size:10px;color:#666;line-height:1.6;margin-top:18px;padding:10px 12px;background:#FFF8E1;border:1px solid #FFE082;border-radius:6px;">
+  <strong>Declaración:</strong> ${EMPRESA.representanteLegal.nombre}, en su calidad de
+  ${EMPRESA.representanteLegal.cargo} de ${EMPRESA.razonSocial}, declara bajo juramento que la
+  información contenida en el presente anexo es veraz y que el equipo y servicios listados están
+  disponibles para la ejecución del objeto contractual.
+</div>
+
+${(() => {
+  const cfg = (typeof window !== "undefined" ? window.__TALLER_CONFIG__ : null) || {};
+  const firma = cfg.firma?.url;
+  const sello = cfg.sello?.url;
+  return `
+  <div style="margin-top:48px;text-align:center;position:relative;">
+    ${sello ? `<img src="${sello}" style="position:absolute;right:14%;top:-20px;max-width:90px;max-height:90px;opacity:0.85;" alt="sello" />` : ""}
+    <div style="display:inline-block;text-align:center;max-width:340px;position:relative;">
+      ${firma ? `<img src="${firma}" style="max-width:200px;max-height:60px;display:block;margin:0 auto -10px;position:relative;z-index:1;" alt="firma" />` : ""}
+      <div style="border-top:1.5px solid #333;padding-top:8px;">
+        <div style="font-size:12px;font-weight:800;color:#2C1654;">${EMPRESA.representanteLegal.nombre}</div>
+        <div style="font-size:10px;color:#666;margin-top:2px;">${EMPRESA.representanteLegal.cargo} — ${EMPRESA.razonSocial}</div>
+        <div style="font-size:10px;color:#666;">DUI: ${EMPRESA.representanteLegal.dui}</div>
+      </div>
+    </div>
+  </div>`;
+})()}
+
+<div style="margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #f0f0f0;padding-top:10px;">
+  Anexo de capacidad · Cotización N° ${num} · ${fecha}
+</div>
+`;
+})() : ""}
 </body></html>`);
   w.document.close();
 }
