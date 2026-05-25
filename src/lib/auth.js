@@ -44,15 +44,23 @@ function limpiarSesion() {
 
 // Envía el código OTP al email. Devuelve true si el endpoint respondió
 // OK (NO significa que el user lo haya pegado, solo que el correo salió).
-// IMPORTANTE: antes de pedirlo, validamos que el email esté en la
-// whitelist. Así evitamos mandar correos a cualquiera que se le ocurra
-// poner un email random.
-export async function pedirMagicLink(email) {
+// Antes de pedirlo, validamos que el email esté en la whitelist —
+// salvo que venga una invitacionToken valida, en cuyo caso el email
+// puede ser nuevo (la invitacion lo autoriza).
+export async function pedirMagicLink(email, options = {}) {
   const e = email.trim().toLowerCase();
-  // Pre-check whitelist
-  const u = await buscarUsuarioPorEmail(e);
-  if (!u || !u.activo) {
-    return { ok: false, error: "Email no autorizado. Pedile al admin que te agregue." };
+  const { invitacionToken } = options;
+  if (invitacionToken) {
+    const { buscarInvitacionPorToken } = await import("./invitaciones.js");
+    const r = await buscarInvitacionPorToken(invitacionToken);
+    if (!r.ok) {
+      return { ok: false, error: r.error || "Invitacion invalida o vencida" };
+    }
+  } else {
+    const u = await buscarUsuarioPorEmail(e);
+    if (!u || !u.activo) {
+      return { ok: false, error: "Email no autorizado. Pedile al admin que te agregue." };
+    }
   }
   const path = window.location.pathname.endsWith("/")
     ? window.location.pathname
@@ -83,9 +91,10 @@ export async function pedirMagicLink(email) {
 // solicitado vía /auth/v1/otp (flujo magic-link), el tipo correcto
 // para verify es "magiclink" — antes lo teníamos como "email" lo que
 // hacía que /verify devolviera error silencioso y el user no avanzara.
-export async function verificarCodigo(email, token) {
+export async function verificarCodigo(email, token, options = {}) {
   const emailL = email.trim().toLowerCase();
   const tokenL = String(token || "").trim();
+  const { invitacionToken } = options;
   // Probamos en orden ambos tipos válidos: 'email' (OTP de signup) y
   // 'magiclink' (OTP que viene con el magic link). Supabase requiere
   // uno específico según cómo se solicitó el código.
@@ -103,9 +112,19 @@ export async function verificarCodigo(email, token) {
         console.warn(`verify(${type}) HTTP ${r.status}:`, data);
       }
       if (r.ok && data?.access_token) {
-        // Validación post-OTP contra la whitelist. Cubre la (rara) race
+        // Si viene con invitacionToken, la consumimos: crea/activa al
+        // usuario en taller_usuarios con el rol/modulos de la invitacion.
+        if (invitacionToken) {
+          const { aceptarInvitacion } = await import("./invitaciones.js");
+          const acept = await aceptarInvitacion(invitacionToken, emailL);
+          if (!acept.ok) {
+            return { ok: false, error: acept.error || "Invitacion invalida" };
+          }
+        }
+        // Validación post-OTP contra la whitelist. Cubre la race
         // condition donde el admin desactivó al usuario entre pedir el
-        // código y pegarlo.
+        // código y pegarlo. Para invitados recien aceptados ya quedaron
+        // en la tabla via aceptarInvitacion.
         const wl = await buscarUsuarioPorEmail(emailL);
         if (!wl || !wl.activo) {
           return { ok: false, error: "Email no autorizado." };

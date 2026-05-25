@@ -10,8 +10,24 @@
 import { TALLER } from "./lib/constants.js";
 import { pushToast } from "./lib/feedback.js";
 import { pedirMagicLink, verificarCodigo } from "./lib/auth.js";
+import { buscarInvitacionPorToken } from "./lib/invitaciones.js";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+function leerInviteDeURL() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("invite");
+  } catch { return null; }
+}
+
+function limpiarInviteDeURL() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("invite");
+    window.history.replaceState({}, document.title, url.toString());
+  } catch {}
+}
 
 const MODULOS = [
   { id: "pedidos",  icon: "✂️", label: "Costura / Confección", desc: "Pedidos de prendas y arreglos", color: "#9B59B6" },
@@ -40,6 +56,20 @@ export default function PantallaLogin({ onLogin }) {
   const [paso, setPaso] = useState("email"); // "email" | "codigo" | "modulo"
   const [sesionUser, setSesionUser] = useState(null);
 
+  // Si la URL tiene ?invite=TOKEN, arrancamos en flujo de invitacion.
+  const [invitacionToken] = useState(() => leerInviteDeURL());
+  const [invitacion, setInvitacion] = useState(null); // datos cargados de la BD
+  const [invitacionError, setInvitacionError] = useState(null);
+
+  useEffect(() => {
+    if (!invitacionToken) return;
+    (async () => {
+      const r = await buscarInvitacionPorToken(invitacionToken);
+      if (r.ok) setInvitacion(r.invitacion);
+      else setInvitacionError(r.error || "Invitacion invalida");
+    })();
+  }, [invitacionToken]);
+
   async function enviarCodigo() {
     const e = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
@@ -47,7 +77,7 @@ export default function PantallaLogin({ onLogin }) {
       return;
     }
     setEnviando(true);
-    const res = await pedirMagicLink(e);
+    const res = await pedirMagicLink(e, { invitacionToken });
     setEnviando(false);
     if (res.ok) {
       try { localStorage.setItem(ULTIMO_EMAIL_KEY, e); } catch {}
@@ -64,12 +94,14 @@ export default function PantallaLogin({ onLogin }) {
       return;
     }
     setVerificando(true);
-    const res = await verificarCodigo(email, codigo);
+    const res = await verificarCodigo(email, codigo, { invitacionToken });
     setVerificando(false);
     if (!res.ok) {
       pushToast(res.error || "Código inválido", "error", 5000);
       return;
     }
+    // Limpio el ?invite= de la URL una vez consumida.
+    if (invitacionToken) limpiarInviteDeURL();
     const u = res.sesion.user;
     if (u.rol === "admin") {
       pushToast(`Bienvenido${u.nombre ? ", " + u.nombre.split(" ")[0] : ""}`, "success");
@@ -193,18 +225,54 @@ export default function PantallaLogin({ onLogin }) {
   }
 
   // PASO 1: pedir email
+  // Si hay token de invitacion, mostramos banner especial y validamos
+  // que el token sea valido antes de dejar entrar el email.
+  const conInvitacion = !!invitacionToken;
+  const invitacionValida = conInvitacion && invitacion && !invitacionError;
+  const invitacionMala = conInvitacion && invitacionError;
+
   return (
     <div style={wrap}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{ fontSize: 52, marginBottom: 8 }}>🧵</div>
+          <div style={{ fontSize: 52, marginBottom: 8 }}>{conInvitacion ? "🎉" : "🧵"}</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: "#fff", fontFamily: "Georgia,serif" }}>{TALLER}</div>
           <div style={{ fontSize: 13, color: "#9B59B6", marginTop: 4 }}>Sistema de Gestión de Pedidos</div>
         </div>
 
-        <div style={{ background: "#2C1654", border: "2px solid #4a2c7a", borderRadius: 12, padding: 22 }}>
+        {invitacionMala && (
+          <div style={{
+            background: "#3a1010", border: "2px solid #DC3545", borderRadius: 12,
+            padding: 16, marginBottom: 14, color: "#FFE4E4", fontSize: 13, textAlign: "center",
+          }}>
+            ⚠️ <strong>Invitación inválida</strong>
+            <div style={{ fontSize: 11, marginTop: 6, opacity: 0.85 }}>{invitacionError}</div>
+            <div style={{ fontSize: 11, marginTop: 8, opacity: 0.7 }}>Pedile al admin un link nuevo o entrá con un email ya autorizado.</div>
+          </div>
+        )}
+
+        {invitacionValida && (
+          <div style={{
+            background: "linear-gradient(135deg,#1A5F5A,#27AE60)", borderRadius: 12,
+            padding: 16, marginBottom: 14, color: "#fff", fontSize: 13,
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
+              🎉 Te invitaron a {TALLER}
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.9, lineHeight: 1.5 }}>
+              Al entrar quedás registrado como{" "}
+              <strong>{invitacion.rol === "admin" ? "Administrador" : "Operario"}</strong>
+              {invitacion.modulos && invitacion.modulos.length > 0
+                ? ` con acceso a ${invitacion.modulos.join(", ")}`
+                : ""}.
+              <br />Dejá tu email para recibir el código de entrada.
+            </div>
+          </div>
+        )}
+
+        <div style={{ background: "#2C1654", border: "2px solid #4a2c7a", borderRadius: 12, padding: 22, opacity: invitacionMala ? 0.4 : 1, pointerEvents: invitacionMala ? "none" : "auto" }}>
           <div style={{ fontSize: 14, color: "#fff", fontWeight: 700, marginBottom: 4 }}>
-            🔐 Iniciar sesión
+            {conInvitacion ? "📧 Aceptar invitación" : "🔐 Iniciar sesión"}
           </div>
           <div style={{ fontSize: 11, color: "#9B59B6", marginBottom: 14 }}>
             Te mandamos un código de 6 dígitos por email
