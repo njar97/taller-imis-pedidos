@@ -12,6 +12,7 @@ import { leerConfigTotal, guardarConfig } from "./lib/config.js";
 import { subirArchivoSupabase } from "./supabaseStorage.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { leerEquipos, guardarEquipo, borrarEquipo } from "./lib/capacidad.js";
+import { leerUsuarios, guardarUsuario, borrarUsuario } from "./lib/usuarios.js";
 
 const INP = {
   width: "100%", padding: "8px 10px", borderRadius: 8,
@@ -116,6 +117,9 @@ export default function SeccionConfig({ onConfigCambia }) {
 
       {/* Capacidad instalada */}
       <CapacidadEditor />
+
+      {/* Usuarios autorizados */}
+      <UsuariosEditor />
 
 
 
@@ -543,6 +547,225 @@ function EditorEquipo({ inicial, onClose, onGuardado }) {
         </div>
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+          <button onClick={onClose} style={{ padding: "9px 16px", borderRadius: 8, border: "1.5px solid #ccc", background: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
+            Cancelar
+          </button>
+          <button onClick={guardar} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#27AE60", color: "#fff", cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}>
+            💾 Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Usuarios autorizados (whitelist) ────────────────────
+
+const MODULOS_CHOICES = [
+  { id: "pedidos",  label: "✂️ Pedidos",  color: "#9B59B6" },
+  { id: "bordados", label: "🪡 Bordados", color: "#1A5F5A" },
+  { id: "cuellos",  label: "🧶 Cuellos",  color: "#B85C00" },
+];
+
+function UsuariosEditor() {
+  const [usuarios, setUsuarios] = useState(null);
+  const [editando, setEditando] = useState(null);
+
+  const refrescar = async () => setUsuarios(await leerUsuarios());
+  useEffect(() => { refrescar(); }, []);
+
+  if (usuarios === null) {
+    return <Seccion titulo="👥 Usuarios autorizados" color="#2C1654">
+      <div style={{ padding: 16, color: "#aaa" }}>⏳ Cargando...</div>
+    </Seccion>;
+  }
+
+  const desactivar = async (u) => {
+    const ok = await pushConfirm({
+      titulo: "Quitar acceso",
+      msg: `¿Quitar acceso a ${u.email}? No podrá entrar a la app hasta que lo reactivés.`,
+      okLabel: "Quitar acceso", danger: true,
+    });
+    if (!ok) return;
+    await borrarUsuario(u.id);
+    refrescar();
+    pushToast("Acceso quitado", "success");
+  };
+
+  return (
+    <Seccion titulo="👥 Usuarios autorizados" color="#2C1654">
+      <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
+        Solo los emails listados acá pueden entrar a la app. Admin ve todo; operario solo los módulos que le permitís.
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {usuarios.map(u => (
+          <div key={u.id} style={{
+            background: u.activo ? "#fff" : "#f8f8f8",
+            border: "1px solid " + (u.activo ? "#eee" : "#ddd"),
+            borderRadius: 8, padding: "9px 12px",
+            display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+            opacity: u.activo ? 1 : 0.55,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 4,
+                  background: u.rol === "admin" ? "#9B59B6" : "#1A5F5A", color: "#fff",
+                  textTransform: "uppercase", letterSpacing: 0.5,
+                }}>{u.rol}</span>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#2C1654", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {u.nombre || u.email.split("@")[0]}
+                </div>
+                {!u.activo && <span style={{ fontSize: 9, color: "#888", fontStyle: "italic" }}>(inactivo)</span>}
+              </div>
+              <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>✉️ {u.email}</div>
+              {u.rol === "operario" && u.modulos && u.modulos.length > 0 && (
+                <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>
+                  Módulos: {u.modulos.join(" · ")}
+                </div>
+              )}
+              {u.ultimo_login && (
+                <div style={{ fontSize: 9, color: "#aaa", marginTop: 2 }}>
+                  Último ingreso: {new Date(u.ultimo_login).toLocaleString("es-SV", { dateStyle: "short", timeStyle: "short" })}
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <button onClick={() => setEditando(u)} style={{ padding: "5px 8px", border: "1px solid #ccc", background: "#fff", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}>
+                ✏️
+              </button>
+              {u.activo && (
+                <button onClick={() => desactivar(u)} style={{ padding: "5px 8px", border: "1px solid #fdd", background: "#fff8f8", borderRadius: 5, cursor: "pointer", fontSize: 11, color: "#DC3545", fontFamily: "inherit" }}>
+                  🚫
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={() => setEditando("nuevo")}
+        style={{
+          width: "100%", padding: "10px", borderRadius: 8,
+          border: "2px dashed #2C1654", background: "#f8f4ff",
+          color: "#2C1654", cursor: "pointer", fontWeight: 800,
+          fontSize: 13, fontFamily: "inherit", marginTop: 8,
+        }}
+      >
+        + Agregar usuario
+      </button>
+
+      {editando && (
+        <EditorUsuario
+          inicial={editando === "nuevo" ? null : editando}
+          onClose={() => setEditando(null)}
+          onGuardado={() => { setEditando(null); refrescar(); }}
+        />
+      )}
+    </Seccion>
+  );
+}
+
+function EditorUsuario({ inicial, onClose, onGuardado }) {
+  const [u, setU] = useState(() => inicial ? { ...inicial, modulos: inicial.modulos || [] } : {
+    email: "", nombre: "", rol: "operario", modulos: ["pedidos"], activo: true,
+  });
+
+  const toggleModulo = (id) => {
+    const set = new Set(u.modulos || []);
+    if (set.has(id)) set.delete(id); else set.add(id);
+    setU({ ...u, modulos: [...set] });
+  };
+
+  const guardar = async () => {
+    const e = (u.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      pushToast("Email inválido", "error");
+      return;
+    }
+    if (u.rol === "operario" && (!u.modulos || u.modulos.length === 0)) {
+      pushToast("Asigná al menos un módulo al operario", "error");
+      return;
+    }
+    const res = await guardarUsuario({ ...u, email: e });
+    if (res.ok) {
+      pushToast(inicial ? "Usuario actualizado" : "Usuario agregado", "success");
+      onGuardado();
+    } else {
+      pushToast(`No pude guardar: ${res.error}`, "error", 6000);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: 18, width: "100%", maxWidth: 460 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h2 style={{ margin: 0, fontSize: 15, color: "#2C1654", fontFamily: "Georgia,serif" }}>
+            👤 {inicial ? "Editar usuario" : "Agregar usuario"}
+          </h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#bbb" }}>✕</button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Campo lbl="Email" val={u.email} onCh={v => setU({ ...u, email: v })} type="email" placeholder="persona@email.com" />
+          <Campo lbl="Nombre (opcional)" val={u.nombre} onCh={v => setU({ ...u, nombre: v })} placeholder="Ej: Ana Pérez" />
+
+          <div>
+            <label style={LBL}>Rol</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[
+                { id: "admin",    label: "🔐 Admin",    desc: "Ve todo, edita todo" },
+                { id: "operario", label: "✂️ Operario", desc: "Solo módulos asignados" },
+              ].map(r => {
+                const sel = u.rol === r.id;
+                return (
+                  <button key={r.id} onClick={() => setU({ ...u, rol: r.id })} style={{
+                    flex: 1, padding: "10px 8px", borderRadius: 8,
+                    border: "1.5px solid " + (sel ? "#2C1654" : "#e0e0e0"),
+                    background: sel ? "#2C1654" : "#fff",
+                    color: sel ? "#fff" : "#666",
+                    fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                    textAlign: "left", lineHeight: 1.3,
+                  }}>
+                    <div>{r.label}</div>
+                    <div style={{ fontSize: 9, fontWeight: 500, marginTop: 2, opacity: 0.8 }}>{r.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {u.rol === "operario" && (
+            <div>
+              <label style={LBL}>Módulos permitidos</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {MODULOS_CHOICES.map(m => {
+                  const sel = (u.modulos || []).includes(m.id);
+                  return (
+                    <button key={m.id} onClick={() => toggleModulo(m.id)} style={{
+                      padding: "8px 14px", borderRadius: 20,
+                      border: "1.5px solid " + (sel ? m.color : "#e0e0e0"),
+                      background: sel ? m.color : "#fff",
+                      color: sel ? "#fff" : "#666",
+                      fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                    }}>{m.label}</button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {inicial && (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, background: "#f8f8f8", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>
+              <input type="checkbox" checked={u.activo !== false} onChange={e => setU({ ...u, activo: e.target.checked })} style={{ width: 16, height: 16, cursor: "pointer" }} />
+              <span>Acceso activo</span>
+            </label>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
           <button onClick={onClose} style={{ padding: "9px 16px", borderRadius: 8, border: "1.5px solid #ccc", background: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
             Cancelar
           </button>
