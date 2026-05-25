@@ -1268,10 +1268,10 @@ function App() {
   useEffect(() => {
     let cancelado = false;
     (async () => {
-      const { recogerSesionDesdeURL, sesionActual, cerrarSesion } = await import("./lib/auth.js");
+      const { recogerSesionDesdeURL, sesionActualConRefresh, cerrarSesion } = await import("./lib/auth.js");
       const { buscarUsuarioPorEmail } = await import("./lib/usuarios.js");
       let s = await recogerSesionDesdeURL();
-      if (!s) s = sesionActual();
+      if (!s) s = await sesionActualConRefresh();
       if (!s?.user?.email || cancelado) return;
       // Re-validar contra whitelist en cada arranque (admin pudo
       // desactivar al usuario después del último login).
