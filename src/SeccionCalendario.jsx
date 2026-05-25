@@ -203,17 +203,18 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
                         title={`${numFormal(it)} · ${it.cliente} · ${it.tipoPrenda || it.soporte || it.material || ""} · ${it.estatus || ""}`}
                         style={{
                           width: "100%", maxWidth: "100%", minWidth: 0,
-                          padding: "2px 4px", borderRadius: 4, border: "none",
+                          padding: "3px 5px", borderRadius: 4, border: "none",
                           background: it.color, color: "#fff",
-                          fontSize: 9, fontWeight: 700, fontFamily: "inherit",
+                          fontSize: 11, fontWeight: 800, fontFamily: "inherit",
                           cursor: "pointer",
-                          textAlign: "left",
+                          textAlign: "center",
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                           display: "block",
                           boxSizing: "border-box",
+                          letterSpacing: 0.3,
                         }}
                       >
-                        {it._tipo === "ped" ? "📋" : it._tipo === "bord" ? "🪡" : "🧶"} <strong style={{ opacity: 0.85 }}>{numCorto(it)}</strong> {it.cliente || "—"}
+                        {numCorto(it)}
                       </button>
                     ))}
                     {items.length > 3 && (
