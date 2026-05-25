@@ -11,12 +11,26 @@ const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const todayStr = () => new Date().toISOString().split("T")[0];
 
+const VISTA_KEY = "TALLER_CALENDARIO_VISTA";
+
 export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirPedido, onAbrirBordado, onAbrirCuello }) {
   const hoy = todayStr();
   const [base, setBase] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
+  // Vista: "grilla" o "lista". Default por device + persistencia.
+  const [vista, setVista] = useState(() => {
+    try {
+      const guardada = localStorage.getItem(VISTA_KEY);
+      if (guardada === "grilla" || guardada === "lista") return guardada;
+    } catch {}
+    return (typeof window !== "undefined" && window.innerWidth < 700) ? "lista" : "grilla";
+  });
+  const cambiarVista = (v) => {
+    setVista(v);
+    try { localStorage.setItem(VISTA_KEY, v); } catch {}
+  };
   // Día expandido (cuando tocás "+N más"): mostramos popover con todos los items del día.
   const [diaExpandido, setDiaExpandido] = useState(null);
 
@@ -105,26 +119,51 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
             {totalMes} entrega{totalMes === 1 ? "" : "s"} este mes
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
           <button onClick={() => cambiarMes(-1)} style={navBtn}>‹</button>
           <div style={{ padding: "6px 12px", fontWeight: 800, fontSize: 13, color: "#2C1654", minWidth: 120, textAlign: "center" }}>
             {MESES[base.month]} {base.year}
           </div>
           <button onClick={() => cambiarMes(1)} style={navBtn}>›</button>
           <button onClick={irHoy} style={{ ...navBtn, padding: "6px 10px", fontSize: 11, fontWeight: 700 }}>HOY</button>
+          <div style={{ display: "flex", marginLeft: 6, border: "1.5px solid #e0e0e0", borderRadius: 6, overflow: "hidden" }}>
+            <button
+              onClick={() => cambiarVista("grilla")}
+              title="Vista grilla mensual"
+              style={{
+                padding: "6px 10px", border: "none", fontFamily: "inherit",
+                background: vista === "grilla" ? "#2C1654" : "#fff",
+                color: vista === "grilla" ? "#fff" : "#666",
+                cursor: "pointer", fontSize: 12, fontWeight: 700,
+              }}
+            >🗓️</button>
+            <button
+              onClick={() => cambiarVista("lista")}
+              title="Vista lista cronológica"
+              style={{
+                padding: "6px 10px", border: "none", fontFamily: "inherit",
+                background: vista === "lista" ? "#2C1654" : "#fff",
+                color: vista === "lista" ? "#fff" : "#666",
+                cursor: "pointer", fontSize: 12, fontWeight: 700,
+              }}
+            >📋</button>
+          </div>
         </div>
       </div>
 
-      {/* Encabezado de días */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid #eee", background: "#fafafa", flexShrink: 0 }}>
-        {DIAS.map(d => (
-          <div key={d} style={{ padding: "6px 4px", textAlign: "center", fontSize: 10, fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: .5 }}>
-            {d}
-          </div>
-        ))}
-      </div>
+      {/* Encabezado de días — solo en grilla */}
+      {vista === "grilla" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "1px solid #eee", background: "#fafafa", flexShrink: 0 }}>
+          {DIAS.map(d => (
+            <div key={d} style={{ padding: "6px 4px", textAlign: "center", fontSize: 10, fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: .5 }}>
+              {d}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Grilla */}
+      {vista === "grilla" && (
       <div style={{ flex: 1, overflow: "auto", padding: 8 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {grilla.map((sem, i) => (
@@ -192,6 +231,122 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
           ))}
         </div>
       </div>
+      )}
+
+      {/* Lista */}
+      {vista === "lista" && (
+        <div style={{ flex: 1, overflow: "auto", padding: 12 }}>
+          {(() => {
+            // Días del mes con items, ordenados ascendente
+            const start = `${base.year}-${String(base.month + 1).padStart(2, "0")}-01`;
+            const lastDay = new Date(base.year, base.month + 1, 0).getDate();
+            const end = `${base.year}-${String(base.month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+            const fechas = [];
+            for (const [fecha, items] of indice) {
+              if (fecha >= start && fecha <= end) {
+                fechas.push({ fecha, items: [...items].sort((a, b) => (a.cliente || "").localeCompare(b.cliente || "")) });
+              }
+            }
+            fechas.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+            if (fechas.length === 0) {
+              return (
+                <div style={{ textAlign: "center", padding: 40, color: "#aaa", fontSize: 13 }}>
+                  <div style={{ fontSize: 40, marginBottom: 8 }}>📅</div>
+                  No hay entregas programadas en {MESES[base.month]} {base.year}
+                </div>
+              );
+            }
+
+            return fechas.map(({ fecha, items }) => {
+              const [y, m, d] = fecha.split("-").map(Number);
+              const fechaObj = new Date(y, m - 1, d);
+              const diaSemana = fechaObj.toLocaleDateString("es-SV", { weekday: "long" });
+              const esHoy = fecha === hoy;
+              const esPasado = fecha < hoy;
+
+              return (
+                <div
+                  key={fecha}
+                  style={{
+                    background: "#fff",
+                    border: "1.5px solid " + (esHoy ? "#E67E22" : "#eee"),
+                    borderRadius: 10,
+                    marginBottom: 10,
+                    overflow: "hidden",
+                    opacity: esPasado ? 0.6 : 1,
+                  }}
+                >
+                  <div style={{
+                    padding: "10px 14px",
+                    background: esHoy ? "#FFF3E0" : "#fafafa",
+                    borderBottom: "1px solid #eee",
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: esHoy ? "#E67E22" : "#888", textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 700 }}>
+                        {esHoy ? "HOY · " : ""}{diaSemana}
+                      </div>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: esHoy ? "#E67E22" : "#2C1654", fontFamily: "Georgia,serif" }}>
+                        {d} de {MESES[m - 1]}
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: 11, fontWeight: 800, color: "#666",
+                      background: "#fff", border: "1px solid #ddd",
+                      padding: "3px 9px", borderRadius: 12,
+                    }}>
+                      {items.length} entrega{items.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {items.map((it, k) => (
+                      <button
+                        key={`${it._tipo}-${it.id}-${k}`}
+                        onClick={() => abrirItem(it)}
+                        style={{
+                          padding: "12px 14px", border: "none",
+                          borderBottom: k < items.length - 1 ? "1px solid #f5f5f5" : "none",
+                          background: "#fff", cursor: "pointer", fontFamily: "inherit",
+                          display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+                        }}
+                      >
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 8,
+                          background: it.color, color: "#fff",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 16, flexShrink: 0,
+                        }}>
+                          {it._tipo === "ped" ? "📋" : it._tipo === "bord" ? "🪡" : "🧶"}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#2C1654", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {it.cliente || "—"}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#888", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {it.tipoPrenda || it.soporte || it.material || "(sin detalle)"}
+                          </div>
+                        </div>
+                        {it.estatus && (() => {
+                          const cs = (it.colorMap || {})[it.estatus] || {};
+                          return (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700,
+                              padding: "3px 8px", borderRadius: 10,
+                              background: cs.bg || "#eee", color: cs.fg || "#666",
+                              whiteSpace: "nowrap", flexShrink: 0,
+                            }}>{it.estatus}</span>
+                          );
+                        })()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
 
       {/* Popover de día expandido */}
       {diaExpandido && (
