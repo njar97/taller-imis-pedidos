@@ -1885,7 +1885,13 @@ function App() {
       t: "⚠️ Fotos no subidas"
     }
   }[sync];
-  if (!rolBase) return <PantallaLogin onLogin={setRol} />;
+  if (!rolBase) return (
+    <>
+      <PantallaLogin onLogin={setRol} />
+      <Toaster />
+      <ConfirmDialog />
+    </>
+  );
   const NAV = getNavItems(rol, esAdmin);
   return (
     <div style={{ display: "flex", height: "100vh" }}>
