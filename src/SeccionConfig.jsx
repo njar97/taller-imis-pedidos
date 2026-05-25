@@ -9,9 +9,10 @@
 import { useEffect, useState } from "react";
 import { EMPRESA_DEFAULT, getEmpresa } from "./lib/empresa.js";
 import { leerConfigTotal, guardarConfig } from "./lib/config.js";
-import { subirArchivoSupabase } from "./supabaseStorage.js";
+import { subirArchivoSupabase, subirFotoSupabase } from "./supabaseStorage.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { leerEquipos, guardarEquipo, borrarEquipo } from "./lib/capacidad.js";
+import { comprimirImagen } from "./lib/imagenes.js";
 
 const INP = {
   width: "100%", padding: "8px 10px", borderRadius: 8,
@@ -465,7 +466,12 @@ function SubBloque({ titulo, color, equipos, onEditar, onEliminar }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {equipos.map(e => (
-            <div key={e.id} style={{ background: "#fff", border: "1px solid #eee", borderRadius: 8, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div key={e.id} style={{ background: "#fff", border: "1px solid #eee", borderRadius: 8, padding: "8px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+              {e.foto_url ? (
+                <img src={e.foto_url} alt={e.nombre} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #ddd", flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 48, height: 48, borderRadius: 6, background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#bbb", flexShrink: 0 }}>📷</div>
+              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#2C1654" }}>
                   {e.nombre} <span style={{ color: "#888", fontWeight: 400 }}>· {e.cantidad} u.</span>
@@ -491,8 +497,34 @@ function SubBloque({ titulo, color, equipos, onEditar, onEliminar }) {
 
 function EditorEquipo({ inicial, onClose, onGuardado }) {
   const [eq, setEq] = useState(() => inicial ? { ...inicial } : {
-    nombre: "", tipo: "propio", cantidad: 1, especificacion: "", proposito: "", notas: "",
+    nombre: "", tipo: "propio", cantidad: 1, especificacion: "", proposito: "", notas: "", foto_url: "",
   });
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+
+  const subirFoto = async (file) => {
+    if (!file) return;
+    setSubiendoFoto(true);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise((res, rej) => {
+        reader.onload = () => res(reader.result);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      const comprimida = await comprimirImagen(dataUrl, 900, 0.82);
+      const r = await subirFotoSupabase(comprimida, file.name, "capacidad", eq.nombre || "equipo");
+      if (r.ok) {
+        setEq({ ...eq, foto_url: r.url });
+        pushToast("Foto subida", "success");
+      } else {
+        pushToast(`No pude subir: ${r.err}`, "error");
+      }
+    } catch (e) {
+      pushToast(`Error: ${e.message || e}`, "error");
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
 
   const guardar = async () => {
     if (!eq.nombre.trim()) { pushToast("Falta el nombre del equipo", "error"); return; }
@@ -540,6 +572,34 @@ function EditorEquipo({ inicial, onClose, onGuardado }) {
             <Campo lbl="Especificación técnica" val={eq.especificacion} onCh={v => setEq({ ...eq, especificacion: v })} placeholder="Ej: Ancho ≥ 1.60 m" />
           </div>
           <Campo lbl="Propósito (para qué sirve)" val={eq.proposito} onCh={v => setEq({ ...eq, proposito: v })} placeholder="Ej: Costuras paralelas en bordes" textarea />
+
+          <div>
+            <label style={LBL}>Foto del equipo</label>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              {eq.foto_url ? (
+                <img src={eq.foto_url} alt="" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 8, border: "1.5px solid #ddd" }} />
+              ) : (
+                <div style={{ width: 90, height: 90, borderRadius: 8, background: "#f5f5f5", border: "2px dashed #ccc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "#bbb" }}>📷</div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1 }}>
+                <label style={{
+                  padding: "7px 12px", borderRadius: 7, background: "#2C1654", color: "#fff",
+                  fontWeight: 700, fontSize: 11, cursor: subiendoFoto ? "wait" : "pointer",
+                  textAlign: "center", opacity: subiendoFoto ? 0.6 : 1,
+                }}>
+                  {subiendoFoto ? "⏳ Subiendo..." : (eq.foto_url ? "🔄 Cambiar foto" : "📤 Subir foto")}
+                  <input type="file" accept="image/*" style={{ display: "none" }} disabled={subiendoFoto}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f); e.target.value = ""; }} />
+                </label>
+                {eq.foto_url && (
+                  <button onClick={() => setEq({ ...eq, foto_url: "" })} style={{
+                    padding: "5px 10px", borderRadius: 7, background: "#fff", color: "#DC3545",
+                    border: "1px solid #fdd", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit",
+                  }}>🗑️ Quitar foto</button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>

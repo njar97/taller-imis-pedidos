@@ -516,6 +516,9 @@ ${(p.incluirAnexoCapacidad && equiposCapacidad && equiposCapacidad.length > 0) ?
   const subc    = equiposCapacidad.filter(e => e.tipo === "subcontratado");
   const filaEq = (e) => `
     <tr>
+      <td style="padding:7px 8px;border-bottom:1px solid #eee;text-align:center;width:70px;">
+        ${e.foto_url ? `<img src="${e.foto_url}" style="width:55px;height:55px;object-fit:cover;border-radius:4px;border:1px solid #ddd;" alt="" />` : `<div style="width:55px;height:55px;border-radius:4px;background:#f5f5f5;color:#bbb;display:inline-flex;align-items:center;justify-content:center;font-size:18px;">📷</div>`}
+      </td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:700;color:#2C1654;">${e.nombre}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;">${e.cantidad}</td>
       <td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;color:#555;">${e.especificacion || "—"}</td>
@@ -545,10 +548,11 @@ ${propios.length > 0 ? `
 <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #ddd;border-radius:6px;overflow:hidden;">
   <thead>
     <tr style="background:#27AE60;color:#fff;">
+      <th style="padding:8px 8px;text-align:center;width:70px;">Foto</th>
       <th style="padding:8px 10px;text-align:left;">Equipo / Maquinaria</th>
-      <th style="padding:8px 10px;text-align:center;width:70px;">Cant.</th>
-      <th style="padding:8px 10px;text-align:left;width:30%;">Especificación</th>
-      <th style="padding:8px 10px;text-align:left;width:30%;">Propósito</th>
+      <th style="padding:8px 10px;text-align:center;width:60px;">Cant.</th>
+      <th style="padding:8px 10px;text-align:left;width:25%;">Especificación</th>
+      <th style="padding:8px 10px;text-align:left;width:25%;">Propósito</th>
     </tr>
   </thead>
   <tbody>${propios.map(filaEq).join("")}</tbody>
@@ -577,11 +581,21 @@ ${subc.length > 0 ? `
 </table>
 ` : ""}
 
+<div style="font-size:11px;font-weight:800;color:#2C1654;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #2C1654;padding-bottom:4px;margin:18px 0 8px;">
+  👥 Recurso humano
+</div>
+<div style="font-size:11px;color:#333;line-height:1.6;padding:10px 12px;background:#fff;border:1px solid #ddd;border-radius:6px;">
+  ${EMPRESA.razonSocial} cuenta con una red de costureras y operarias independientes que se contratan
+  según el volumen y la complejidad del pedido. Esta modalidad permite escalar la producción de forma
+  flexible y garantizar el cumplimiento de los plazos comprometidos, manteniendo los estándares de
+  calidad bajo la supervisión directa del taller.
+</div>
+
 <div style="font-size:10px;color:#666;line-height:1.6;margin-top:18px;padding:10px 12px;background:#FFF8E1;border:1px solid #FFE082;border-radius:6px;">
   <strong>Declaración:</strong> ${EMPRESA.representanteLegal.nombre}, en su calidad de
   ${EMPRESA.representanteLegal.cargo} de ${EMPRESA.razonSocial}, declara bajo juramento que la
-  información contenida en el presente anexo es veraz y que el equipo y servicios listados están
-  disponibles para la ejecución del objeto contractual.
+  información contenida en el presente anexo es veraz y que el equipo, servicios y recurso humano
+  listados están disponibles para la ejecución del objeto contractual.
 </div>
 
 ${(() => {

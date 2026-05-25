@@ -37,6 +37,7 @@ export async function guardarEquipo(eq) {
       especificacion: (eq.especificacion || "").trim(),
       proposito: (eq.proposito || "").trim(),
       notas: (eq.notas || "").trim(),
+      foto_url: eq.foto_url || null,
       orden: parseInt(eq.orden) || 0,
     };
     const url = eq.id
