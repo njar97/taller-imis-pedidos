@@ -13,6 +13,7 @@ import { subirArchivoSupabase } from "./supabaseStorage.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { leerEquipos, guardarEquipo, borrarEquipo } from "./lib/capacidad.js";
 import { leerUsuarios, guardarUsuario, borrarUsuario } from "./lib/usuarios.js";
+import { leerInvitaciones, generarInvitacion, revocarInvitacion, estadoInvitacion, urlInvitacion } from "./lib/invitaciones.js";
 
 const INP = {
   width: "100%", padding: "8px 10px", borderRadius: 8,
@@ -570,8 +571,14 @@ const MODULOS_CHOICES = [
 function UsuariosEditor() {
   const [usuarios, setUsuarios] = useState(null);
   const [editando, setEditando] = useState(null);
+  const [invitando, setInvitando] = useState(false);
+  const [invitaciones, setInvitaciones] = useState([]);
 
-  const refrescar = async () => setUsuarios(await leerUsuarios());
+  const refrescar = async () => {
+    const [us, invs] = await Promise.all([leerUsuarios(), leerInvitaciones()]);
+    setUsuarios(us);
+    setInvitaciones(invs);
+  };
   useEffect(() => { refrescar(); }, []);
 
   if (usuarios === null) {
@@ -645,17 +652,48 @@ function UsuariosEditor() {
         ))}
       </div>
 
-      <button
-        onClick={() => setEditando("nuevo")}
-        style={{
-          width: "100%", padding: "10px", borderRadius: 8,
-          border: "2px dashed #2C1654", background: "#f8f4ff",
-          color: "#2C1654", cursor: "pointer", fontWeight: 800,
-          fontSize: 13, fontFamily: "inherit", marginTop: 8,
-        }}
-      >
-        + Agregar usuario
-      </button>
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+        <button
+          onClick={() => setEditando("nuevo")}
+          style={{
+            flex: 1, padding: "10px", borderRadius: 8,
+            border: "2px dashed #2C1654", background: "#f8f4ff",
+            color: "#2C1654", cursor: "pointer", fontWeight: 800,
+            fontSize: 12, fontFamily: "inherit",
+          }}
+        >
+          + Agregar manual
+        </button>
+        <button
+          onClick={() => setInvitando(true)}
+          style={{
+            flex: 1, padding: "10px", borderRadius: 8,
+            border: "2px solid #27AE60", background: "#27AE60",
+            color: "#fff", cursor: "pointer", fontWeight: 800,
+            fontSize: 12, fontFamily: "inherit",
+          }}
+        >
+          ✉️ Invitar por link
+        </button>
+      </div>
+
+      {/* Lista de invitaciones pendientes / usadas / vencidas */}
+      {invitaciones.length > 0 && (
+        <InvitacionesBloque
+          invitaciones={invitaciones}
+          onRevocar={async (id) => {
+            const ok = await pushConfirm({
+              titulo: "Revocar invitación",
+              msg: "Esta invitación dejará de funcionar. ¿Continuar?",
+              okLabel: "Revocar", danger: true,
+            });
+            if (!ok) return;
+            await revocarInvitacion(id);
+            refrescar();
+            pushToast("Invitación revocada", "success");
+          }}
+        />
+      )}
 
       {editando && (
         <EditorUsuario
@@ -664,7 +702,263 @@ function UsuariosEditor() {
           onGuardado={() => { setEditando(null); refrescar(); }}
         />
       )}
+
+      {invitando && (
+        <ModalInvitar
+          onClose={() => setInvitando(false)}
+          onGenerado={() => refrescar()}
+        />
+      )}
     </Seccion>
+  );
+}
+
+function InvitacionesBloque({ invitaciones, onRevocar }) {
+  const activas = invitaciones.filter(i => estadoInvitacion(i) === "activa");
+  const otras = invitaciones.filter(i => estadoInvitacion(i) !== "activa").slice(0, 3);
+  if (activas.length === 0 && otras.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #ddd" }}>
+      <div style={{ fontSize: 11, fontWeight: 800, color: "#888", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        ✉️ Invitaciones
+      </div>
+      {[...activas, ...otras].map(inv => {
+        const estado = estadoInvitacion(inv);
+        const color = { activa: "#27AE60", usada: "#9B59B6", vencida: "#999", revocada: "#999" }[estado];
+        const labelEstado = { activa: "🟢 Activa", usada: "✅ Usada", vencida: "⏰ Vencida", revocada: "🚫 Revocada" }[estado];
+        const link = urlInvitacion(inv.token);
+        return (
+          <div key={inv.id} style={{
+            background: estado === "activa" ? "#f0fff5" : "#f8f8f8",
+            border: "1px solid " + (estado === "activa" ? "#c8efd0" : "#eee"),
+            borderRadius: 8, padding: "9px 11px", marginBottom: 5,
+            display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 3 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color, textTransform: "uppercase" }}>
+                  {labelEstado}
+                </span>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                  background: inv.rol === "admin" ? "#9B59B6" : "#1A5F5A", color: "#fff",
+                  textTransform: "uppercase", letterSpacing: 0.4,
+                }}>{inv.rol}</span>
+                {inv.nombre_sugerido && (
+                  <span style={{ fontSize: 11, color: "#666", fontWeight: 600 }}>{inv.nombre_sugerido}</span>
+                )}
+              </div>
+              {inv.modulos && inv.modulos.length > 0 && (
+                <div style={{ fontSize: 10, color: "#888" }}>📦 {inv.modulos.join(" · ")}</div>
+              )}
+              {estado === "usada" && (
+                <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
+                  ✉️ {inv.usado_por_email} — {new Date(inv.usado_en).toLocaleDateString("es-SV", { day: "2-digit", month: "short" })}
+                </div>
+              )}
+              {estado === "activa" && (
+                <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
+                  Vence {new Date(inv.vence_en).toLocaleDateString("es-SV", { day: "2-digit", month: "short" })}
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              {estado === "activa" && (
+                <>
+                  <button
+                    onClick={() => copiarTexto(link, "Link copiado")}
+                    style={btnMini}
+                    title="Copiar link"
+                  >📋</button>
+                  <button
+                    onClick={() => compartirWhatsApp(link, inv)}
+                    style={btnMini}
+                    title="Compartir WhatsApp"
+                  >📱</button>
+                  <button
+                    onClick={() => onRevocar(inv.id)}
+                    style={{ ...btnMini, color: "#DC3545", borderColor: "#fdd" }}
+                    title="Revocar"
+                  >🚫</button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const btnMini = {
+  padding: "4px 7px", border: "1px solid #ccc", background: "#fff",
+  borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: "inherit",
+};
+
+function copiarTexto(texto, msgOk) {
+  try {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(texto).then(
+        () => pushToast(msgOk || "Copiado", "success"),
+        () => pushToast("No pude copiar", "error")
+      );
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = texto;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      pushToast(msgOk || "Copiado", "success");
+    }
+  } catch {
+    pushToast("No pude copiar", "error");
+  }
+}
+
+function compartirWhatsApp(link, inv) {
+  const saludo = inv.nombre_sugerido ? `Hola ${inv.nombre_sugerido}!` : "Hola!";
+  const rolTxt = inv.rol === "admin" ? "Administrador" : "Operario";
+  const msg = `${saludo} Te estoy invitando a usar Taller IMIS — Sistema de pedidos.\n\nTu rol: ${rolTxt}\n\nAbrí este link para entrar con tu email:\n${link}\n\nLink valido por 7 dias.`;
+  const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  if (navigator.share) {
+    navigator.share({ title: "Invitación Taller IMIS", text: msg, url: link }).catch(() => {
+      window.open(url, "_blank");
+    });
+  } else {
+    window.open(url, "_blank");
+  }
+}
+
+function ModalInvitar({ onClose, onGenerado }) {
+  const [rol, setRol] = useState("operario");
+  const [modulos, setModulos] = useState(["pedidos"]);
+  const [nombre, setNombre] = useState("");
+  const [generando, setGenerando] = useState(false);
+  const [resultado, setResultado] = useState(null); // { link, invitacion }
+
+  const toggleModulo = id => {
+    const set = new Set(modulos);
+    if (set.has(id)) set.delete(id); else set.add(id);
+    setModulos([...set]);
+  };
+
+  const generar = async () => {
+    if (rol === "operario" && modulos.length === 0) {
+      pushToast("Asigná al menos un módulo", "error");
+      return;
+    }
+    setGenerando(true);
+    const r = await generarInvitacion({ rol, modulos, nombre });
+    setGenerando(false);
+    if (r.ok) {
+      setResultado(r);
+      onGenerado();
+    } else {
+      pushToast(`No pude generar: ${r.error}`, "error", 5000);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: 18, width: "100%", maxWidth: 460 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h2 style={{ margin: 0, fontSize: 15, color: "#27AE60", fontFamily: "Georgia,serif" }}>
+            ✉️ {resultado ? "Link de invitación listo" : "Nueva invitación"}
+          </h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#bbb" }}>✕</button>
+        </div>
+
+        {resultado ? (
+          <div>
+            <div style={{ background: "#f0fff5", border: "1.5px solid #c8efd0", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#27AE60", marginBottom: 4 }}>LINK GENERADO</div>
+              <div style={{ fontSize: 11, color: "#333", wordBreak: "break-all", fontFamily: "monospace", lineHeight: 1.4 }}>
+                {resultado.link}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button
+                onClick={() => copiarTexto(resultado.link, "Link copiado al portapapeles")}
+                style={{ padding: "11px", borderRadius: 8, border: "1.5px solid #2C1654", background: "#fff", color: "#2C1654", cursor: "pointer", fontWeight: 700, fontFamily: "inherit", fontSize: 13 }}
+              >
+                📋 Copiar link
+              </button>
+              <button
+                onClick={() => compartirWhatsApp(resultado.link, resultado.invitacion)}
+                style={{ padding: "11px", borderRadius: 8, border: "none", background: "#25D366", color: "#fff", cursor: "pointer", fontWeight: 800, fontFamily: "inherit", fontSize: 13 }}
+              >
+                📱 Compartir por WhatsApp
+              </button>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 11, color: "#888", textAlign: "center", lineHeight: 1.5 }}>
+              Vence en 7 días · un solo uso. La persona entra con su email.
+            </div>
+            <button
+              onClick={onClose}
+              style={{ marginTop: 12, width: "100%", padding: "9px", borderRadius: 8, border: "1px solid #ccc", background: "#fff", color: "#666", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}
+            >
+              Cerrar
+            </button>
+          </div>
+        ) : (
+          <div>
+            <Campo lbl="Nombre (opcional)" val={nombre} onCh={setNombre} placeholder="Ej: Ana Pérez" />
+
+            <div style={{ marginTop: 10 }}>
+              <label style={LBL}>Rol</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[
+                  { id: "admin",    label: "🔐 Admin" },
+                  { id: "operario", label: "✂️ Operario" },
+                ].map(r => {
+                  const sel = rol === r.id;
+                  return (
+                    <button key={r.id} onClick={() => setRol(r.id)} style={{
+                      flex: 1, padding: "10px", borderRadius: 8,
+                      border: "1.5px solid " + (sel ? "#27AE60" : "#e0e0e0"),
+                      background: sel ? "#27AE60" : "#fff",
+                      color: sel ? "#fff" : "#666", fontWeight: 700, fontSize: 12,
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}>{r.label}</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {rol === "operario" && (
+              <div style={{ marginTop: 10 }}>
+                <label style={LBL}>Módulos permitidos</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {MODULOS_CHOICES.map(m => {
+                    const sel = modulos.includes(m.id);
+                    return (
+                      <button key={m.id} onClick={() => toggleModulo(m.id)} style={{
+                        padding: "8px 14px", borderRadius: 20,
+                        border: "1.5px solid " + (sel ? m.color : "#e0e0e0"),
+                        background: sel ? m.color : "#fff",
+                        color: sel ? "#fff" : "#666",
+                        fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                      }}>{m.label}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+              <button onClick={onClose} style={{ padding: "9px 16px", borderRadius: 8, border: "1.5px solid #ccc", background: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>
+                Cancelar
+              </button>
+              <button onClick={generar} disabled={generando} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: generando ? "#555" : "#27AE60", color: "#fff", cursor: generando ? "wait" : "pointer", fontWeight: 800, fontFamily: "inherit" }}>
+                {generando ? "⏳ Generando..." : "🔗 Generar link"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
