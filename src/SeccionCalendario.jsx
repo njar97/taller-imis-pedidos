@@ -11,6 +11,11 @@ const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const todayStr = () => new Date().toISOString().split("T")[0];
 
+// Numero corto del item — sin padding, util para chips estrechos del grid.
+const numCorto = (it) => it.id != null ? `#${it.id}` : "";
+// Numero formal — N°XXXX padding 4, util para lista y popover.
+const numFormal = (it) => it.id != null ? `N°${String(it.id).padStart(4, "0")}` : "";
+
 const VISTA_KEY = "TALLER_CALENDARIO_VISTA";
 
 export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirPedido, onAbrirBordado, onAbrirCuello }) {
@@ -195,7 +200,7 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
                       <button
                         key={`${it._tipo}-${it.id}-${k}`}
                         onClick={() => abrirItem(it)}
-                        title={`${it.cliente} · ${it.tipoPrenda || it.soporte || it.material || ""} · ${it.estatus || ""}`}
+                        title={`${numFormal(it)} · ${it.cliente} · ${it.tipoPrenda || it.soporte || it.material || ""} · ${it.estatus || ""}`}
                         style={{
                           width: "100%", maxWidth: "100%", minWidth: 0,
                           padding: "2px 4px", borderRadius: 4, border: "none",
@@ -208,7 +213,7 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
                           boxSizing: "border-box",
                         }}
                       >
-                        {it._tipo === "ped" ? "📋" : it._tipo === "bord" ? "🪡" : "🧶"} {it.cliente || "—"}
+                        {it._tipo === "ped" ? "📋" : it._tipo === "bord" ? "🪡" : "🧶"} <strong style={{ opacity: 0.85 }}>{numCorto(it)}</strong> {it.cliente || "—"}
                       </button>
                     ))}
                     {items.length > 3 && (
@@ -321,6 +326,7 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 700, color: "#2C1654", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ color: it.color, fontWeight: 800, marginRight: 6 }}>{numFormal(it)}</span>
                             {it.cliente || "—"}
                           </div>
                           <div style={{ fontSize: 12, color: "#888", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -400,7 +406,10 @@ export default function SeccionCalendario({ pedidos, bordados, cuellos, onAbrirP
                     {it._tipo === "ped" ? "📋" : it._tipo === "bord" ? "🪡" : "🧶"}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>
+                    <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 700, letterSpacing: 0.5 }}>
+                      {numFormal(it)}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>
                       {it.cliente || "—"}
                     </div>
                     <div style={{ fontSize: 11, opacity: 0.85, marginTop: 1 }}>
