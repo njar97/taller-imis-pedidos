@@ -17,7 +17,7 @@ const DEFAULT = {
   nrc: "211590-0",
   actividadEconomica: "Fabricación de productos textiles",
   direccion: "Sonsonate, Col. Santa Marta, Av. Centroamericana, Casa N.° 5-A",
-  telefonos: ["2451-1620", "7866-9963", "7957-0695"],
+  telefonos: ["2451-1620", "6015-8047", "7957-0695"],
   email: "confecciones_imis@hotmail.com",
   representanteLegal: {
     nombre: "Imelda Del Carmen Mancía De Ramírez",
