@@ -2,7 +2,7 @@
 
 App de gestión de pedidos para un taller de bordados y confección en El Salvador.
 
-Producción: https://njar97.github.io/taller-imis-pedidos/
+Producción: https://imeltex.com.sv
 
 ## Arquitectura real
 
@@ -90,7 +90,7 @@ JSX 100% legible (PR #54, mayo 2026 — antes era `createElement` compilado). ~1
 
 ```bash
 npm install        # instalar deps (Vite + vite-plugin-pwa + react + react-dom + vitest)
-npm run dev        # dev server en http://localhost:5173/taller-imis-pedidos/
+npm run dev        # dev server en http://localhost:5173/
 npm run build      # genera dist/ con PWA assets
 npm run preview    # sirve dist/ como en prod
 npm run test:run   # corre la suite de vitest una vez (39 tests sobre lib/)

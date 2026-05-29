@@ -8,7 +8,7 @@ Sistema de gestión de pedidos para Taller IMIS (bordados y confección).
 - **Deploy:** GitHub Pages (automático al hacer push a `main`)
 
 ## URL del sistema
-https://njar97.github.io/taller-imis-pedidos/
+https://imeltex.com.sv
 
 ## Supabase
 - Proyecto: `taller-imis-produccion`
