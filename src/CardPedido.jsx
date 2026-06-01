@@ -2,7 +2,7 @@
 // Antes vivía como CardPedido compilado en main.js (~286 líneas).
 
 import { EC, ESTATUS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, sumarAbonos } from "./lib/dominio.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { copiarWA } from "./lib/whatsapp.js";
 import { TallasChips } from "./SelectorTallas.jsx";
@@ -20,7 +20,7 @@ export default function CardPedido({
   onImprimir,
   onVerFoto,
 }) {
-  const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
+  const saldo = parseFloat(p.precio || 0) - sumarAbonos(p);
   const dias = p.fechaEntrega
     ? Math.ceil((new Date(p.fechaEntrega + "T12:00:00") - new Date()) / 86400000)
     : null;

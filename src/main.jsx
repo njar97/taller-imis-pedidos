@@ -2351,7 +2351,10 @@ function App() {
             setSec("cuellos");
             setDet(null);
           }}
-          onImprimir={() => imprimirPedido(detalle, esAdmin, pedidos)}
+          onWhatsApp={() => {
+            copiarWA(detalle, esAdmin);
+            pushToast("Mensaje de WhatsApp copiado — pegalo en el chat", "success");
+          }}
           onExportarPDF={() => exportarPedidoPDF(detalle, "confeccion")}
           onAbrirEdicion={() => {
             setModal(detalle);

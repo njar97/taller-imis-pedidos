@@ -3,7 +3,7 @@
 // Antes vivía como ProximasEntregas compilado en main.js (~231 líneas).
 
 import { EC } from "./lib/constants.js";
-import { resumenTallas } from "./lib/dominio.js";
+import { resumenTallas, sumarAbonos } from "./lib/dominio.js";
 
 import { useState } from "react";
 
@@ -75,7 +75,7 @@ export default function ProximasEntregas({ pedidos, diasPara, esAdmin, onVer, on
         {proximos.map(p => {
           const dc = colorDias(p.dias);
           const tallas = resumenTallas(p);
-          const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
+          const saldo = parseFloat(p.precio || 0) - sumarAbonos(p);
           const tipoIcon =
             p.tipoCliente === "escuela" ? "🏫" : p.tipoCliente === "empresa" ? "🏢" : "";
           const copiado = copiadoId === p.id;

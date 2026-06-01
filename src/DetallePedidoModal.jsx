@@ -532,7 +532,7 @@ export default function DetallePedidoModal({
   onIrACuellos,
   onCrearBordadoVinc,
   onCrearCuelloVinc,
-  onImprimir,
+  onWhatsApp,
   onExportarPDF,
   onAbrirEdicion,
 }) {
@@ -722,19 +722,20 @@ export default function DetallePedidoModal({
           </button>
         )}
         <button
-          onClick={onImprimir}
+          onClick={onWhatsApp}
+          title="Copia el resumen del pedido para pegarlo en WhatsApp"
           style={{
             padding: "9px 16px",
             borderRadius: 8,
             border: "none",
-            background: "#6c3483",
+            background: "#25D366",
             color: "#fff",
             cursor: "pointer",
             fontWeight: 700,
             fontSize: 13,
           }}
         >
-          🖨️ Imprimir
+          💬 WhatsApp
         </button>
         <button
           onClick={onAbrirEdicion}
