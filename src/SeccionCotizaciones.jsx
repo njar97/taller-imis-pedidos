@@ -10,6 +10,7 @@ import { fmt$, itemsResumen } from "./lib/dominio.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { pushConfirm, pushToast } from "./lib/feedback.js";
 import { copiarCotizacionWA, copiarComparativoWA } from "./lib/whatsapp.js";
+import { imgSrc } from "./lib/imagenes.js";
 
 const diasHasta = fStr => {
   if (!fStr) return null;
@@ -160,6 +161,9 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
   const venceHoy = dias !== null && dias === 0;
   const vencida = dias !== null && dias < 0;
   const telWA = c.telefono ? `https://wa.me/${c.telefono.replace(/[^0-9]/g, "")}` : null;
+  // Mockup / imagen de referencia (si la cotización tiene imágenes).
+  const imgRef = (c.imagenes || []).find(i => imgSrc(i));
+  const thumb = imgRef && imgSrc(imgRef);
 
   return (
     <div style={{
@@ -181,6 +185,18 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         >
           {seleccionado ? "✓" : ""}
         </button>
+        {thumb && (
+          <a href={thumb} target="_blank" rel="noopener" title="Ver imagen de referencia" style={{ flexShrink: 0 }}>
+            <img
+              src={thumb}
+              alt="Diseño"
+              style={{
+                width: 56, height: 56, borderRadius: 8, objectFit: "contain",
+                background: "#f5f5f5", border: "1px solid #e6e6e6", display: "block",
+              }}
+            />
+          </a>
+        )}
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: "#9B59B6", fontWeight: 700 }}>
