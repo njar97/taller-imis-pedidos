@@ -196,6 +196,33 @@ export function copiarCotizacionWA(c) {
   copiarTexto(mensajeCotizacionWA(c));
 }
 
+// Comparativo: varias cotizaciones como opciones (1, 2, 3...) en un solo
+// mensaje, sin sumar los montos. Para mandarle al cliente las alternativas.
+export function mensajeComparativoWA(cots) {
+  const cliente = (cots[0] && cots[0].cliente) || "Cliente";
+  let msg = `🧵 *TALLER IMIS — Cotización*\n`;
+  msg += `Opciones para *${cliente}*\n`;
+  msg += `━━━━━━━━━━━━━━━━━━\n`;
+  cots.forEach((c, i) => {
+    const items = c.tallasItems || [];
+    const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+    const total = parseFloat(c.precio || 0);
+    const unit = qty > 0 ? total / qty : total;
+    msg += `\n*OPCIÓN ${i + 1}${c.tipoPrenda ? " — " + c.tipoPrenda : ""}*\n`;
+    if (c.descripcion) msg += `${c.descripcion}\n`;
+    msg += `👉 *$${unit.toFixed(2)} c/u`;
+    if (qty > 0) msg += ` · $${total.toFixed(2)} (${qty} u.)`;
+    msg += `*\n`;
+  });
+  msg += `\n━━━━━━━━━━━━━━━━━━\n`;
+  msg += `Se elige una sola opción · válida 15 días 🙌`;
+  return msg;
+}
+
+export function copiarComparativoWA(cots) {
+  copiarTexto(mensajeComparativoWA(cots));
+}
+
 // Copia texto al portapapeles con fallback para navegadores viejos / sin
 // permiso de clipboard (móvil).
 function copiarTexto(msg) {

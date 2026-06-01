@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { fmt$, itemsResumen } from "./lib/dominio.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { pushConfirm, pushToast } from "./lib/feedback.js";
-import { copiarCotizacionWA } from "./lib/whatsapp.js";
+import { copiarCotizacionWA, copiarComparativoWA } from "./lib/whatsapp.js";
 
 const diasHasta = fStr => {
   if (!fStr) return null;
@@ -23,12 +23,15 @@ export default function SeccionCotizaciones({
   onConvertirPedido,
   onEliminar,
   onImprimir,
+  onComparar,
   onEditar,
   onReabrirEstimador,
   onVerVersiones,
   onEnviarEmail,
 }) {
   const [busq, setBusq] = useState("");
+  // Selección para el comparativo de opciones (varias cotizaciones → 1 hoja).
+  const [sel, setSel] = useState(() => new Set());
   const cotizaciones = useMemo(() => {
     const q = busq.trim().toLowerCase();
     return pedidos
@@ -38,6 +41,15 @@ export default function SeccionCotizaciones({
   }, [pedidos, busq]);
 
   const totalCotizado = cotizaciones.reduce((s, c) => s + parseFloat(c.precio || 0), 0);
+
+  const toggleSel = id =>
+    setSel(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  // Cotizaciones seleccionadas, en el orden en que se ven en pantalla.
+  const seleccionadas = cotizaciones.filter(c => sel.has(c.id));
 
   return (
     <div style={{ padding: "12px 14px", maxWidth: 920, margin: "0 auto" }}>
@@ -62,6 +74,41 @@ export default function SeccionCotizaciones({
         />
       </div>
 
+      {sel.size > 0 && (
+        <div style={{
+          position: "sticky", top: 0, zIndex: 5,
+          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+          background: "#2C1654", color: "#fff",
+          borderRadius: 10, padding: "9px 12px", marginBottom: 12,
+          boxShadow: "0 2px 8px rgba(0,0,0,.15)",
+        }}>
+          <span style={{ fontWeight: 800, fontSize: 13, flex: 1, minWidth: 140 }}>
+            {sel.size} seleccionada{sel.size === 1 ? "" : "s"}
+            {sel.size < 2 && <span style={{ fontWeight: 400, opacity: .8 }}> · elegí al menos 2</span>}
+          </span>
+          <button
+            disabled={sel.size < 2}
+            onClick={() => onComparar && onComparar(seleccionadas)}
+            style={barBtn("#C9A227", sel.size < 2)}
+          >
+            📑 Comparativo PDF
+          </button>
+          <button
+            disabled={sel.size < 2}
+            onClick={() => {
+              copiarComparativoWA(seleccionadas);
+              pushToast("Comparativo copiado — pegalo en WhatsApp", "success");
+            }}
+            style={barBtn("#25D366", sel.size < 2)}
+          >
+            💬 WhatsApp
+          </button>
+          <button onClick={() => setSel(new Set())} style={barBtn("ghost")}>
+            ✕ Limpiar
+          </button>
+        </div>
+      )}
+
       {cotizaciones.length === 0 ? (
         <div style={{
           background: "#F3E5F5", borderRadius: 12, padding: 24, textAlign: "center",
@@ -79,6 +126,8 @@ export default function SeccionCotizaciones({
             <CardCotizacion
               key={c.id}
               c={c}
+              seleccionado={sel.has(c.id)}
+              onToggleSel={() => toggleSel(c.id)}
               onConvertir={() => onConvertirPedido(c)}
               onEliminar={() => onEliminar(c)}
               onImprimir={() => onImprimir(c)}
@@ -94,7 +143,7 @@ export default function SeccionCotizaciones({
   );
 }
 
-function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
+function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
@@ -113,10 +162,23 @@ function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onRe
   return (
     <div style={{
       background: "#fff", borderRadius: 12, padding: 12,
-      border: "1.5px solid " + (vencida ? "#E74C3C" : venceHoy ? "#E67E22" : "#d4b3df"),
-      boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+      border: (seleccionado ? "2px solid #2C1654" : "1.5px solid " + (vencida ? "#E74C3C" : venceHoy ? "#E67E22" : "#d4b3df")),
+      boxShadow: seleccionado ? "0 0 0 3px rgba(44,22,84,.12)" : "0 2px 6px rgba(0,0,0,0.04)",
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+        <button
+          onClick={onToggleSel}
+          title="Seleccionar para comparar opciones"
+          style={{
+            flexShrink: 0, width: 24, height: 24, marginTop: 1, borderRadius: 6,
+            border: "1.5px solid " + (seleccionado ? "#2C1654" : "#ccc"),
+            background: seleccionado ? "#2C1654" : "#fff", color: "#fff",
+            cursor: "pointer", fontSize: 13, fontWeight: 900, padding: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {seleccionado ? "✓" : ""}
+        </button>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: "#9B59B6", fontWeight: 700 }}>
@@ -202,4 +264,19 @@ const BTN = (color, ghost = false) => ({
   fontSize: 11,
   cursor: "pointer",
   fontFamily: "inherit",
+});
+
+// Botones de la barra de selección/comparativo (sobre fondo morado oscuro).
+const barBtn = (bg, disabled = false) => ({
+  padding: "7px 12px",
+  borderRadius: 7,
+  border: bg === "ghost" ? "1.5px solid rgba(255,255,255,.55)" : "none",
+  background: bg === "ghost" ? "transparent" : bg,
+  color: bg === "#C9A227" ? "#1c1c1c" : "#fff",
+  fontWeight: 800,
+  fontSize: 12,
+  cursor: disabled ? "not-allowed" : "pointer",
+  opacity: disabled ? 0.55 : 1,
+  fontFamily: "inherit",
+  whiteSpace: "nowrap",
 });

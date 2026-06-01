@@ -133,6 +133,7 @@ import {
 
 // Texto y portapapeles para WhatsApp (extraído de main.js)
 import { copiarWA } from "./lib/whatsapp.js";
+import { htmlComparativoCotizaciones } from "./lib/comparativo.js";
 
 // Cliente liviano de Supabase Storage (fetch directo, sin deps).
 import { subirFotoSupabase, subirArchivoSupabase } from "./supabaseStorage.js";
@@ -2124,6 +2125,12 @@ function App() {
           <SeccionCotizaciones
             pedidos={pedidos}
             onImprimir={(c) => imprimirCotizacion(c)}
+            onComparar={(cots) => {
+              if (!cots || cots.length < 2) return;
+              const w = nuevaVentanaImpresion();
+              w.document.write(htmlComparativoCotizaciones(cots));
+              w.document.close();
+            }}
             onEditar={(c) => setModal(c)}
             onReabrirEstimador={(c) => {
               setCotizacionEnEstimador(c);
