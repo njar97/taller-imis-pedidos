@@ -52,6 +52,7 @@ export default function SeccionCotizaciones({
   const seleccionadas = cotizaciones.filter(c => sel.has(c.id));
 
   return (
+    <div className="main-area" style={{ flex: 1, overflow: "auto" }}>
     <div style={{ padding: "12px 14px", maxWidth: 920, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
         <div style={{ flex: 1, minWidth: 200 }}>
@@ -139,6 +140,7 @@ export default function SeccionCotizaciones({
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 }
