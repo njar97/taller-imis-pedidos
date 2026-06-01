@@ -218,7 +218,8 @@ function Imagenes({ pedido, onVerFoto }) {
                 width: 80,
                 height: 80,
                 borderRadius: 8,
-                objectFit: "cover",
+                objectFit: "contain",
+                background: "#f5f5f5",
                 border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e0e0e0"),
                 cursor: "zoom-in",
               }}

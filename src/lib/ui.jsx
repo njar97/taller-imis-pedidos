@@ -271,7 +271,7 @@ export function UploaderImagenes({ imagenes, onChange }) {
                 <img
                   src={src}
                   alt={img.nombre}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", background: "#f5f5f5" }}
                 />
               ) : (
                 <div
