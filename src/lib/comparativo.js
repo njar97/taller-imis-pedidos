@@ -33,9 +33,12 @@ export function htmlComparativoCotizaciones(cots) {
     .map((c, i) => {
       const { qty, total, unit } = resumen(c);
       const tela = [c.tela, c.color].filter(Boolean).join(" · ");
+      const im = (c.imagenes || [])[0];
+      const img = im && (im.supabaseUrl || im.driveUrl || im.data);
       return `
       <div class="op">
         <div class="badge">Opción ${i + 1}</div>
+        ${img ? `<div class="foto"><img src="${esc(img)}" alt=""></div>` : ""}
         <h3>${esc(c.tipoPrenda || "Opción " + (i + 1))}</h3>
         <div class="desc">${esc(c.descripcion || "")}</div>
         ${tela ? `<span class="tag">${esc(tela)}</span>` : ""}
@@ -66,6 +69,8 @@ export function htmlComparativoCotizaciones(cots) {
   .ops{padding:14px 28px 6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
   .op{border:1.5px solid #e6e6e6;border-radius:12px;padding:16px;display:flex;flex-direction:column}
   .badge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#C9A227;margin-bottom:6px}
+  .op .foto{margin:0 0 10px;border-radius:8px;overflow:hidden;background:#f7f7f7;border:1px solid #eee}
+  .op .foto img{width:100%;height:175px;object-fit:contain;display:block}
   .op h3{font-size:15px;color:#1c1c1c;margin-bottom:8px}
   .op .desc{font-size:12px;color:#555;line-height:1.5;flex:1}
   .op .tag{display:inline-block;font-size:10.5px;font-weight:700;color:#444;background:#f3f3f3;border-radius:20px;padding:3px 9px;margin-top:10px;align-self:flex-start}
