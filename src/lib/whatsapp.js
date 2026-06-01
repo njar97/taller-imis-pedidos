@@ -188,6 +188,9 @@ export function mensajeCotizacionWA(c) {
   if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
   if (total > 0) msg += `\n💰 *Total: $${total.toFixed(2)}*`;
   msg += `\n📌 Cotización válida ${validez} días${venceStr ? ` (vence ${venceStr})` : ""}`;
+  const im = (c.imagenes || [])[0];
+  const imgUrl = im && (im.supabaseUrl || im.driveUrl);
+  if (imgUrl) msg += `\n🖼️ Diseño de referencia: ${imgUrl}`;
   msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
 }
@@ -208,11 +211,14 @@ export function mensajeComparativoWA(cots) {
     const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
     const total = parseFloat(c.precio || 0);
     const unit = qty > 0 ? total / qty : total;
+    const im = (c.imagenes || [])[0];
+    const imgUrl = im && (im.supabaseUrl || im.driveUrl);
     msg += `\n*OPCIÓN ${i + 1}${c.tipoPrenda ? " — " + c.tipoPrenda : ""}*\n`;
     if (c.descripcion) msg += `${c.descripcion}\n`;
     msg += `👉 *$${unit.toFixed(2)} c/u`;
     if (qty > 0) msg += ` · $${total.toFixed(2)} (${qty} u.)`;
     msg += `*\n`;
+    if (imgUrl) msg += `🖼️ Diseño: ${imgUrl}\n`;
   });
   msg += `\n━━━━━━━━━━━━━━━━━━\n`;
   msg += `Se elige una sola opción · válida 15 días 🙌`;
