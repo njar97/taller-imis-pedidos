@@ -2,7 +2,7 @@
 // Antes vivía como mensajeWA + copiarWA en main.js.
 // Usado por WABtn (lib/ui.jsx), CardPedido y App.
 
-import { resumenTallas, resumenAgregadoPorTipo } from "./dominio.js";
+import { resumenTallas, resumenAgregadoPorTipo, itemsResumen } from "./dominio.js";
 import { agruparPrendas } from "../ListaPrendas.jsx";
 
 // Formato de cada línea del resumen agregado (cuando es por persona o por
@@ -146,6 +146,59 @@ export function mensajeWA(p, esAdmin = false) {
 
 export function copiarWA(p, esAdmin = false) {
   const msg = mensajeWA(p, esAdmin);
+  copiarTexto(msg);
+}
+
+// Mensaje de WhatsApp para una COTIZACIÓN (esCotizacion). A diferencia de
+// mensajeWA (pedido), encabeza "Cotización", muestra precios siempre y
+// agrega la validez/vencimiento. Pensado para copiar y pegar en cualquier
+// chat o grupo.
+export function mensajeCotizacionWA(c) {
+  const num = String(c.id).padStart(4, "0");
+  const items = itemsResumen(c);
+  const total = parseFloat(c.precio || 0);
+  const totPzas = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+  const validez = c.validezDias || 15;
+  let venceStr = "";
+  if (c.fecha) {
+    const d = new Date(c.fecha + "T12:00:00");
+    d.setDate(d.getDate() + validez);
+    venceStr = d.toISOString().split("T")[0];
+  }
+  const tipoIcon =
+    c.tipoCliente === "escuela" ? "🏫" : c.tipoCliente === "empresa" ? "🏢" : "👤";
+
+  let msg = `🧵 *TALLER IMIS — Cotización N°${num}*\n`;
+  msg += `━━━━━━━━━━━━━━━━━━\n`;
+  msg += `${tipoIcon} *${c.cliente || "Cliente"}*`;
+  if (c.nombreContacto) msg += `\n   Contacto: ${c.nombreContacto}`;
+  if (c.telefono) msg += `\n   📱 ${c.telefono}`;
+  msg += `\n\n`;
+  msg += `✂️ *${c.tipoPrenda || "(sin especificar)"}*`;
+  if (c.tela || c.color) msg += `\n   ${[c.tela, c.color].filter(Boolean).join(" · ")}`;
+  msg += `\n`;
+
+  if (items.length) {
+    msg += `\n📦 *Detalle:*\n`;
+    msg += items.map(it => lineaResumen(it, true)).join("\n");
+    msg += `\n`;
+  }
+  if (c.descripcion) msg += `\n📝 ${c.descripcion}\n`;
+
+  if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
+  if (total > 0) msg += `\n💰 *Total: $${total.toFixed(2)}*`;
+  msg += `\n📌 Cotización válida ${validez} días${venceStr ? ` (vence ${venceStr})` : ""}`;
+  msg += `\n━━━━━━━━━━━━━━━━━━`;
+  return msg;
+}
+
+export function copiarCotizacionWA(c) {
+  copiarTexto(mensajeCotizacionWA(c));
+}
+
+// Copia texto al portapapeles con fallback para navegadores viejos / sin
+// permiso de clipboard (móvil).
+function copiarTexto(msg) {
   navigator.clipboard.writeText(msg).catch(() => {
     const ta = document.createElement("textarea");
     ta.value = msg;

@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { fmt$, itemsResumen } from "./lib/dominio.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { pushConfirm, pushToast } from "./lib/feedback.js";
+import { copiarCotizacionWA } from "./lib/whatsapp.js";
 
 const diasHasta = fStr => {
   if (!fStr) return null;
@@ -158,6 +159,16 @@ function CardCotizacion({ c, onConvertir, onEliminar, onImprimir, onEditar, onRe
         </button>
         <button onClick={onImprimir} style={BTN("#9B59B6")}>
           📄 Imprimir
+        </button>
+        <button
+          onClick={() => {
+            copiarCotizacionWA(c);
+            pushToast("Cotización copiada — pegala en WhatsApp", "success");
+          }}
+          style={BTN("#25D366")}
+          title="Copiar el detalle de la cotización para pegarlo en WhatsApp (chat o grupo)"
+        >
+          💬 WhatsApp
         </button>
         <button onClick={onEnviarEmail} style={BTN("#27AE60")} title="Enviar por email al cliente">
           📧 Email
