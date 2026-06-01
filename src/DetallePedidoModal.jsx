@@ -675,79 +675,62 @@ export default function DetallePedidoModal({
         style={{
           display: "flex",
           gap: 8,
-          justifyContent: "flex-end",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
           marginTop: 16,
+          paddingTop: 14,
+          borderTop: "1px solid #eee",
         }}
       >
-        {esAdmin && (
+        {/* Acciones secundarias: compartir / exportar (estilo outline para
+            que no compitan con "Editar"). */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {esAdmin && (
+            <button
+              onClick={onExportarPDF}
+              title="Imprimir o guardar como PDF"
+              style={btnExport("#1D6A3A")}
+            >
+              📄 PDF
+            </button>
+          )}
+          {pedido.fechaEntrega && (
+            <button
+              onClick={() => {
+                if (descargarICSPedido(pedido)) {
+                  pushToast("Evento .ics descargado — abre con tu calendario", "success");
+                } else {
+                  pushToast("Sin fecha de entrega", "error");
+                }
+              }}
+              title="Descargar .ics para el calendario del teléfono (alarma 1 día antes)"
+              style={btnExport("#1A5276")}
+            >
+              📅 Calendario
+            </button>
+          )}
           <button
-            onClick={onExportarPDF}
-            style={{
-              padding: "9px 12px",
-              borderRadius: 8,
-              border: "none",
-              background: "#1D6A3A",
-              color: "#fff",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: 12,
-            }}
+            onClick={onWhatsApp}
+            title="Copia el resumen del pedido para pegarlo en WhatsApp"
+            style={btnExport("#1F9D55")}
           >
-            📄 PDF
+            💬 WhatsApp
           </button>
-        )}
-        {pedido.fechaEntrega && (
-          <button
-            onClick={() => {
-              if (descargarICSPedido(pedido)) {
-                pushToast("Evento .ics descargado — abre con tu calendario", "success");
-              } else {
-                pushToast("Sin fecha de entrega", "error");
-              }
-            }}
-            title="Descargar archivo .ics para agregar al calendario del teléfono (alarma 1 día antes)"
-            style={{
-              padding: "9px 16px",
-              borderRadius: 8,
-              border: "1.5px solid #1A5276",
-              background: "#fff",
-              color: "#1A5276",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: 13,
-              fontFamily: "inherit",
-            }}
-          >
-            📅 Calendario
-          </button>
-        )}
-        <button
-          onClick={onWhatsApp}
-          title="Copia el resumen del pedido para pegarlo en WhatsApp"
-          style={{
-            padding: "9px 16px",
-            borderRadius: 8,
-            border: "none",
-            background: "#25D366",
-            color: "#fff",
-            cursor: "pointer",
-            fontWeight: 700,
-            fontSize: 13,
-          }}
-        >
-          💬 WhatsApp
-        </button>
+        </div>
+        {/* Acción principal */}
         <button
           onClick={onAbrirEdicion}
           style={{
-            padding: "10px 20px",
+            padding: "11px 24px",
             borderRadius: 8,
             border: "none",
             background: "#9B59B6",
             color: "#fff",
             cursor: "pointer",
-            fontWeight: 700,
-            fontSize: 14,
+            fontWeight: 800,
+            fontSize: 15,
+            boxShadow: "0 2px 6px rgba(155,89,182,.35)",
           }}
         >
           ✏️ Editar
@@ -764,6 +747,20 @@ const labelStyle = {
   textTransform: "uppercase",
   marginBottom: 4,
 };
+
+// Estilo de los botones secundarios (compartir/exportar) del footer del
+// detalle: outline/ghost para que no compitan visualmente con "Editar".
+const btnExport = color => ({
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: `1.5px solid ${color}`,
+  background: "#fff",
+  color,
+  cursor: "pointer",
+  fontWeight: 700,
+  fontSize: 12,
+  fontFamily: "inherit",
+});
 
 // Muestra el desglose del estimador que se usó para armar el precio.
 // Solo se renderiza si pedido.desgloseEstimador tiene contenido.

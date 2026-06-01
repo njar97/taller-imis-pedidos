@@ -322,6 +322,44 @@ async function imprimirPedido(p, esAdmin, todosPedidos = []) {
   else await imprimirProduccion(p, todosPedidos);
 }
 
+// Reemplazo de window.open para imprimir / guardar PDF. El PWA de Android
+// (y muchos navegadores móviles) bloquean o se portan raro con las ventanas
+// nuevas, así que en vez de eso montamos un IFRAME oculto y exponemos la
+// misma interfaz mínima (document.write/close) que usaba el código con
+// window.open — así cada sitio cambia solo la línea del open. Al cerrar el
+// documento dispara print() nativo, que en móvil abre el diálogo de
+// imprimir / guardar como PDF del sistema.
+function nuevaVentanaImpresion() {
+  const prev = document.getElementById("__print_frame__");
+  if (prev) prev.remove();
+  const iframe = document.createElement("iframe");
+  iframe.id = "__print_frame__";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+  document.body.appendChild(iframe);
+  const idoc = iframe.contentWindow.document;
+  return {
+    document: {
+      write: html => idoc.write(html),
+      close: () => {
+        idoc.close();
+        const imprimir = () => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (e) {
+            console.warn("print():", e);
+          }
+        };
+        // Esperar a que carguen imágenes/fuentes antes de imprimir.
+        if (idoc.readyState === "complete") setTimeout(imprimir, 300);
+        else iframe.contentWindow.onload = () => setTimeout(imprimir, 300);
+      },
+    },
+  };
+}
+
 // Cotización formal — para mandar al cliente. Formato basado en el
 // template real de UDP Confecciones IMIS (encabezado con datos
 // fiscales, tabla descripción/medida/cant/precio, IVA 13% desglosado,
@@ -359,7 +397,7 @@ async function imprimirCotizacion(p) {
   const iva = precioFinal - subtotal;
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
-  const w = window.open("", "_blank", "width=820,height=1100");
+  const w = nuevaVentanaImpresion();
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${titulo}</title>
 <style>
@@ -655,7 +693,7 @@ function imprimirRecibo(p) {
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
   const tituloRecibo = nombrePDF("Recibo", p.id, p.cliente);
-  const w = window.open("", "_blank", "width=780,height=1050");
+  const w = nuevaVentanaImpresion();
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloRecibo}</title>
   <style>
@@ -854,7 +892,7 @@ async function imprimirProduccion(p, todosPedidos = []) {
       </div>
     </div>` : "";
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
-  const w = window.open("", "_blank", "width=820,height=1100");
+  const w = nuevaVentanaImpresion();
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloProd}</title>
   <style>
@@ -1188,7 +1226,7 @@ function exportarPedidoPDF(pedido, tipo) {
   if (tipo === "confeccion") {
     imprimirRecibo(pedido, true);
   } else {
-    const w = window.open("", "_blank", "width=820,height=1100");
+    const w = nuevaVentanaImpresion();
     const pM = v => {
       const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
       return isNaN(n) ? 0 : n;
@@ -1323,6 +1361,10 @@ function App() {
   const [busqueda, setBusq] = useState("");
   const [filtro, setFiltro] = useState("Todos");
   const [sync, setSync] = useState("idle");
+  // Último pedido cuyo guardado al servidor falló (quedó solo local). Se usa
+  // para el banner de "sin sincronizar" y para reintentar el push SIN pisar
+  // el cambio local con un refresh desde el servidor.
+  const [pendienteSync, setPendienteSync] = useState(null);
   const [progreso, setProgreso] = useState(null);
   const [errorFotos, setErrorFotos] = useState([]);
   const [visor, setVisor] = useState(null); // {imgs:[], idx:0}
@@ -1717,12 +1759,30 @@ function App() {
         pushToast("Pedido guardado, pero " + erroresSubida.length + " foto" + (erroresSubida.length === 1 ? "" : "s") + " no se subieron", "error", 5000);
       } else {
         setSync("ok");
+        setPendienteSync(null);
         pushToast("Pedido " + (esNuevo ? "creado" : "actualizado") + " ✓", "success");
       }
     } catch (err) {
       setSync("error");
+      setPendienteSync(p);
       const msg = err && err.name === "AbortError" ? "Servidor no responde. El pedido quedó local — sincronizará cuando vuelva la red." : "Error al guardar. Revisá la conexión.";
       pushToast(msg, "error", 5000);
+    }
+  }
+
+  // Reintenta empujar al servidor el pedido que quedó local (sin pedir datos
+  // al servidor, para no pisar el cambio local). Usado por el banner.
+  async function reintentarSync() {
+    if (!pendienteSync) return;
+    setSync("guardando");
+    try {
+      await gsGuardar(pendienteSync);
+      setSync("ok");
+      setPendienteSync(null);
+      pushToast("Sincronizado ✓", "success");
+    } catch (err) {
+      setSync("error");
+      pushToast("Sigue sin conexión. Reintentá en un momento.", "error", 4000);
     }
   }
   function upsertClienteLocal(nombre, extra = {}) {
@@ -1945,6 +2005,46 @@ function App() {
           refrescando={refrescando}
           onAbrirEstimador={() => setModalEstimador(true)}
         />
+        {sync === "error" && pendienteSync && (
+          <div
+            style={{
+              margin: "8px 12px 0",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#FDECEA",
+              border: "1.5px solid #DC3545",
+              color: "#922B21",
+              fontSize: 13,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span style={{ fontSize: 18 }}>⚠️</span>
+            <span style={{ flex: 1, lineHeight: 1.35 }}>
+              El pedido N°{String(pendienteSync.id).padStart(4, "0")} se guardó
+              solo en este dispositivo — no llegó al servidor. Revisá tu
+              conexión.
+            </span>
+            <button
+              onClick={reintentarSync}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 7,
+                border: "none",
+                background: "#DC3545",
+                color: "#fff",
+                fontWeight: 800,
+                fontSize: 12,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              🔄 Reintentar
+            </button>
+          </div>
+        )}
         {seccion === "estadisticas" && esAdmin && (
           <SeccionEstadisticas
             pedidos={pedidos}
