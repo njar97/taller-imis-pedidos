@@ -1086,7 +1086,7 @@ function exportarExcelMes(pedidos, bordados, cuellos, periodo) {
     const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
     return isNaN(n) ? 0 : n;
   };
-  const todos = [...pedidos.map(p => ({
+  const todos = [...pedidos.filter(p => !p.esCotizacion).map(p => ({
     ID: "CONF-" + String(p.id).padStart(3, "0"),
     Módulo: "Confección",
     Cliente: p.cliente || "",

@@ -40,7 +40,9 @@ function calcular(pedidos, bordados, cuellos, periodo) {
     : pM(p.anticipo);
 
   const todos = [
-    ...pedidos.map(p => ({ ...p, modulo: "Confección", monto: pM(p.precio),    cobrado: cobradoConf(p) })),
+    // Las cotizaciones (esCotizacion) son propuestas, NO ventas — se excluyen
+    // de toda la estadística (facturado, cobrado, pendiente, pipeline).
+    ...pedidos.filter(p => !p.esCotizacion).map(p => ({ ...p, modulo: "Confección", monto: pM(p.precio),    cobrado: cobradoConf(p) })),
     ...bordados.map(b => ({ ...b, modulo: "Bordados",   monto: pM(b.precioT),  cobrado: (b.abonos || []).length > 0 ? b.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(b.anticipo) })),
     ...cuellos.map(c =>  ({ ...c, modulo: "Cuellos",    monto: pM(c.precioT),  cobrado: (c.abonos || []).length > 0 ? c.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(c.anticipo) })),
   ];
