@@ -56,7 +56,7 @@ function armarMensajeAgregado(pedidos) {
   return {
     title: vencidos.length > 0 ? "⏰ Pedidos vencidos en Taller IMIS" : "📌 Entregas próximas",
     body: partes.join(" · ") + ". Tocá para revisar.",
-    url: "/",
+    url: "/taller-imis-pedidos/",
     tag: "taller-vencimientos-" + new Date().toISOString().slice(0, 10),
   };
 }
@@ -73,7 +73,7 @@ function armarMensajeIndividual(p) {
   return {
     title: `${icono} N°${num} — ${prefijo}`,
     body: `${p.cliente || "Cliente"} · ${p.tipo_prenda || "Pedido"}`,
-    url: "/",
+    url: "/taller-imis-pedidos/",
     tag: `taller-pedido-${p.id}`, // tag único por pedido — el browser apila/reemplaza
   };
 }
