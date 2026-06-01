@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { fmt$, itemsResumen } from "./lib/dominio.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { pushConfirm, pushToast } from "./lib/feedback.js";
-import { copiarCotizacionWA, copiarComparativoWA } from "./lib/whatsapp.js";
+import { compartirCotizacion, compartirComparativo } from "./lib/whatsapp.js";
 import { imgSrc } from "./lib/imagenes.js";
 
 const diasHasta = fStr => {
@@ -97,9 +97,9 @@ export default function SeccionCotizaciones({
           </button>
           <button
             disabled={sel.size < 2}
-            onClick={() => {
-              copiarComparativoWA(seleccionadas);
-              pushToast("Comparativo copiado — pegalo en WhatsApp", "success");
+            onClick={async () => {
+              const r = await compartirComparativo(seleccionadas);
+              if (r === "copiado") pushToast("Texto copiado — adjuntá las imágenes aparte", "success");
             }}
             style={barBtn("#25D366", sel.size < 2)}
           >
@@ -241,12 +241,12 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
           📄 Imprimir
         </button>
         <button
-          onClick={() => {
-            copiarCotizacionWA(c);
-            pushToast("Cotización copiada — pegala en WhatsApp", "success");
+          onClick={async () => {
+            const r = await compartirCotizacion(c);
+            if (r === "copiado") pushToast("Texto copiado — adjuntá la imagen aparte", "success");
           }}
           style={BTN("#25D366")}
-          title="Copiar el detalle de la cotización para pegarlo en WhatsApp (chat o grupo)"
+          title="Compartir la cotización (imagen + texto) por WhatsApp"
         >
           💬 WhatsApp
         </button>

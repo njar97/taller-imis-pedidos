@@ -188,9 +188,6 @@ export function mensajeCotizacionWA(c) {
   if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
   if (total > 0) msg += `\n💰 *Total: $${total.toFixed(2)}*`;
   msg += `\n📌 Cotización válida ${validez} días${venceStr ? ` (vence ${venceStr})` : ""}`;
-  const im = (c.imagenes || [])[0];
-  const imgUrl = im && (im.supabaseUrl || im.driveUrl);
-  if (imgUrl) msg += `\n🖼️ Diseño de referencia: ${imgUrl}`;
   msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
 }
@@ -211,14 +208,11 @@ export function mensajeComparativoWA(cots) {
     const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
     const total = parseFloat(c.precio || 0);
     const unit = qty > 0 ? total / qty : total;
-    const im = (c.imagenes || [])[0];
-    const imgUrl = im && (im.supabaseUrl || im.driveUrl);
     msg += `\n*OPCIÓN ${i + 1}${c.tipoPrenda ? " — " + c.tipoPrenda : ""}*\n`;
     if (c.descripcion) msg += `${c.descripcion}\n`;
     msg += `👉 *$${unit.toFixed(2)} c/u`;
     if (qty > 0) msg += ` · $${total.toFixed(2)} (${qty} u.)`;
     msg += `*\n`;
-    if (imgUrl) msg += `🖼️ Diseño: ${imgUrl}\n`;
   });
   msg += `\n━━━━━━━━━━━━━━━━━━\n`;
   msg += `Se elige una sola opción · válida 15 días 🙌`;
@@ -227,6 +221,63 @@ export function mensajeComparativoWA(cots) {
 
 export function copiarComparativoWA(cots) {
   copiarTexto(mensajeComparativoWA(cots));
+}
+
+// URLs (Supabase/Drive) de la primera imagen de cada cotización, sin repetir.
+function urlsDeImagenes(cots) {
+  const urls = [];
+  for (const c of cots) {
+    const im = (c.imagenes || [])[0];
+    const u = im && (im.supabaseUrl || im.driveUrl);
+    if (u && !urls.includes(u)) urls.push(u);
+  }
+  return urls;
+}
+
+// Comparte texto + imágenes con la hoja de compartir nativa (Web Share API
+// nivel 2). En el celular deja elegir WhatsApp (u otra app) y manda la
+// imagen CON el texto — esto resuelve que el link no genere miniatura.
+// Si el navegador no soporta compartir archivos, comparte solo texto; y si
+// no soporta compartir, copia al portapapeles.
+// Devuelve "compartido" | "copiado" | "cancelado".
+export async function compartirTextoImagenes(texto, urls = []) {
+  try {
+    if (urls.length && typeof navigator !== "undefined" && navigator.canShare) {
+      const files = [];
+      for (const url of urls) {
+        try {
+          const r = await fetch(url);
+          if (!r.ok) continue;
+          const blob = await r.blob();
+          const nombre = (url.split("/").pop() || "imagen.jpg").split("?")[0];
+          files.push(new File([blob], nombre, { type: blob.type || "image/jpeg" }));
+        } catch {
+          /* imagen que no carga → se ignora */
+        }
+      }
+      if (files.length && navigator.canShare({ files })) {
+        await navigator.share({ files, text: texto });
+        return "compartido";
+      }
+    }
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ text: texto });
+      return "compartido";
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return "cancelado";
+    /* otro error → cae a copiar */
+  }
+  copiarTexto(texto);
+  return "copiado";
+}
+
+export function compartirCotizacion(c) {
+  return compartirTextoImagenes(mensajeCotizacionWA(c), urlsDeImagenes([c]));
+}
+
+export function compartirComparativo(cots) {
+  return compartirTextoImagenes(mensajeComparativoWA(cots), urlsDeImagenes(cots));
 }
 
 // Copia texto al portapapeles con fallback para navegadores viejos / sin
