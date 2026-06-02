@@ -180,3 +180,66 @@ export const PEDIDO_BASE = {
   //                    bordActivo, bordPunt, otros: [...] }] }
   desgloseEstimador: null,
 };
+
+// Agrupa los ítems del pedido por PRODUCTO + PRECIO UNITARIO para armar el
+// detalle de una factura: colapsa tallas y personas (lo tedioso de hacer a
+// mano). Reusa itemsResumen (que ya resuelve tallas vs personas).
+//
+// El precio del pedido se asume CON IVA incluido (estándar consumidor final
+// en El Salvador): gravado = total / 1.13, IVA = total − gravado.
+//
+// Devuelve:
+//   lineas: [{ tipo, precio, qty, subtotal }]  (subtotal null si la línea no tiene precio)
+//   totalQty, sumaLineas (null si alguna línea no tiene precio),
+//   total (precio acordado del pedido, o la suma si no hay precio),
+//   gravado, iva, descuadre (true si la suma de líneas ≠ total)
+export function detalleFactura(p) {
+  const items = itemsResumen(p);
+  const mapa = new Map();
+  for (const it of items) {
+    const tipo = ((it.tipo || "").trim()) || (p.tipoPrenda || "Producto");
+    const precio = it.precio != null && it.precio !== "" ? parseFloat(it.precio) : null;
+    const key = tipo + "|" + (precio == null ? "?" : precio.toFixed(2));
+    if (!mapa.has(key)) mapa.set(key, { tipo, precio, qty: 0 });
+    mapa.get(key).qty += parseInt(it.qty) || 0;
+  }
+  const lineas = [...mapa.values()]
+    .map(l => ({ ...l, subtotal: l.precio != null ? +(l.precio * l.qty).toFixed(2) : null }))
+    .sort((a, b) => a.tipo.localeCompare(b.tipo) || (a.precio || 0) - (b.precio || 0));
+
+  const totalQty = lineas.reduce((s, l) => s + l.qty, 0);
+  const sumaLineas = lineas.length && lineas.every(l => l.subtotal != null)
+    ? +lineas.reduce((s, l) => s + l.subtotal, 0).toFixed(2)
+    : null;
+  const total = parseFloat(p.precio || 0) || sumaLineas || 0;
+  const gravado = +(total / 1.13).toFixed(2);
+  const iva = +(total - gravado).toFixed(2);
+  const descuadre = sumaLineas != null && Math.abs(sumaLineas - total) > 0.01;
+  return { lineas, totalQty, sumaLineas, total, gravado, iva, descuadre };
+}
+
+// Texto plano del detalle de factura, listo para copiar/pegar donde se emite.
+export function textoFactura(p) {
+  const d = detalleFactura(p);
+  const L = [];
+  L.push(`Cliente: ${p.cliente || ""}`);
+  L.push(`Documento: ${p.tipoDocumento || "Consumidor Final"}`);
+  if (p.razonSocial) L.push(`Razón social: ${p.razonSocial}`);
+  if (p.nit) L.push(`NIT: ${p.nit}`);
+  if (p.nrc) L.push(`NRC: ${p.nrc}`);
+  if (p.dirFiscal) L.push(`Dirección: ${p.dirFiscal}`);
+  L.push("");
+  L.push("CANT  DESCRIPCIÓN                 P.UNIT      TOTAL");
+  for (const l of d.lineas) {
+    const cant = String(l.qty).padStart(4);
+    const desc = (l.tipo || "").slice(0, 26).padEnd(26);
+    const pu = l.precio != null ? fmt$(l.precio).padStart(8) : "   —    ";
+    const tot = l.subtotal != null ? fmt$(l.subtotal).padStart(10) : "     —    ";
+    L.push(`${cant}  ${desc}  ${pu}  ${tot}`);
+  }
+  L.push("");
+  L.push(`TOTAL: ${fmt$(d.total)} (IVA incluido)`);
+  L.push(`  Gravado: ${fmt$(d.gravado)}`);
+  L.push(`  IVA 13%: ${fmt$(d.iva)}`);
+  return L.join("\n");
+}

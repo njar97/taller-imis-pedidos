@@ -9,7 +9,7 @@
 
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { imgSrc } from "./lib/imagenes.js";
@@ -140,6 +140,122 @@ function sumarAbonos(p) {
   return (p.abonos || []).length > 0
     ? p.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0)
     : parseFloat(p.anticipo || 0);
+}
+
+// Bloque colapsado "Detalle para factura" (solo admin). Agrupa los ítems por
+// producto + precio y los deja listos para copiar/pegar al emitir la factura,
+// hasta que se conecte Tlacuilo. Discreto a propósito: es un <details> que
+// solo se expande al tocarlo, para no sumar ruido a la vista del pedido.
+function DetalleFactura({ pedido }) {
+  const d = detalleFactura(pedido);
+  if (!d.lineas.length && !parseFloat(pedido.precio || 0)) return null;
+
+  const copiar = async () => {
+    const txt = textoFactura(pedido);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(txt);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = txt;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      pushToast("Detalle de factura copiado ✓", "success");
+    } catch {
+      pushToast("No pude copiar — mantené presionado para seleccionar", "error");
+    }
+  };
+
+  const th = { padding: "2px 4px", fontWeight: 700, color: "#aaa" };
+  const td = { padding: "4px" };
+  const fila = { display: "flex", justifyContent: "space-between" };
+
+  return (
+    <details style={{ marginTop: 6, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
+      <summary
+        style={{
+          fontSize: 12,
+          color: "#9a8",
+          fontWeight: 700,
+          cursor: "pointer",
+          userSelect: "none",
+        }}
+      >
+        🧾 Detalle para factura
+      </summary>
+      <div
+        style={{
+          marginTop: 8,
+          background: "#fafafa",
+          border: "1px solid #eee",
+          borderRadius: 8,
+          padding: 10,
+        }}
+      >
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ textAlign: "left" }}>
+              <th style={th}>Cant</th>
+              <th style={th}>Descripción</th>
+              <th style={{ ...th, textAlign: "right" }}>P.Unit</th>
+              <th style={{ ...th, textAlign: "right" }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.lineas.map((l, i) => (
+              <tr key={i} style={{ borderTop: "1px solid #f0f0f0" }}>
+                <td style={{ ...td, fontWeight: 700 }}>{l.qty}</td>
+                <td style={td}>{l.tipo}</td>
+                <td style={{ ...td, textAlign: "right" }}>{l.precio != null ? fmt$(l.precio) : "—"}</td>
+                <td style={{ ...td, textAlign: "right" }}>{l.subtotal != null ? fmt$(l.subtotal) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div
+          style={{
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: "1px solid #e8e8e8",
+            fontSize: 12,
+            color: "#333",
+          }}
+        >
+          <div style={fila}><span style={{ color: "#888" }}>Gravado</span><span>{fmt$(d.gravado)}</span></div>
+          <div style={fila}><span style={{ color: "#888" }}>IVA 13%</span><span>{fmt$(d.iva)}</span></div>
+          <div style={{ ...fila, fontWeight: 800 }}><span>Total (IVA incl.)</span><span>{fmt$(d.total)}</span></div>
+        </div>
+        {d.descuadre && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "#b8860b" }}>
+            ⚠ La suma de líneas ({fmt$(d.sumaLineas)}) no coincide con el precio del pedido ({fmt$(d.total)}).
+          </div>
+        )}
+        <button
+          onClick={copiar}
+          style={{
+            marginTop: 10,
+            width: "100%",
+            padding: "8px 10px",
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            background: "#fff",
+            color: "#444",
+            fontWeight: 700,
+            fontSize: 12,
+            cursor: "pointer",
+          }}
+        >
+          📋 Copiar detalle
+        </button>
+      </div>
+    </details>
+  );
 }
 
 function Abonos({ abonos }) {
@@ -625,6 +741,7 @@ export default function DetallePedidoModal({
         onCambiarCosturera={onCambiarCosturera}
       />
       <InfoTabla pedido={pedido} esAdmin={esAdmin} />
+      {esAdmin && <DetalleFactura pedido={pedido} />}
       <Abonos abonos={pedido.abonos} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
       <Personas personas={pedido.personas} />
