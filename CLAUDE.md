@@ -2,7 +2,7 @@
 
 App de gestión de pedidos para un taller de bordados y confección en El Salvador.
 
-Producción: https://imeltex.com.sv
+Producción: https://pedidos.imeltex.com.sv
 
 ## Arquitectura real
 

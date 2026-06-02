@@ -48,7 +48,7 @@ export function pedidoToICS(p) {
     p.estatus && `Estatus: ${p.estatus}`,
     p.notas && `Notas: ${p.notas}`,
   ].filter(Boolean).join("\\n");
-  const uid = `taller-imis-pedido-${p.id}@imeltex.com.sv`;
+  const uid = `taller-imis-pedido-${p.id}@pedidos.imeltex.com.sv`;
 
   return [
     "BEGIN:VCALENDAR",
