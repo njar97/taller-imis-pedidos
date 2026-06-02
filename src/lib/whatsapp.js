@@ -200,19 +200,30 @@ export function copiarCotizacionWA(c) {
 // mensaje, sin sumar los montos. Para mandarle al cliente las alternativas.
 export function mensajeComparativoWA(cots) {
   const cliente = (cots[0] && cots[0].cliente) || "Cliente";
+  // "Producto — Diferencia": el producto va una vez arriba; por opción solo
+  // la diferencia + el precio (resumido, para no aburrir al comprador).
+  const partir = t => {
+    const s = String(t || "");
+    const i = s.indexOf("—");
+    return i === -1
+      ? { comun: s.trim(), etiqueta: "" }
+      : { comun: s.slice(0, i).trim(), etiqueta: s.slice(i + 1).trim() };
+  };
+  const comun = partir(cots[0] && cots[0].tipoPrenda).comun || "Cotización";
+  const qty0 = ((cots[0] && cots[0].tallasItems) || []).reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+
   let msg = `🧵 *TALLER IMIS — Cotización*\n`;
-  msg += `Opciones para *${cliente}*\n`;
+  msg += `*${comun}*\n`;
+  msg += `Para ${cliente}${qty0 > 0 ? ` · ${qty0} u.` : ""}\n`;
   msg += `━━━━━━━━━━━━━━━━━━\n`;
   cots.forEach((c, i) => {
     const items = c.tallasItems || [];
     const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
     const total = parseFloat(c.precio || 0);
     const unit = qty > 0 ? total / qty : total;
-    msg += `\n*OPCIÓN ${i + 1}${c.tipoPrenda ? " — " + c.tipoPrenda : ""}*\n`;
-    if (c.descripcion) msg += `${c.descripcion}\n`;
-    msg += `👉 *$${unit.toFixed(2)} c/u`;
-    if (qty > 0) msg += ` · $${total.toFixed(2)} (${qty} u.)`;
-    msg += `*\n`;
+    const etiqueta = partir(c.tipoPrenda).etiqueta || "Opción " + (i + 1);
+    msg += `\n*Opción ${i + 1} — ${etiqueta}*\n`;
+    msg += `   *$${unit.toFixed(2)} c/u${qty > 0 ? ` · $${total.toFixed(2)} (${qty} u.)` : ""}*\n`;
   });
   msg += `\n━━━━━━━━━━━━━━━━━━\n`;
   msg += `Se elige una sola opción · válida 15 días 🙌`;

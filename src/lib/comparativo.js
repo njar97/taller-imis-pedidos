@@ -25,23 +25,34 @@ function resumen(c) {
 
 const money = n => "$" + n.toFixed(2).replace(/\.00$/, "");
 
+// Separa "Producto — Diferencia" en { comun, etiqueta }. Si no hay "—",
+// todo va a comun y etiqueta queda vacío. Sirve para mostrar el producto
+// común una sola vez y por opción solo lo que cambia.
+function partirTipo(tipo) {
+  const s = String(tipo || "");
+  const i = s.indexOf("—");
+  if (i === -1) return { comun: s.trim(), etiqueta: "" };
+  return { comun: s.slice(0, i).trim(), etiqueta: s.slice(i + 1).trim() };
+}
+
 export function htmlComparativoCotizaciones(cots) {
   const cliente = (cots[0] && cots[0].cliente) || "Cliente";
   const fecha = new Date().toLocaleDateString("es-SV");
+  // Producto común (antes del "—") y cantidad — se muestran 1 sola vez.
+  const comun = partirTipo(cots[0] && cots[0].tipoPrenda).comun || "Cotización";
+  const qtyComun = resumen(cots[0] || {}).qty;
 
   const cards = cots
     .map((c, i) => {
       const { qty, total, unit } = resumen(c);
-      const tela = [c.tela, c.color].filter(Boolean).join(" · ");
+      const etiqueta = partirTipo(c.tipoPrenda).etiqueta || "Opción " + (i + 1);
       const im = (c.imagenes || [])[0];
       const img = im && (im.supabaseUrl || im.driveUrl || im.data);
       return `
       <div class="op">
         <div class="badge">Opción ${i + 1}</div>
         ${img ? `<div class="foto"><img src="${esc(img)}" alt=""></div>` : ""}
-        <h3>${esc(c.tipoPrenda || "Opción " + (i + 1))}</h3>
-        <div class="desc">${esc(c.descripcion || "")}</div>
-        ${tela ? `<span class="tag">${esc(tela)}</span>` : ""}
+        <h3>${esc(etiqueta)}</h3>
         <div class="precio">
           <div class="cu">${money(unit)} <span>c/u</span></div>
           ${qty > 0 ? `<div class="tot">${money(total)} · ${qty} u.</div>` : ""}
@@ -89,8 +100,8 @@ export function htmlComparativoCotizaciones(cots) {
       <div class="meta">Cotización<br><b style="color:#fff">${cots.length} opciones</b><br>${fecha} · válida 15 días</div>
     </div>
     <div class="sub">
-      <h1>Opciones para <span class="gold">${esc(cliente)}</span></h1>
-      <p>Elegí la opción que más te convenga.</p>
+      <h1><span class="gold">${esc(comun)}</span></h1>
+      <p>Para ${esc(cliente)}${qtyComun > 0 ? ` · ${qtyComun} unidades` : ""} · elegí una opción</p>
     </div>
     <div class="ops">${cards}</div>
     <div class="pie">Los precios son por unidad. <b>Se elige una sola opción</b> — los montos no se suman. Precios sujetos a confirmación de tallas.</div>
