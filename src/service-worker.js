@@ -52,7 +52,7 @@ self.addEventListener("message", event => {
 // con shape { title, body, url?, tag? }. Si no hay payload (push test
 // vacío), mostramos un mensaje genérico.
 self.addEventListener("push", event => {
-  let data = { title: "Taller IMIS", body: "Nueva notificación", url: "/taller-imis-pedidos/" };
+  let data = { title: "Taller IMIS", body: "Nueva notificación", url: "/" };
   if (event.data) {
     try {
       const json = event.data.json();
@@ -63,10 +63,10 @@ self.addEventListener("push", event => {
   }
   const options = {
     body: data.body,
-    icon: "/taller-imis-pedidos/pwa-icon.svg",
-    badge: "/taller-imis-pedidos/pwa-icon.svg",
+    icon: "/pwa-icon.svg",
+    badge: "/pwa-icon.svg",
     tag: data.tag || "taller-default",
-    data: { url: data.url || "/taller-imis-pedidos/" },
+    data: { url: data.url || "/" },
     requireInteraction: false,
   };
   event.waitUntil(self.registration.showNotification(data.title, options));
@@ -76,11 +76,11 @@ self.addEventListener("push", event => {
 // Si no hay ninguna, abre una nueva en la URL del data.
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  const targetURL = (event.notification.data && event.notification.data.url) || "/taller-imis-pedidos/";
+  const targetURL = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
       for (const c of clients) {
-        if (c.url.includes("/taller-imis-pedidos/") && "focus" in c) return c.focus();
+        if (c.url.startsWith(self.registration.scope) && "focus" in c) return c.focus();
       }
       if (self.clients.openWindow) return self.clients.openWindow(targetURL);
     })

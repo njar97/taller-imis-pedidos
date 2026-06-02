@@ -15,9 +15,9 @@ const APP_VERSION = (() => {
   }
 })();
 
-// Deploy a GitHub Pages bajo el path /taller-imis-pedidos/
+// Deploy a GitHub Pages con dominio propio imeltex.com.sv (raíz).
 export default defineConfig({
-  base: '/taller-imis-pedidos/',
+  base: '/',
   define: {
     __APP_VERSION__: JSON.stringify(APP_VERSION),
   },
@@ -56,8 +56,8 @@ export default defineConfig({
         background_color: '#F7F4FA',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/taller-imis-pedidos/',
-        scope: '/taller-imis-pedidos/',
+        start_url: '/',
+        scope: '/',
         lang: 'es-SV',
         icons: [
           {
