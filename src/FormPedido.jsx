@@ -230,6 +230,21 @@ export default function FormPedido({
         _medCliente: sg.medidas,
       }));
     }
+    // Avisa si el cliente tiene pedidos activos sin entregar
+    const ACTIVOS = ["Tomado", "Corte", "Confección", "Terminado"];
+    const pendientes = (pedidosExistentes || []).filter(
+      p => p.cliente?.trim().toLowerCase() === sg.nombre.trim().toLowerCase()
+        && ACTIVOS.includes(p.estatus)
+        && (!initial || p.id !== initial.id)
+    );
+    if (pendientes.length > 0) {
+      const tipos = [...new Set(pendientes.map(p => p.tipoPrenda).filter(Boolean))];
+      pushToast(
+        `⚠️ ${sg.nombre} tiene ${pendientes.length} pedido${pendientes.length > 1 ? "s" : ""} activo${pendientes.length > 1 ? "s" : ""}${tipos.length ? ` (${tipos.slice(0,2).join(", ")})` : ""}`,
+        "warn",
+        5000
+      );
+    }
     setShowSugs(false);
   };
 
@@ -427,7 +442,14 @@ export default function FormPedido({
 
   return (
     <div>
-      <FormNav erroresIds={erroresIds} />
+      <FormNav
+        erroresIds={erroresIds}
+        completado={{
+          "sec-cliente":  validez.cliente,
+          "sec-producto": validez.tipoPrenda && validez.cantidad,
+          "sec-fecha":    validez.fechaEntrega,
+        }}
+      />
       {/* ── Cliente ─────────────────────────────────── */}
       <SeccionOpcional id="sec-cliente" titulo="Cliente" icon="👤" color="#2C1654" defaultOpen={llenoCliente} textoCerrado={validez.cliente ? "▼" : "▼ Llenar"}>
       <div style={{ position: "relative", marginBottom: 10 }}>
