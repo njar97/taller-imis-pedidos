@@ -162,6 +162,12 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 - 22 archivos JSX convertidos: `const { useState } = React;` → `import { useState } from "react";`.
 - Bundle total cold-load similar (~120 KB gzip vs ~116 KB antes con React CDN). Ganamos versión pinned, resiliencia y upgrade vía `npm`.
 
+**4 jun 2026 — Hooks de carga e imprimir.js (claude/video-review-FAsOo)**
+- `src/lib/useCargarDatos.js` — hook que encapsula el useEffect de carga inicial (Promise.all con gsLeer/gsBordLeer/gsCuelLeer/gsClientesLeer/gsCatalogoLeer, normFecha, parseCampo, merge IDB, fallback clientes). `main.jsx`: 1472 → 1353 líneas (-119).
+- `src/lib/useRealtime.js` — hook de suscripción WebSocket a Postgres. Extracción anterior en la misma sesión.
+- `src/lib/imprimir.js` — 8 funciones de impresión/export extraídas de main.jsx (tablaPorPersonaHTML, imprimirPedido, nuevaVentanaImpresion, imprimirCotizacion, imprimirRecibo, imprimirProduccion, exportarExcelMes, exportarPedidoPDF). ~800 líneas movidas.
+- main.jsx acumulado: 2545 → 1353 líneas (-47% en la sesión).
+
 **4 jun 2026 — Tests y JSDoc (claude/video-review-FAsOo)**
 - `src/lib/feedback.test.js` — 16 tests para el bus de toasts y confirm (el nodo más conectado del grafo, 41 edges, antes sin cobertura). Cubre pushToast, pushUndo (idempotencia, expiración, undo que lanza), pushConfirm (Promise, resolve, clear).
 - `src/lib/whatsapp.test.js` — 35 tests para mensajeWA (padding, íconos, días/venció, admin/no-admin, privacidad de notas internas), mensajeCotizacionWA (vencimiento), mensajeComparativoWA (opciones, precio/unidad), compartirTextoImagenes (share/clipboard/AbortError).
