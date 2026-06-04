@@ -4,3 +4,7 @@ dist
 *.log
 .tmp
 .claude/settings.local.json
+# Skills instaladas con npx skills add (herramienta de desarrollo, no código del proyecto)
+.agents/
+.claude/skills/
+skills-lock.json
