@@ -3,6 +3,19 @@
 // Los componentes React Toaster y ConfirmDialog viven en main.js y se
 // suscriben con _subscribeToasts / _subscribeConfirm.
 
+/**
+ * @typedef {'info'|'success'|'error'|'warn'} ToastKind
+ */
+
+/**
+ * @typedef {Object} ConfirmOpts
+ * @property {string} titulo
+ * @property {string} [mensaje]
+ * @property {string} [okLabel]
+ * @property {string} [cancelLabel]
+ * @property {'danger'|'warn'|'info'} [kind]
+ */
+
 function buzz(pattern = 15) {
   try {
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(pattern);
@@ -13,6 +26,12 @@ function buzz(pattern = 15) {
 
 const _toastBus = { items: [], listeners: new Set() };
 
+/**
+ * Muestra un toast temporal en la app.
+ * @param {string} msg - Texto del toast.
+ * @param {ToastKind} [kind='info'] - Variante visual.
+ * @param {number} [duracion=3500] - Duración en ms.
+ */
 export function pushToast(msg, kind = "info", duracion = 3500) {
   if (kind === "success") buzz(15);
   if (kind === "error") buzz([20, 60, 20]);
@@ -25,10 +44,15 @@ export function pushToast(msg, kind = "info", duracion = 3500) {
   }, duracion);
 }
 
-// Toast con acción "Deshacer". onUndo se invoca si el user toca el botón
-// antes de que expire el toast (duración por defecto 6s — más largo que
-// un toast normal porque pedir undo lleva tiempo de leer + decidir).
-// Devuelve el id por si necesitás cerrarlo manualmente.
+/**
+ * Muestra un toast con botón "Deshacer". La acción sólo puede ejecutarse
+ * una vez (guard interno `yaUsado`). Más largo que un toast normal porque
+ * leer + decidir lleva tiempo.
+ * @param {string} msg
+ * @param {() => void} onUndo - Callback al presionar "Deshacer".
+ * @param {number} [duracion=6000]
+ * @returns {number} id del toast (para cerrarlo manualmente si hace falta).
+ */
 export function pushUndo(msg, onUndo, duracion = 6000) {
   buzz(15);
   const id = Date.now() + Math.random();
@@ -65,6 +89,12 @@ export function _getToasts() {
 
 const _confirmBus = { current: null, listeners: new Set() };
 
+/**
+ * Abre el diálogo de confirmación global y devuelve una Promise que
+ * resuelve `true` (confirmó) o `false` (canceló).
+ * @param {ConfirmOpts} opts
+ * @returns {Promise<boolean>}
+ */
 export function pushConfirm(opts) {
   return new Promise(resolve => {
     _confirmBus.current = { ...opts, resolve };
