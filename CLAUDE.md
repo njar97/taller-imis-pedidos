@@ -162,6 +162,13 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 - 22 archivos JSX convertidos: `const { useState } = React;` → `import { useState } from "react";`.
 - Bundle total cold-load similar (~120 KB gzip vs ~116 KB antes con React CDN). Ganamos versión pinned, resiliencia y upgrade vía `npm`.
 
+**4 jun 2026 — Tests y JSDoc (claude/video-review-FAsOo)**
+- `src/lib/feedback.test.js` — 16 tests para el bus de toasts y confirm (el nodo más conectado del grafo, 41 edges, antes sin cobertura). Cubre pushToast, pushUndo (idempotencia, expiración, undo que lanza), pushConfirm (Promise, resolve, clear).
+- `src/lib/whatsapp.test.js` — 35 tests para mensajeWA (padding, íconos, días/venció, admin/no-admin, privacidad de notas internas), mensajeCotizacionWA (vencimiento), mensajeComparativoWA (opciones, precio/unidad), compartirTextoImagenes (share/clipboard/AbortError).
+- `src/lib/dominio.js` — JSDoc para `fmt$`: `"$" + parseFloat(n || 0).toFixed(2)`.
+- Fix `src/lib/dominio.test.js` — `PEDIDO_BASE.estatus` corregido de "Tomado" → "Corte".
+- Total suite: 90/90 tests pasando.
+
 **17 may 2026 — Decompile total del cuerpo del App (PRs #38-48)**
 - #38: `BottomNav` + `lib/navItems.js` (NAV compartido entre sidebar / bottom / sheet).
 - #39: `MasOpenSheet` (bottom-sheet "Más" con items que no caben en la barra).

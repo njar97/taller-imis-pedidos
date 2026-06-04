@@ -4,6 +4,7 @@ import { MEDIDAS_DEF } from "./constants.js";
 
 export const medInit = () => Object.fromEntries(MEDIDAS_DEF.map(m => [m.k, ""]));
 export const hoy = () => new Date().toISOString().split("T")[0];
+/** Formatea un número como precio en dólares: `fmt$(4.5)` → `"$4.50"`. Trata null/undefined como 0. */
 export const fmt$ = n => "$" + parseFloat(n || 0).toFixed(2);
 
 // Suma real de abonos. Si el pedido tiene abonos[], usa eso (fuente de
