@@ -71,8 +71,14 @@ Cuando tengas suficiente info (mínimo cliente + prenda), pregunta "¿Listo para
 
 Cuando generes el JSON, responde ÚNICAMENTE con esto, sin texto antes ni después:
 <PEDIDO_JSON>
-{"cliente":"...","telefono":"...","tipoPrenda":"...","tela":"...","color":"...","tallasLibre":"...","modoTallas":"libre","modoPrenda":"medida","descripcion":"...","tieneBordado":false,"fechaEntrega":"...","costurera":"...","precio":"...","anticipo":"...","estatus":"Corte","notas":""}
-</PEDIDO_JSON>`;
+{"cliente":"...","telefono":"...","tipoPrenda":"...","tela":"...","color":"...","tallasItems":[{"tipo":"...","talla":"...","qty":1}],"modoRegistro":"tallas","descripcion":"...","tieneBordado":false,"fechaEntrega":"...","costurera":"...","precio":"...","anticipo":"...","estatus":"Corte","notas":""}
+</PEDIDO_JSON>
+
+Reglas del JSON:
+- tallasItems: array con un objeto por talla. Ej: [{"tipo":"Camisa","talla":"M","qty":2},{"tipo":"Camisa","talla":"L","qty":1}]
+- Si no sabe la talla específica: [{"tipo":tipoPrenda,"talla":"Única","qty":1}]
+- Si el admin dio precio por unidad, incluir "precio":X.XX en cada item
+- tipoPrenda y tipo dentro de tallasItems deben ser iguales`;
 
   const [apiKey, setApiKey] = useState(
     () => ANTHROPIC_KEY || localStorage.getItem("taller_ia_key") || ""
@@ -241,7 +247,7 @@ Cuando generes el JSON, responde ÚNICAMENTE con esto, sin texto antes ni despu�
     ["📱 Teléfono", pedidoFinal?.telefono],
     ["✂️ Prenda", pedidoFinal?.tipoPrenda],
     ["🧵 Tela/Color", pedidoFinal ? [pedidoFinal.tela, pedidoFinal.color].filter(Boolean).join(" · ") : ""],
-    ["📦 Tallas", pedidoFinal?.tallasLibre],
+    ["📦 Tallas", (pedidoFinal?.tallasItems || []).map(it => `${it.qty}×${it.talla}`).join(", ") || pedidoFinal?.tallasLibre],
     ["📝 Descripción", pedidoFinal?.descripcion],
     ["🪡 Bordado", pedidoFinal?.tieneBordado ? "Sí" : "No"],
     ["📌 Entrega", pedidoFinal?.fechaEntrega],

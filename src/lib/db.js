@@ -163,8 +163,9 @@ export const dbRestaurar   = id => restaurarPorId("taller_pedidos", id);
 export const dbPurgar      = id => purgarPorId("taller_pedidos", id);
 
 function limpiarPedido(p) {
+  const { _medCliente, ...rest } = p;
   return {
-    ...p,
+    ...rest,
     imagenes: (p.imagenes || []).map(img => ({
       nombre: img.nombre,
       tipo: img.tipo,
