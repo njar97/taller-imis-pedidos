@@ -185,8 +185,14 @@ export function mensajeCotizacionWA(c) {
   }
   if (c.descripcion) msg += `\n📝 ${c.descripcion}\n`;
 
-  if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
-  if (total > 0) msg += `\n💰 *Total: $${total.toFixed(2)}*`;
+  if (total > 0 && totPzas > 0) {
+    const precioUnit = total / totPzas;
+    msg += `\n💵 *$${precioUnit.toFixed(2)}/unidad · ${totPzas} pieza${totPzas === 1 ? "" : "s"}*`;
+    msg += `\n💰 *Total: $${total.toFixed(2)}*`;
+  } else {
+    if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
+    if (total > 0) msg += `\n💰 *Total: $${total.toFixed(2)}*`;
+  }
   msg += `\n📌 Cotización válida ${validez} días${venceStr ? ` (vence ${venceStr})` : ""}`;
   msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
