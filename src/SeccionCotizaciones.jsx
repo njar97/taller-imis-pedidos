@@ -150,6 +150,7 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
+  const [menuAbierto, setMenuAbierto] = useState(false);
   // Fecha de vencimiento de la cotización = fecha de creación + N días.
   const vence = (() => {
     if (!c.fecha) return null;
@@ -161,7 +162,6 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
   const venceHoy = dias !== null && dias === 0;
   const vencida = dias !== null && dias < 0;
   const telWA = c.telefono ? `https://wa.me/${c.telefono.replace(/[^0-9]/g, "")}` : null;
-  // Mockup / imagen de referencia (si la cotización tiene imágenes).
   const imgRef = (c.imagenes || []).find(i => imgSrc(i));
   const thumb = imgRef && imgSrc(imgRef);
 
@@ -187,25 +187,15 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         </button>
         {thumb && (
           <a href={thumb} target="_blank" rel="noopener" title="Ver imagen de referencia" style={{ flexShrink: 0 }}>
-            <img
-              src={thumb}
-              alt="Diseño"
-              style={{
-                width: 56, height: 56, borderRadius: 8, objectFit: "contain",
-                background: "#f5f5f5", border: "1px solid #e6e6e6", display: "block",
-              }}
-            />
+            <img src={thumb} alt="Diseño" style={{ width: 56, height: 56, borderRadius: 8, objectFit: "contain", background: "#f5f5f5", border: "1px solid #e6e6e6", display: "block" }} />
           </a>
         )}
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, color: "#9B59B6", fontWeight: 700 }}>
-              COT-{String(c.id).padStart(4, "0")}
-            </span>
+            <span style={{ fontSize: 11, color: "#9B59B6", fontWeight: 700 }}>COT-{String(c.id).padStart(4, "0")}</span>
             <strong style={{ fontSize: 14, color: "#2C1654" }}>{c.cliente || "(sin cliente)"}</strong>
             {telWA && (
-              <a href={telWA} target="_blank" rel="noopener" title="WhatsApp"
-                style={{ fontSize: 11, color: "#25D366", textDecoration: "none", fontWeight: 700 }}>
+              <a href={telWA} target="_blank" rel="noopener" title="WhatsApp" style={{ fontSize: 11, color: "#25D366", textDecoration: "none", fontWeight: 700 }}>
                 💬 {c.telefono}
               </a>
             )}
@@ -233,42 +223,76 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button onClick={onConvertir} style={BTN("#27AE60")}>
-          ✅ Convertir a pedido
-        </button>
-        <button onClick={onImprimir} style={BTN("#9B59B6")}>
-          📄 Imprimir
-        </button>
-        <button
-          onClick={async () => {
-            const r = await compartirCotizacion(c);
-            if (r === "copiado") pushToast("Texto copiado — adjuntá la imagen aparte", "success");
-          }}
-          style={BTN("#25D366")}
-          title="Compartir la cotización (imagen + texto) por WhatsApp"
-        >
+      {/* Acción principal */}
+      <button onClick={onConvertir} className="btn-action" style={{
+        width: "100%", padding: "10px", borderRadius: 8, border: "none",
+        background: "#27AE60", color: "#fff", fontWeight: 700, fontSize: 13,
+        cursor: "pointer", fontFamily: "inherit", marginBottom: 6,
+      }}>
+        ✅ Convertir a pedido
+      </button>
+
+      {/* Acciones secundarias: compartir + overflow */}
+      <div style={{ display: "flex", gap: 6, position: "relative" }}>
+        <button className="btn-action" onClick={async () => {
+          const r = await compartirCotizacion(c);
+          if (r === "copiado") pushToast("Texto copiado — adjuntá la imagen aparte", "success");
+        }} style={BTN("#25D366")} title="Compartir por WhatsApp">
           💬 WhatsApp
         </button>
-        <button onClick={onEnviarEmail} style={BTN("#27AE60")} title="Enviar por email al cliente">
+        <button className="btn-action" onClick={onEnviarEmail} style={BTN("#1A5276")} title="Enviar por email">
           📧 Email
         </button>
-        {tieneDesglose && (
-          <button onClick={onReabrirEstimador} style={BTN("#E67E22")} title="Abrir esta cotización en el estimador para ajustar precios">
-            🔍 Estimador
+        <button className="btn-action" onClick={onImprimir} style={BTN("#9B59B6")} title="Imprimir PDF">
+          📄 PDF
+        </button>
+        {/* Menú de acciones secundarias */}
+        <div style={{ marginLeft: "auto", position: "relative" }}>
+          <button
+            className="btn-action"
+            onClick={() => setMenuAbierto(v => !v)}
+            style={{ ...BTN("#888", true), padding: "6px 10px", fontWeight: 900, fontSize: 15 }}
+            title="Más acciones"
+          >
+            ⋮
           </button>
-        )}
-        <button onClick={onEditar} style={BTN("#1A5276")}>
-          ✏️ Editar
-        </button>
-        <button onClick={onVerVersiones} style={BTN("#888", true)} title="Ver versiones anteriores de esta cotización">
-          🕗 Versiones
-        </button>
-        <button onClick={onEliminar} style={BTN("#E74C3C", true)}>
-          🗑️
-        </button>
+          {menuAbierto && (
+            <div
+              onClick={() => setMenuAbierto(false)}
+              style={{
+                position: "absolute", bottom: "calc(100% + 6px)", right: 0,
+                background: "#fff", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                border: "1.5px solid #e8e0f0", zIndex: 50, minWidth: 160, overflow: "hidden",
+              }}
+            >
+              <MenuItem icon="✏️" label="Editar" onClick={onEditar} />
+              {tieneDesglose && <MenuItem icon="🔍" label="Estimador" onClick={onReabrirEstimador} color="#E67E22" />}
+              <MenuItem icon="🕗" label="Versiones" onClick={onVerVersiones} color="#888" />
+              <div style={{ height: 1, background: "#f0e8f8", margin: "2px 0" }} />
+              <MenuItem icon="🗑️" label="Eliminar" onClick={onEliminar} color="#E74C3C" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function MenuItem({ icon, label, onClick, color = "#333" }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%",
+        padding: "10px 14px", border: "none", background: "transparent",
+        color, fontSize: 13, fontWeight: 600, cursor: "pointer",
+        fontFamily: "inherit", textAlign: "left",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "#f8f4fc"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    >
+      <span>{icon}</span><span>{label}</span>
+    </button>
   );
 }
 
