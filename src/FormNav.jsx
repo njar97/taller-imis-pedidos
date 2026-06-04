@@ -21,7 +21,11 @@ export const SECCIONES_FORM = [
   { id: "sec-formales",  icon: "📋", label: "Cotización",color: "#9B59B6", opcional: true },
 ];
 
-export default function FormNav({ erroresIds = [] }) {
+// completado: { "sec-cliente": true, "sec-producto": false, ... }
+// Solo aplica a secciones requeridas — las opcionales no muestran ✓.
+const REQUERIDAS = new Set(["sec-cliente", "sec-producto", "sec-fecha"]);
+
+export default function FormNav({ erroresIds = [], completado = {} }) {
   const [activeId, setActiveId] = useState(SECCIONES_FORM[0].id);
   const barRef = useRef(null);
 
@@ -81,6 +85,10 @@ export default function FormNav({ erroresIds = [] }) {
         {SECCIONES_FORM.map(s => {
           const active = s.id === activeId;
           const error = erroresIds.includes(s.id);
+          const done = REQUERIDAS.has(s.id) && completado[s.id] && !error;
+          const borderColor = error ? "#E74C3C" : done ? "#27AE60" : active ? s.color : "#e0e0e0";
+          const bg = error ? "#FDECEA" : done && !active ? "#F0FFF4" : active ? s.color : "#fff";
+          const fg = active ? "#fff" : error ? "#E74C3C" : done ? "#27AE60" : "#666";
           return (
             <button
               key={s.id}
@@ -92,20 +100,22 @@ export default function FormNav({ erroresIds = [] }) {
                 gap: 4,
                 padding: "6px 12px",
                 marginRight: 6,
-                border: "1.5px solid " + (error ? "#E74C3C" : active ? s.color : "#e0e0e0"),
+                border: "1.5px solid " + borderColor,
                 borderRadius: 999,
-                background: error ? "#FDECEA" : active ? s.color : "#fff",
-                color: active ? "#fff" : error ? "#E74C3C" : "#666",
+                background: bg,
+                color: fg,
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 fontFamily: "inherit",
+                transition: "border-color .2s, background .2s, color .2s",
               }}
             >
               <span style={{ fontSize: 13 }}>{s.icon}</span>
               <span>{s.label}</span>
               {error && <span aria-label="falta llenar">⚠</span>}
+              {done && <span aria-label="completo" style={{ fontSize: 11 }}>✓</span>}
             </button>
           );
         })}
