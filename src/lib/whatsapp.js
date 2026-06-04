@@ -193,6 +193,7 @@ export function mensajeCotizacionWA(c) {
     if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
     if (total > 0) msg += `\n💰 *Total: $${total.toFixed(2)}*`;
   }
+  if (c.notas) msg += `\n📋 ${c.notas}`;
   msg += `\n📌 Cotización válida ${validez} días${venceStr ? ` (vence ${venceStr})` : ""}`;
   msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
