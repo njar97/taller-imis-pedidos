@@ -12,13 +12,34 @@
 <link rel="apple-touch-icon" href="pwa-icon.svg">
 <title>Taller IMIS — Sistema de Pedidos</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#F7F4FA}
+  body{font-family:'Outfit','Segoe UI',system-ui,sans-serif;background:#F7F4FA}
   ::-webkit-scrollbar{width:6px;height:6px}
   ::-webkit-scrollbar-track{background:#f1f1f1}
   ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+
+  /* Números tabulares — precios, IDs, cantidades */
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  /* Card pedido — hover lift con sombra en tono marca */
+  .card-pedido{transition:box-shadow .22s ease,transform .22s ease}
+  .card-pedido:hover{box-shadow:0 8px 24px rgba(44,22,84,.13)!important;transform:translateY(-2px)}
+  .card-pedido:active{transform:translateY(0)!important;box-shadow:0 2px 8px rgba(44,22,84,.08)!important}
+
+  /* Botones de acción — hover lift + pressed feedback */
+  .btn-action{transition:background .15s,border-color .15s,color .15s,transform .12s,box-shadow .15s}
+  .btn-action:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.1)}
+  .btn-action:active{transform:scale(.97)!important;box-shadow:none!important}
+
+  /* Skeleton loader — usado en Suspense fallback */
+  @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+  .skeleton{background:linear-gradient(90deg,#ede8f3 25%,#f5f2f8 50%,#ede8f3 75%);background-size:800px 100%;animation:shimmer 1.4s infinite}
+
   @media(max-width:767px){
     .sidebar-desktop{display:none!important}.bottomnav{display:flex!important;padding-bottom:calc(8px + env(safe-area-inset-bottom))!important}
     .topbar-mobile{display:flex!important}.tabla-pedidos{display:none!important}

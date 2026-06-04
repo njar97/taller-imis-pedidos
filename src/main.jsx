@@ -844,7 +844,13 @@ function App() {
             </button>
           </div>
         )}
-        <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center", color: "#999" }}>Cargando…</div>}>
+        <Suspense fallback={
+          <div style={{ padding: "1.5rem 1rem" }}>
+            {[1,2,3].map(i => (
+              <div key={i} className="skeleton" style={{ borderRadius: 16, height: 140, marginBottom: 10 }} />
+            ))}
+          </div>
+        }>
         {seccion === "estadisticas" && esAdmin && (
           <SeccionEstadisticas
             pedidos={pedidos}
