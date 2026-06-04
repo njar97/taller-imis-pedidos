@@ -41,35 +41,38 @@ export default function CardPedido({
 
   return (
     <div
+      className="card-pedido"
       onClick={() => onVer(p)}
       style={{
         background: "#fff",
-        borderRadius: 14,
-        padding: 14,
+        borderRadius: 16,
+        padding: "14px 16px",
         marginBottom: 10,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+        boxShadow: "0 2px 10px rgba(44,22,84,0.07)",
         border: urgent ? "1.5px solid #FD7E14" : "1.5px solid transparent",
         cursor: "pointer",
       }}
     >
+      {/* Cabecera: número + cliente + badge estatus */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
           marginBottom: 8,
+          gap: 8,
         }}
       >
-        <div>
-          <div style={{ fontSize: 11, color: "#aaa", fontWeight: 700 }}>
-            N°{String(p.id).padStart(4, "0")} {tipoIcon}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.06em", marginBottom: 2 }}>
+            N°<span className="num">{String(p.id).padStart(4, "0")}</span> {tipoIcon}
           </div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#2C1654" }}>{p.cliente}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#2C1654", lineHeight: 1.2 }}>{p.cliente}</div>
           {p.nombreContacto && (
-            <div style={{ fontSize: 12, color: "#555" }}>👤 {p.nombreContacto}</div>
+            <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>👤 {p.nombreContacto}</div>
           )}
           {p.costurera && p.costurera !== "(Sin asignar)" && (
-            <div style={{ fontSize: 12, color: "#9B59B6" }}>✂️ {p.costurera}</div>
+            <div style={{ fontSize: 12, color: "#9B59B6", marginTop: 1 }}>✂️ {p.costurera}</div>
           )}
         </div>
         <select
@@ -80,11 +83,13 @@ export default function CardPedido({
             border: "none",
             background: (EC[p.estatus] || {}).bg,
             color: (EC[p.estatus] || {}).fg,
-            padding: "5px 8px",
+            padding: "5px 10px",
             borderRadius: 20,
             fontWeight: 700,
             fontSize: 11,
+            fontFamily: "inherit",
             cursor: "pointer",
+            flexShrink: 0,
             maxWidth: 130,
           }}
         >
@@ -92,10 +97,14 @@ export default function CardPedido({
         </select>
       </div>
 
-      <div style={{ fontSize: 13, fontWeight: 600, color: "#444", marginBottom: 4 }}>
-        {p.tipoPrenda}
-      </div>
+      {/* Tipo de prenda */}
+      {p.tipoPrenda && (
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#444", marginBottom: 5 }}>
+          {p.tipoPrenda}
+        </div>
+      )}
 
+      {/* Tallas / items */}
       {(() => {
         const items = itemsResumen(p);
         if (items.length > 0) {
@@ -107,7 +116,7 @@ export default function CardPedido({
         }
         if (tallasR) {
           return (
-            <div style={{ fontSize: 12, color: "#E67E22", fontWeight: 700, marginBottom: 4 }}>
+            <div style={{ fontSize: 12, color: "#E67E22", fontWeight: 700, marginBottom: 5 }}>
               {tallasR}
             </div>
           );
@@ -115,14 +124,15 @@ export default function CardPedido({
         return null;
       })()}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+      {/* Badges + fotos */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4, alignItems: "center" }}>
         {p.tieneBordado && (
           <span
             style={{
               fontSize: 11,
               background: "#FCE4EC",
               color: "#880E4F",
-              padding: "2px 8px",
+              padding: "3px 9px",
               borderRadius: 20,
               fontWeight: 700,
             }}
@@ -131,7 +141,7 @@ export default function CardPedido({
           </span>
         )}
         {nFotos > 0 && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {fotos.slice(0, 3).map((img, i) => (
               <img
                 key={i}
@@ -143,12 +153,13 @@ export default function CardPedido({
                 style={{
                   width: 40,
                   height: 40,
-                  borderRadius: 6,
+                  borderRadius: 8,
                   objectFit: "contain",
                   background: "#f5f5f5",
-                  border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e0e0e0"),
+                  border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e8e0f0"),
                   cursor: "zoom-in",
                   flexShrink: 0,
+                  transition: "transform .15s",
                 }}
               />
             ))}
@@ -157,15 +168,15 @@ export default function CardPedido({
                 style={{
                   width: 40,
                   height: 40,
-                  borderRadius: 6,
-                  background: "#f0f0f0",
+                  borderRadius: 8,
+                  background: "#f0ebf8",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: 11,
-                  color: "#888",
+                  color: "#7B5EA7",
                   fontWeight: 700,
-                  border: "1.5px solid #e0e0e0",
+                  border: "1.5px solid #e8e0f0",
                 }}
               >
                 +{nFotos - 3}
@@ -175,13 +186,14 @@ export default function CardPedido({
         )}
       </div>
 
+      {/* Fecha entrega + días restantes */}
       {p.fechaEntrega && (
-        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span
             style={{
               fontSize: 12,
-              color: urgent ? "#E63946" : "#555",
-              fontWeight: urgent ? 700 : 400,
+              color: urgent ? "#E63946" : "#666",
+              fontWeight: urgent ? 700 : 500,
             }}
           >
             {urgent ? "⚠️ " : "📌 "}
@@ -189,11 +201,12 @@ export default function CardPedido({
           </span>
           {dias !== null && !["Entregado", "Cancelado"].includes(p.estatus) && (
             <span
+              className="num"
               style={{
                 fontSize: 11,
                 background: dias < 0 ? "#F8D7DA" : dias <= 2 ? "#FFF3CD" : "#e8f5e9",
                 color: dias < 0 ? "#721C24" : dias <= 2 ? "#856404" : "#155724",
-                padding: "2px 8px",
+                padding: "2px 9px",
                 borderRadius: 20,
                 fontWeight: 700,
               }}
@@ -204,59 +217,64 @@ export default function CardPedido({
         </div>
       )}
 
+      {/* Precio + saldo (solo admin) */}
       {esAdmin && p.precio && (
         <div
           style={{
-            marginTop: 6,
+            marginTop: 7,
             display: "flex",
             gap: 10,
             alignItems: "center",
             flexWrap: "wrap",
           }}
         >
-          <span style={{ fontSize: 14, fontWeight: 800, color: "#2C1654" }}>{fmt$(p.precio)}</span>
+          <span className="num" style={{ fontSize: 15, fontWeight: 700, color: "#2C1654" }}>
+            {fmt$(p.precio)}
+          </span>
           {saldo > 0 ? (
-            <span style={{ fontSize: 12, color: "#E63946", fontWeight: 700 }}>
+            <span className="num" style={{ fontSize: 12, color: "#E63946", fontWeight: 700 }}>
               Resta {fmt$(saldo)}
             </span>
           ) : (
             <span style={{ fontSize: 12, color: "#28A745", fontWeight: 700 }}>✅ Pagado</span>
           )}
           {(p.abonos || []).length > 0 && (
-            <span style={{ fontSize: 10, color: "#888" }}>
+            <span className="num" style={{ fontSize: 10, color: "#999" }}>
               {(p.abonos || []).length} abono{(p.abonos || []).length !== 1 ? "s" : ""}
             </span>
           )}
         </div>
       )}
 
+      {/* Acciones */}
       <div
         onClick={e => e.stopPropagation()}
         className="card-actions"
         style={{
           display: "flex",
           gap: 6,
-          marginTop: 12,
+          marginTop: 13,
           justifyContent: "space-between",
           flexWrap: "wrap",
           alignItems: "center",
         }}
       >
         <button
+          className="btn-action"
           onClick={handleWA}
           style={{
             padding: "9px 14px",
-            borderRadius: 8,
-            border: "1.5px solid " + (copiado ? "#25D366" : "#e0e0e0"),
+            borderRadius: 10,
+            border: "1.5px solid " + (copiado ? "#25D366" : "#e8e0f0"),
             background: copiado ? "#e8fdf0" : "#fff",
             cursor: "pointer",
             fontSize: 12,
             fontWeight: 700,
+            fontFamily: "inherit",
             color: copiado ? "#25D366" : "#555",
             display: "flex",
             alignItems: "center",
             gap: 5,
-            transition: "all .2s",
             flex: 1,
             justifyContent: "center",
           }}
@@ -264,14 +282,16 @@ export default function CardPedido({
           {copiado ? "✅ Copiado" : "📋 WhatsApp"}
         </button>
         <button
+          className="btn-action"
           onClick={() => onImprimir(p)}
           style={{
             padding: "9px 12px",
-            borderRadius: 8,
+            borderRadius: 10,
             border: "1.5px solid #9B59B6",
             background: "#fff",
             cursor: "pointer",
             fontSize: 13,
+            fontFamily: "inherit",
             color: "#9B59B6",
             fontWeight: 700,
           }}
@@ -279,30 +299,34 @@ export default function CardPedido({
           🖨️
         </button>
         <button
+          className="btn-action"
           onClick={() => onEditar(p)}
           style={{
             padding: "9px 14px",
-            borderRadius: 8,
+            borderRadius: 10,
             border: "none",
             background: "#9B59B6",
             color: "#fff",
             cursor: "pointer",
             fontSize: 13,
+            fontFamily: "inherit",
             fontWeight: 700,
           }}
         >
           ✏️
         </button>
         <button
+          className="btn-action"
           title="Duplicar pedido"
           onClick={() => onDuplicar(p)}
           style={{
             padding: "9px 12px",
-            borderRadius: 8,
+            borderRadius: 10,
             border: "1.5px solid #C8E6C9",
             background: "#F1FFF4",
             cursor: "pointer",
             fontSize: 13,
+            fontFamily: "inherit",
             color: "#27AE60",
           }}
         >
@@ -310,14 +334,16 @@ export default function CardPedido({
         </button>
         {esAdmin && (
           <button
+            className="btn-action"
             onClick={() => onEliminar(p.id)}
             style={{
               padding: "9px 12px",
-              borderRadius: 8,
+              borderRadius: 10,
               border: "1.5px solid #fdd",
               background: "#fff8f8",
               cursor: "pointer",
               fontSize: 13,
+              fontFamily: "inherit",
               color: "#DC3545",
             }}
           >

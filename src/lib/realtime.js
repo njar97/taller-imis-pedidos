@@ -30,6 +30,14 @@ const RECONNECT_INITIAL_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 const DEBOUNCE_MS = 300;
 
+/**
+ * Suscribe a cambios en tiempo real en las tablas indicadas via WebSocket
+ * (Phoenix Channels de Supabase). Reconecta automáticamente con backoff
+ * exponencial y pausa cuando la pestaña queda oculta.
+ * @param {string[]} tablas - Nombres de tablas Postgres a escuchar.
+ * @param {(tabla: string) => void} onChange - Llamado (con debounce 300ms) cuando una tabla cambia. Recibe `"*"` al reconectar después de inactividad.
+ * @returns {{ cerrar: () => void }}
+ */
 export function suscribirCambios(tablas, onChange) {
   let ws = null;
   let ref = 0;

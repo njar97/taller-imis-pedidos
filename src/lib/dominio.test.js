@@ -120,7 +120,7 @@ describe("PEDIDO_BASE", () => {
   it("tiene todos los campos default esperados", () => {
     expect(PEDIDO_BASE.cliente).toBe("");
     expect(PEDIDO_BASE.tipoCliente).toBe("persona");
-    expect(PEDIDO_BASE.estatus).toBe("Tomado");
+    expect(PEDIDO_BASE.estatus).toBe("Corte");
     expect(PEDIDO_BASE.tipoDocumento).toBe("Consumidor Final");
     expect(PEDIDO_BASE.costurera).toBe("(Sin asignar)");
     expect(PEDIDO_BASE.imagenes).toEqual([]);
