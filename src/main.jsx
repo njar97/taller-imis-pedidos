@@ -134,6 +134,7 @@ import {
 // Texto y portapapeles para WhatsApp (extraído de main.js)
 import { copiarWA } from "./lib/whatsapp.js";
 import { htmlComparativoCotizaciones } from "./lib/comparativo.js";
+import { useRealtime } from "./lib/useRealtime.js";
 
 // Cliente liviano de Supabase Storage (fetch directo, sin deps).
 import { subirFotoSupabase, subirArchivoSupabase } from "./supabaseStorage.js";
@@ -235,8 +236,6 @@ import {
 // Cache local de imágenes en IndexedDB
 import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
 
-// Suscripción a cambios en Postgres (WebSocket, sin SDK)
-import { suscribirCambios } from "./lib/realtime.js";
 
 import {
   lazy,
@@ -583,51 +582,8 @@ function App() {
   }, [rolBase]);
 
   // Realtime: cuando otro dispositivo cambia algo en Postgres, refrescamos
-  // sólo la tabla afectada (sin recargar toda la app). Debounce 300ms en el
-  // cliente WS — varios eventos seguidos = una sola refetch.
-  useEffect(() => {
-    if (!rolBase) return;
-    const refetchTabla = async (tabla) => {
-      try {
-        if (tabla === "taller_pedidos" || tabla === "*") {
-          const data = await gsLeer();
-          if (data) setPedidos(prev => data.length > 0 ? data.map(p => ({
-            ...p,
-            tallasItems: Array.isArray(p.tallasItems) ? p.tallasItems : [],
-            tallasQty: typeof p.tallasQty === "object" ? p.tallasQty : {},
-            medidas: typeof p.medidas === "object" ? p.medidas : {},
-            abonos: Array.isArray(p.abonos) ? p.abonos : [],
-            personas: Array.isArray(p.personas) ? p.personas : [],
-            imagenes: Array.isArray(p.imagenes) ? p.imagenes : [],
-            modoRegistro: p.modoRegistro || "tallas"
-          })) : prev);
-        }
-        if (tabla === "taller_bordados" || tabla === "*") {
-          const data = await gsBordLeer();
-          if (data) setBordados(data);
-        }
-        if (tabla === "taller_cuellos" || tabla === "*") {
-          const data = await gsCuelLeer();
-          if (data) setCuellos(data);
-        }
-        if (tabla === "taller_clientes" || tabla === "*") {
-          const data = await gsClientesLeer();
-          if (data) setClientes(data);
-        }
-        if (tabla === "taller_catalogo" || tabla === "*") {
-          const data = await gsCatalogoLeer();
-          if (data && data.length > 0) setCatalogo(data);
-        }
-      } catch (e) {
-        console.warn("Refetch realtime falló:", e);
-      }
-    };
-    const sub = suscribirCambios(
-      ["taller_pedidos","taller_bordados","taller_cuellos","taller_clientes","taller_catalogo"],
-      refetchTabla
-    );
-    return () => sub.cerrar();
-  }, [rolBase]);
+  // sólo la tabla afectada. Lógica extraída a useRealtime.js.
+  useRealtime(rolBase, { setPedidos, setBordados, setCuellos, setClientes, setCatalogo });
   async function guardarPedido(form, _esNuevo) {
     // Es nuevo si: invocado explícitamente con _esNuevo=true, o el modal
     // dice "nuevo", o el modal es un borrador (objeto sin id, ej. desde
