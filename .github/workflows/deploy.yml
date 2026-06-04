@@ -33,6 +33,9 @@ jobs:
         # viejas las trataba como requeridas en lugar de optional.
         run: npm install --no-audit --no-fund
 
+      - name: Test
+        run: npm run test:run
+
       - name: Build
         run: npm run build
 

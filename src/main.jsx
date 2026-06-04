@@ -9,17 +9,11 @@ const SeccionPapeleraLazy = lazy(() => import("./SeccionPapelera.jsx"));
 // Pantalla de login (decompilada a JSX legible)
 import PantallaLogin from "./PantallaLogin.jsx";
 
-// Estadísticas (decompilada a JSX legible)
-import SeccionEstadisticas from "./SeccionEstadisticas.jsx";
-
-// Cartera de clientes (decompilada a JSX legible)
-import SeccionClientes from "./SeccionClientes.jsx";
-
-// Catálogo de productos (decompilado a JSX legible)
-import SeccionCatalogo from "./SeccionCatalogo.jsx";
-
-// Inventario del taller (decompilado a JSX legible)
-import SeccionInventario from "./SeccionInventario.jsx";
+// Secciones secundarias — lazy (cargadas al primer acceso, no en el arranque)
+const SeccionEstadisticas = lazy(() => import("./SeccionEstadisticas.jsx"));
+const SeccionClientes     = lazy(() => import("./SeccionClientes.jsx"));
+const SeccionCatalogo     = lazy(() => import("./SeccionCatalogo.jsx"));
+const SeccionInventario   = lazy(() => import("./SeccionInventario.jsx"));
 
 // Registro de abonos (decompilado a JSX legible)
 // Usado por FormPedido, BordadoModal y CuelloModal.
@@ -42,14 +36,13 @@ import ProximasEntregas from "./ProximasEntregas.jsx";
 // Tarjeta de pedido (decompilada a JSX)
 import CardPedido from "./CardPedido.jsx";
 
-// Modal del asistente IA (chat con Claude) — decompilado a JSX
-import ModalAsistenteIA from "./ModalAsistenteIA.jsx";
-import EstimadorPrecio from "./EstimadorPrecio.jsx";
-import SeccionCotizaciones from "./SeccionCotizaciones.jsx";
-import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
-import ModalEnviarCotizacion from "./ModalEnviarCotizacion.jsx";
-import SeccionCalendario from "./SeccionCalendario.jsx";
-import SeccionConfig from "./SeccionConfig.jsx";
+import EstimadorPrecio from "./EstimadorPrecio.jsx"; // eager — siempre montado con prop `open`
+const ModalAsistenteIA      = lazy(() => import("./ModalAsistenteIA.jsx"));
+const SeccionCotizaciones   = lazy(() => import("./SeccionCotizaciones.jsx"));
+const ModalVersionesPedido  = lazy(() => import("./ModalVersionesPedido.jsx"));
+const ModalEnviarCotizacion = lazy(() => import("./ModalEnviarCotizacion.jsx"));
+const SeccionCalendario     = lazy(() => import("./SeccionCalendario.jsx"));
+const SeccionConfig         = lazy(() => import("./SeccionConfig.jsx"));
 import { leerConfigTotal } from "./lib/config.js";
 import QRCode from "qrcode";
 
@@ -62,11 +55,8 @@ import { CATALOGO_BASE } from "./lib/catalogoBase.js";
 // Hook compartido: debounce de callbacks
 import { useDebouncedCallback } from "./lib/hooks.js";
 
-// Sección de Bordados + BordadoModal (decompilado a JSX)
-import SeccionBordados from "./SeccionBordados.jsx";
-
-// Sección de Cuellos + CuelloModal (decompilado a JSX)
-import SeccionCuellos from "./SeccionCuellos.jsx";
+const SeccionBordados = lazy(() => import("./SeccionBordados.jsx"));
+const SeccionCuellos  = lazy(() => import("./SeccionCuellos.jsx"));
 
 // Indicador offline + prompt de nueva versión (PWA)
 import ConexionStatus from "./ConexionStatus.jsx";
@@ -854,6 +844,7 @@ function App() {
             </button>
           </div>
         )}
+        <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center", color: "#999" }}>Cargando…</div>}>
         {seccion === "estadisticas" && esAdmin && (
           <SeccionEstadisticas
             pedidos={pedidos}
@@ -1009,6 +1000,7 @@ function App() {
             <SeccionPapeleraLazy onRestaurado={refrescar} />
           </Suspense>
         )}
+        </Suspense>
         {seccion === "pedidos" && (
           <SeccionPedidos
             pedidos={pedidos}
@@ -1116,6 +1108,7 @@ function App() {
         }}
       />
       {modalIA && (
+        <Suspense fallback={null}>
         <ModalAsistenteIA
           rol={rol}
           onCrearPedido={(p) => {
@@ -1128,6 +1121,7 @@ function App() {
           }}
           onCerrar={() => setModalIA(false)}
         />
+        </Suspense>
       )}
       {modal && (
         <Modal
@@ -1323,17 +1317,21 @@ function App() {
       <ConexionStatus />
       <InstallPrompt />
       {pedidoVerVersiones && (
-        <ModalVersionesPedido
-          pedido={pedidoVerVersiones}
-          onClose={() => setPedidoVerVersiones(null)}
-          onRestaurado={() => { setPedidoVerVersiones(null); refrescar(); }}
-        />
+        <Suspense fallback={null}>
+          <ModalVersionesPedido
+            pedido={pedidoVerVersiones}
+            onClose={() => setPedidoVerVersiones(null)}
+            onRestaurado={() => { setPedidoVerVersiones(null); refrescar(); }}
+          />
+        </Suspense>
       )}
       {cotEnviarEmail && (
-        <ModalEnviarCotizacion
-          cotizacion={cotEnviarEmail}
-          onClose={() => setCotEnviarEmail(null)}
-        />
+        <Suspense fallback={null}>
+          <ModalEnviarCotizacion
+            cotizacion={cotEnviarEmail}
+            onClose={() => setCotEnviarEmail(null)}
+          />
+        </Suspense>
       )}
       {esAdmin && (
         <RecordatorioInicio
