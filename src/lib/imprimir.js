@@ -5,7 +5,7 @@ import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
-import { mensajeCotizacionWA } from "./whatsapp.js";
+import { mensajeCotizacionWA, mensajeWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
 import QRCode from "qrcode";
@@ -459,6 +459,7 @@ ${(() => {
   w.document.close();
 }
 export function imprimirRecibo(p) {
+  const waText = mensajeWA(p, true);
   const abonado = sumarAbonos(p);
   const saldo = parseFloat(p.precio || 0) - abonado;
   const tallas = resumenTallas(p);
@@ -517,11 +518,12 @@ export function imprimirRecibo(p) {
   <!-- Botones no-print -->
   <div class="no-print" style="margin-bottom:20px;">
     <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
-      💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloRecibo}.pdf</strong>
+      💾 <strong>Tip:</strong> para enviar por WhatsApp → tocá <strong>"📤 Enviar PDF por WA"</strong>: guardá el PDF cuando aparezca el diálogo, luego elegí WhatsApp y adjuntá el PDF desde Descargas.
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
-      <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
+      <button onclick="window.print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="window.close()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
     </div>
   </div>
 
@@ -616,6 +618,37 @@ export function imprimirRecibo(p) {
   <div style="margin-top:24px;text-align:center;font-size:10px;color:#ccc;border-top:1px solid #f0f0f0;padding-top:12px;">
     ${TALLER} · Recibo N°${num} · Generado el ${fecha}
   </div>
+  <script>
+  const _waMsg = ${JSON.stringify(waText)};
+  async function enviarPorWA() {
+    const btn = document.getElementById('wa-pdf-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Guardando PDF...';
+    window.print();
+    window.addEventListener('afterprint', async function handler() {
+      window.removeEventListener('afterprint', handler);
+      btn.textContent = '📤 Abriendo WA...';
+      try {
+        if (navigator.share) {
+          await navigator.share({ text: _waMsg });
+          btn.textContent = '✓ Compartido';
+        } else {
+          await navigator.clipboard.writeText(_waMsg);
+          btn.textContent = '✓ Copiado';
+        }
+      } catch(e) {
+        if (e && e.name !== 'AbortError') {
+          await navigator.clipboard.writeText(_waMsg).catch(() => {});
+          btn.textContent = '✓ Copiado';
+        } else {
+          btn.textContent = '📤 Enviar PDF por WA';
+        }
+      }
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = '📤 Enviar PDF por WA'; }, 4000);
+    }, { once: true });
+  }
+  </script>
   </body></html>`);
   w.document.close();
 }
