@@ -201,8 +201,9 @@ describe("mensajeCotizacionWA", () => {
     expect(msg).toContain("Logo bordado incluido");
   });
 
-  it("icono escuela 🏫 en cotización", () => {
-    expect(mensajeCotizacionWA(cot)).toContain("🏫");
+  it("incluye monto del anticipo (50% del total)", () => {
+    const msg = mensajeCotizacionWA(cot);
+    expect(msg).toContain("$90.00"); // 50% de $180
   });
 });
 
