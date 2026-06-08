@@ -5,6 +5,7 @@ import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
+import { mensajeWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
 import QRCode from "qrcode";
@@ -93,7 +94,7 @@ export async function imprimirPedido(p, esAdmin, todosPedidos = []) {
 // window.open — así cada sitio cambia solo la línea del open. Al cerrar el
 // documento dispara print() nativo, que en móvil abre el diálogo de
 // imprimir / guardar como PDF del sistema.
-export function nuevaVentanaImpresion() {
+export function nuevaVentanaImpresion(titulo = null) {
   const prev = document.getElementById("__print_frame__");
   if (prev) prev.remove();
   const iframe = document.createElement("iframe");
@@ -110,8 +111,16 @@ export function nuevaVentanaImpresion() {
         idoc.close();
         const imprimir = () => {
           try {
+            // Android Chrome usa el document.title del PADRE para sugerir el
+            // nombre del PDF, no el <title> del iframe. Lo cambiamos antes de
+            // llamar print() y lo restauramos al salir del diálogo.
+            const prevTitle = document.title;
+            if (titulo) document.title = titulo;
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
+            const restore = () => { document.title = prevTitle; };
+            iframe.contentWindow.addEventListener("afterprint", restore, { once: true });
+            setTimeout(restore, 15000);
           } catch (e) {
             console.warn("print():", e);
           }
@@ -161,7 +170,7 @@ export async function imprimirCotizacion(p) {
   const iva = precioFinal - subtotal;
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
-  const w = nuevaVentanaImpresion();
+  const w = nuevaVentanaImpresion(titulo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${titulo}</title>
 <style>
@@ -177,7 +186,7 @@ export async function imprimirCotizacion(p) {
     💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;">
-    <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+    <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
     <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
   </div>
 </div>
@@ -423,6 +432,10 @@ ${(() => {
 </div>
 `;
 })() : ""}
+<script>
+const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+</script>
 </body></html>`);
   w.document.close();
 }
@@ -470,8 +483,9 @@ export function imprimirRecibo(p) {
   })()}
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
+  const waText = mensajeWA(p, true);
   const tituloRecibo = nombrePDF("Recibo", p.id, p.cliente);
-  const w = nuevaVentanaImpresion();
+  const w = nuevaVentanaImpresion(tituloRecibo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloRecibo}</title>
   <style>
@@ -485,11 +499,12 @@ export function imprimirRecibo(p) {
   <!-- Botones no-print -->
   <div class="no-print" style="margin-bottom:20px;">
     <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
-      💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloRecibo}.pdf</strong>
+      💾 <strong>Tip:</strong> tocá <strong>"📤 Enviar PDF por WA"</strong> → guardá el PDF cuando aparezca el diálogo → se abre WA automáticamente → adjuntá el PDF desde Descargas.
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
-      <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
+      <button onclick="_print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="window.close()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
     </div>
   </div>
 
@@ -584,6 +599,34 @@ export function imprimirRecibo(p) {
   <div style="margin-top:24px;text-align:center;font-size:10px;color:#ccc;border-top:1px solid #f0f0f0;padding-top:12px;">
     ${TALLER} · Recibo N°${num} · Generado el ${fecha}
   </div>
+  <script>
+  const _waMsg=${JSON.stringify(waText)};
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){
+    try{window.parent.document.title=document.title;}catch(e){}
+    window.print();
+    window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});
+    setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);
+  }
+  async function enviarPorWA(){
+    const btn=document.getElementById('wa-pdf-btn');
+    btn.disabled=true;btn.textContent='⏳ Guardando PDF...';
+    _print();
+    window.addEventListener('afterprint',async function handler(){
+      window.removeEventListener('afterprint',handler);
+      btn.textContent='📤 Abriendo WA...';
+      try{
+        if(navigator.share){await navigator.share({text:_waMsg});btn.textContent='✓ Compartido';}
+        else{await navigator.clipboard.writeText(_waMsg);btn.textContent='✓ Copiado';}
+      }catch(e){
+        if(e&&e.name!=='AbortError'){await navigator.clipboard.writeText(_waMsg).catch(()=>{});btn.textContent='✓ Copiado';}
+        else{btn.textContent='📤 Enviar PDF por WA';}
+      }
+      btn.disabled=false;
+      setTimeout(()=>{btn.textContent='📤 Enviar PDF por WA';},4000);
+    },{once:true});
+  }
+  </script>
   </body></html>`);
   w.document.close();
 }
@@ -670,7 +713,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       </div>
     </div>` : "";
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
-  const w = nuevaVentanaImpresion();
+  const w = nuevaVentanaImpresion(tituloProd);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloProd}</title>
   <style>
@@ -694,7 +737,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloProd}.pdf</strong>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
       <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
     </div>
   </div>
@@ -814,7 +857,10 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       ${Array.from({ length: 6 }, () => `<div style="height:22px;border-bottom:1px solid #f0f0f0;"></div>`).join("")}
     </div>
   </div>
-
+  <script>
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+  </script>
   </body></html>`);
   w.document.close();
 }
@@ -964,7 +1010,8 @@ export function exportarPedidoPDF(pedido, tipo) {
   if (tipo === "confeccion") {
     imprimirRecibo(pedido, true);
   } else {
-    const w = nuevaVentanaImpresion();
+    const tituloExport = nombrePDF(tipo === "bordado" ? "Bordado" : "Cuello", pedido.id, pedido.cliente || "");
+    const w = nuevaVentanaImpresion(tituloExport);
     const pM = v => {
       const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
       return isNaN(n) ? 0 : n;
@@ -990,7 +1037,7 @@ export function exportarPedidoPDF(pedido, tipo) {
       .total-box{background:${color};color:#fff;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-top:16px}
     </style></head><body>
     <div class="no-print" style="text-align:right;margin-bottom:10px">
-      <button onclick="window.print()" style="padding:8px 20px;background:${color};color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:14px">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="_print()" style="padding:8px 20px;background:${color};color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:14px">🖨️ Guardar PDF</button>
     </div>
     <div class="header">
       <div><div class="logo">🧵 Taller IMIS</div><div style="font-size:11px;color:#aaa;margin-top:3px">${tipo === "bordado" ? "Bordado" : "Tejido de cuello"}</div></div>
@@ -1023,6 +1070,10 @@ export function exportarPedidoPDF(pedido, tipo) {
       <div style="text-align:right"><div style="font-size:11px;opacity:.8">Saldo pendiente</div><div style="font-size:24px;font-weight:900">$${saldo.toFixed(2)}</div></div>
     </div>` : ""}
     ${pedido.notas ? `<div class="sec">📝 Notas</div><p style="font-size:12px;color:#555;padding:8px 10px;background:#f9f9f9;border-radius:7px">${pedido.notas}</p>` : ""}
+    <script>
+    const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+    function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+    </script>
     </body></html>`);
     w.document.close();
   }
