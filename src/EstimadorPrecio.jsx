@@ -605,9 +605,13 @@ function ModoCuello({ datos, setDatos, margen, setMargen, costos }) {
   );
 }
 
+const IVA = 0.13;
+
 // ── Bloque de totales + margen + acciones ───────────────────
 
 function BloqueTotales({ costoTotal, precioSugerido, margen, setMargen, totalQty }) {
+  const conIVA = precioSugerido * (1 + IVA);
+  const ivaAmt = precioSugerido * IVA;
   return (
     <div style={{ marginTop: 6, padding: 12, background: "#F5F5F5", borderRadius: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#444" }}>
@@ -631,13 +635,16 @@ function BloqueTotales({ costoTotal, precioSugerido, margen, setMargen, totalQty
         />
       </div>
       <div style={{ marginTop: 10, padding: 12, background: "#E8F5E9", border: "2px solid #28A745", borderRadius: 10 }}>
-        <div style={LBL}>Precio sugerido</div>
-        <div style={{ fontSize: 24, fontWeight: 900, color: "#1A5F33" }}>{fmt$(precioSugerido)}</div>
+        <div style={LBL}>Precio sugerido (IVA incluido 13%)</div>
+        <div style={{ fontSize: 24, fontWeight: 900, color: "#1A5F33" }}>{fmt$(conIVA)}</div>
         {totalQty > 0 && (
           <div style={{ fontSize: 12, color: "#1A5F33" }}>
-            <strong>{fmt$(precioSugerido / totalQty)}</strong> por unidad ({totalQty} {totalQty === 1 ? "prenda" : "prendas"})
+            <strong>{fmt$(conIVA / totalQty)}</strong> por unidad ({totalQty} {totalQty === 1 ? "prenda" : "prendas"})
           </div>
         )}
+        <div style={{ marginTop: 4, fontSize: 11, color: "#555" }}>
+          Sin IVA: {fmt$(precioSugerido)} · IVA (13%): {fmt$(ivaAmt)}
+        </div>
       </div>
     </div>
   );
@@ -764,7 +771,7 @@ export default function EstimadorPrecio({
 
   const aplicar = () => {
     if (onAplicar) {
-      onAplicar(precioSugerido);
+      onAplicar(precioSugerido * (1 + IVA));
       pushToast("Precio aplicado al pedido", "success");
       onClose();
     }
@@ -780,7 +787,7 @@ export default function EstimadorPrecio({
       const itemsValidos = items.filter(it => num(it.qty) > 0 && (it.tipoPrenda || "").trim());
       const tallasItems = itemsValidos.map(it => {
         const costo = costoItem(it).total;
-        const precioItem = costo * (1 + margen / 100);
+        const precioItem = costo * (1 + margen / 100) * (1 + IVA);
         const precioUnit = it.qty > 0 ? precioItem / num(it.qty) : 0;
         return {
           id: it.id,
@@ -798,7 +805,7 @@ export default function EstimadorPrecio({
         tipoPrenda: items[0]?.tipoPrenda || "Cotización",
         tallasItems,
         modoRegistro: "tallas",
-        precio: precioSugerido.toFixed(2),
+        precio: (precioSugerido * (1 + IVA)).toFixed(2),
         validezDias: 15,
         // Snapshot del estimador: permite re-abrirlo y ajustar
         desgloseEstimador: { modo: "confeccion", margen, items: itemsValidos },
@@ -806,7 +813,8 @@ export default function EstimadorPrecio({
     }
     if (modo === "bordado") {
       const qty = num(bordDatos.qty);
-      const precioUnit = qty > 0 ? precioSugerido / qty : 0;
+      const precioConIVA = precioSugerido * (1 + IVA);
+      const precioUnit = qty > 0 ? precioConIVA / qty : 0;
       return {
         cliente: cliente.trim(),
         telefono: telefono.trim(),
@@ -821,14 +829,15 @@ export default function EstimadorPrecio({
           grupo: "adulto",
         }],
         modoRegistro: "tallas",
-        precio: precioSugerido.toFixed(2),
+        precio: precioConIVA.toFixed(2),
         validezDias: 15,
         desgloseEstimador: { modo: "bordado", margen, datos: bordDatos },
       };
     }
     // cuello
     const qty = num(cuelloDatos.qty);
-    const precioUnit = qty > 0 ? precioSugerido / qty : 0;
+    const precioConIVA = precioSugerido * (1 + IVA);
+    const precioUnit = qty > 0 ? precioConIVA / qty : 0;
     return {
       cliente: cliente.trim(),
       telefono: telefono.trim(),
@@ -843,7 +852,7 @@ export default function EstimadorPrecio({
         grupo: "adulto",
       }],
       modoRegistro: "tallas",
-      precio: precioSugerido.toFixed(2),
+      precio: precioConIVA.toFixed(2),
       validezDias: 15,
       desgloseEstimador: { modo: "cuello", margen, datos: cuelloDatos },
     };
