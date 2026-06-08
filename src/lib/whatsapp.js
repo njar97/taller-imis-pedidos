@@ -175,10 +175,17 @@ export function mensajeCotizacionWA(c) {
       const pr = parseFloat(it.precio) || 0;
       const sub = pr * it.qty;
       const tipo = it.tipo || it.talla || "—";
+      const esDocena = it.precioUnitario && parseFloat(it.precioUnitario) > pr;
+      const nota = esDocena ? " _(precio docena)_" : "";
       return pr > 0
-        ? `*${it.qty}× ${tipo}* — $${pr.toFixed(2)} c/u = *$${sub.toFixed(2)}*`
+        ? `*${it.qty}× ${tipo}* — $${pr.toFixed(2)} c/u${nota} = *$${sub.toFixed(2)}*`
         : `*${it.qty}× ${tipo}*`;
     }).join("\n");
+    // Si hay precios pieza suelta, los muestra en una sola línea
+    const sueltos = items.filter(it => it.precioUnitario && parseFloat(it.precioUnitario) > parseFloat(it.precio || 0));
+    if (sueltos.length) {
+      msg += `\n_Menos de 12 uds: ${sueltos.map(it => `${it.tipo} $${parseFloat(it.precioUnitario).toFixed(2)}`).join(" · ")}_`;
+    }
     msg += "\n";
   }
 
