@@ -721,6 +721,9 @@ export default function EstimadorPrecio({
   const [cliente, setCliente] = useState("");
   const [telefono, setTelefono] = useState("");
 
+  // true cuando el estado actual viene de un borrador recuperado de localStorage
+  const [tieneBorrador, setTieneBorrador] = useState(false);
+
   // Autocomplete contra los clientes ya registrados en la app
   const sugClientes = (clientes || [])
     .filter(c => cliente && c.nombre && c.nombre.toLowerCase().includes(cliente.toLowerCase()) && c.nombre.toLowerCase() !== cliente.toLowerCase())
@@ -755,26 +758,69 @@ export default function EstimadorPrecio({
       setModo(d.modo);
       if (typeof d.margen === "number") setMargen(d.margen);
       if (d.modo === "confeccion" && Array.isArray(d.items) && d.items.length > 0) {
-        // Reasignamos ids únicos para evitar colisiones con items ya cargados
         setItems(d.items.map((it, i) => ({
           ...it,
           id: Date.now() + i,
-          expandido: i === 0, // primero abierto
+          expandido: i === 0,
         })));
       }
       if (d.modo === "bordado" && d.datos) setBordDatos({ ...d.datos });
       if (d.modo === "cuello" && d.datos) setCuelloDatos({ ...d.datos });
-      // Cliente y teléfono del pedido
       if (cotizacionExistente.cliente) setCliente(cotizacionExistente.cliente);
       if (cotizacionExistente.telefono) setTelefono(cotizacionExistente.telefono);
+      setTieneBorrador(false);
+    } else {
+      // Sin cotización específica: intentar recuperar borrador de localStorage
+      try {
+        const saved = localStorage.getItem("taller_estimador_borrador");
+        if (saved) {
+          const d = JSON.parse(saved);
+          if (d.modo) setModo(d.modo);
+          if (Array.isArray(d.items) && d.items.length > 0) setItems(d.items);
+          if (typeof d.margen === "number") setMargen(d.margen);
+          if (d.cliente) setCliente(d.cliente);
+          if (d.telefono) setTelefono(d.telefono);
+          if (d.bordDatos) setBordDatos(d.bordDatos);
+          if (d.cuelloDatos) setCuelloDatos(d.cuelloDatos);
+          setTieneBorrador(true);
+        } else {
+          setTieneBorrador(false);
+        }
+      } catch {
+        setTieneBorrador(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, cotizacionExistente?.id]);
+
+  // Guardar borrador en localStorage en cada cambio (solo en modo libre, no al editar una cotización)
+  useEffect(() => {
+    if (!open || cotizacionExistente) return;
+    try {
+      localStorage.setItem("taller_estimador_borrador", JSON.stringify({
+        modo, items, margen, cliente, telefono, bordDatos, cuelloDatos,
+      }));
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, modo, items, margen, cliente, telefono, bordDatos, cuelloDatos]);
 
   // Recarga la tabla de costos desde la BD (usado tras un guardado inline).
   const refrescarCostos = async () => {
     const rows = await leerCostos();
     setCostos(agruparCostos(rows));
+  };
+
+  const limpiarBorrador = () => {
+    try { localStorage.removeItem("taller_estimador_borrador"); } catch {}
+    setItems([itemNuevo()]);
+    setModo("confeccion");
+    setMargen(50);
+    setCliente("");
+    setTelefono("");
+    setBordDatos({ soporte: "", qty: "1", puntadas: "" });
+    setCuelloDatos({ tipo: TIPOS_CUELLO[0], material: MATERIALES_CUELLO[0], qty: "1", costoUnit: "3.5" });
+    setTieneBorrador(false);
+    pushToast("Estimador limpiado", "success");
   };
 
   const precioSugerido = useMemo(() => {
@@ -908,6 +954,7 @@ export default function EstimadorPrecio({
       return;
     }
     if (onGuardarCotizacion) {
+      try { localStorage.removeItem("taller_estimador_borrador"); } catch {}
       onGuardarCotizacion(cot);
       onClose();
     }
@@ -935,6 +982,29 @@ export default function EstimadorPrecio({
             </button>
           ))}
         </div>
+
+        {/* Banner de borrador recuperado */}
+        {tieneBorrador && !cotizacionExistente && (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "#FFF8E1", border: "1px solid #FFD54F",
+            borderRadius: 8, padding: "6px 10px", marginBottom: 8, gap: 8,
+          }}>
+            <span style={{ fontSize: 11, color: "#795548", fontWeight: 600 }}>
+              📋 Borrador guardado — continuando donde lo dejaste
+            </span>
+            <button
+              onClick={limpiarBorrador}
+              style={{
+                padding: "3px 8px", borderRadius: 6, border: "1px solid #BCAAA4",
+                background: "#fff", color: "#795548", fontSize: 10,
+                fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+              }}
+            >
+              🗑️ Empezar de cero
+            </button>
+          </div>
+        )}
 
         {modo === "confeccion" && (
           <ModoConfeccion costos={costos} items={items} setItems={setItems} margen={margen} setMargen={setMargen} onRefrescarCostos={refrescarCostos} />

@@ -11,6 +11,7 @@ import { TallasChips } from "./SelectorTallas.jsx";
 import { pushConfirm, pushToast } from "./lib/feedback.js";
 import { compartirCotizacion, compartirComparativo } from "./lib/whatsapp.js";
 import { imgSrc } from "./lib/imagenes.js";
+import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
 
 const diasHasta = fStr => {
   if (!fStr) return null;
@@ -254,8 +255,8 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
           📧 Email
         </button>
         {tieneDesglose && (
-          <button onClick={onReabrirEstimador} style={BTN("#E67E22")} title="Abrir esta cotización en el estimador para ajustar precios">
-            🔍 Estimador
+          <button onClick={onReabrirEstimador} style={BTN("#E67E22")} title="Reabrir en el estimador para ajustar precios">
+            ✏️ Editar estimador
           </button>
         )}
         <button onClick={onEditar} style={BTN("#1A5276")}>
@@ -268,6 +269,8 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
           🗑️
         </button>
       </div>
+
+      {tieneDesglose && <DesgloseEstimador desglose={c.desgloseEstimador} />}
     </div>
   );
 }
