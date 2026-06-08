@@ -175,15 +175,14 @@ export function mensajeCotizacionWA(c) {
       const pr = parseFloat(it.precio) || 0;
       const sub = pr * it.qty;
       const tipo = it.tipo || it.talla || "—";
-      const spec = it.spec ? ` (${it.spec})` : "";
       return pr > 0
-        ? `*${it.qty}× ${tipo}*${spec} — $${pr.toFixed(2)} c/u = *$${sub.toFixed(2)}*`
-        : `*${it.qty}× ${tipo}*${spec}`;
+        ? `*${it.qty}× ${tipo}* — $${pr.toFixed(2)} c/u = *$${sub.toFixed(2)}*`
+        : `*${it.qty}× ${tipo}*`;
     }).join("\n");
     msg += "\n";
   }
 
-  if (c.descripcion) msg += `\n📝 ${c.descripcion}\n`;
+  if (c.descripcion) msg += `\n${c.descripcion}\n`;
 
   if (total > 0) {
     msg += `\n*Total: $${total.toFixed(2)}*`;
