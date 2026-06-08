@@ -148,6 +148,7 @@ export default function SeccionCotizaciones({
 }
 
 function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
+  const [menuAbierto, setMenuAbierto] = useState(false);
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
@@ -243,36 +244,78 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button onClick={onConvertir} style={BTN("#27AE60")}>
-          ✅ Convertir a pedido
-        </button>
-        <button onClick={onImprimir} style={BTN("#9B59B6")}>
-          📄 Imprimir
-        </button>
-        <button
-          onClick={async () => {
-            const r = await compartirCotizacion(c);
-            if (r === "copiado") pushToast("Texto copiado — adjuntá la imagen aparte", "success");
-          }}
-          style={BTN("#25D366")}
-          title="Compartir la cotización (imagen + texto) por WhatsApp"
-        >
+      {/* CTA principal */}
+      <button onClick={onConvertir} className="btn-action" style={{
+        width: "100%", padding: "10px", borderRadius: 8, border: "none",
+        background: "#27AE60", color: "#fff", fontWeight: 700, fontSize: 13,
+        cursor: "pointer", fontFamily: "inherit", marginBottom: 6,
+      }}>
+        ✅ Convertir a pedido
+      </button>
+
+      {/* Acciones secundarias: compartir + overflow */}
+      <div style={{ display: "flex", gap: 6, position: "relative" }}>
+        <button className="btn-action" onClick={async () => {
+          const r = await compartirCotizacion(c);
+          if (r === "copiado") pushToast("Texto copiado — adjuntá la imagen aparte", "success");
+        }} style={BTN("#25D366")} title="Compartir por WhatsApp">
           💬 WhatsApp
         </button>
-        <button onClick={onEnviarEmail} style={BTN("#27AE60")} title="Enviar por email al cliente">
+        <button className="btn-action" onClick={onEnviarEmail} style={BTN("#1A5276")} title="Enviar por email">
           📧 Email
         </button>
-        <button onClick={onVerVersiones} style={BTN("#888", true)} title="Ver versiones anteriores de esta cotización">
-          🕗 Versiones
+        <button className="btn-action" onClick={onImprimir} style={BTN("#9B59B6")} title="Imprimir PDF">
+          📄 PDF
         </button>
-        <button onClick={onEliminar} style={BTN("#E74C3C", true)}>
-          🗑️
-        </button>
+        {/* Menú de acciones secundarias */}
+        <div style={{ marginLeft: "auto", position: "relative" }}>
+          <button
+            className="btn-action"
+            onClick={() => setMenuAbierto(v => !v)}
+            style={{ ...BTN("#888", true), padding: "6px 10px", fontWeight: 900, fontSize: 15 }}
+            title="Más acciones"
+          >
+            ⋮
+          </button>
+          {menuAbierto && (
+            <div
+              onClick={() => setMenuAbierto(false)}
+              style={{
+                position: "absolute", bottom: "calc(100% + 6px)", right: 0,
+                background: "#fff", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                border: "1.5px solid #e8e0f0", zIndex: 50, minWidth: 160, overflow: "hidden",
+              }}
+            >
+              <MenuItem icon="✏️" label="Editar" onClick={onEditar} />
+              {tieneDesglose && <MenuItem icon="🔍" label="Estimador" onClick={onReabrirEstimador} color="#E67E22" />}
+              <MenuItem icon="🕗" label="Versiones" onClick={onVerVersiones} color="#888" />
+              <div style={{ height: 1, background: "#f0e8f8", margin: "2px 0" }} />
+              <MenuItem icon="🗑️" label="Eliminar" onClick={onEliminar} color="#E74C3C" />
+            </div>
+          )}
+        </div>
       </div>
 
       {tieneDesglose && <DesgloseEstimador desglose={c.desgloseEstimador} onEdit={onReabrirEstimador} />}
     </div>
+  );
+}
+
+function MenuItem({ icon, label, onClick, color = "#333" }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%",
+        padding: "10px 14px", border: "none", background: "transparent",
+        color, fontSize: 13, fontWeight: 600, cursor: "pointer",
+        fontFamily: "inherit", textAlign: "left",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "#f8f4fc"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    >
+      <span>{icon}</span><span>{label}</span>
+    </button>
   );
 }
 
