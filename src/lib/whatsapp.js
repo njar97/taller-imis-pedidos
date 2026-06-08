@@ -140,6 +140,9 @@ export function mensajeWA(p, esAdmin = false) {
   // p.notas son OBSERVACIONES INTERNAS del taller (así dice el label en
   // el form). No se mandan al cliente. Si el usuario quiere comunicar
   // algo al cliente, va en p.descripcion (que sí se incluye arriba).
+  if (!esAdmin && parseFloat(p.precio || 0) > 0 && saldo > 0) {
+    msg += `\nPago en 2 partes: 50% al confirmar · 50% al recibir`;
+  }
   msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
 }
