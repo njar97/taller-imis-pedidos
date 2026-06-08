@@ -185,16 +185,12 @@ export function mensajeCotizacionWA(c) {
   }
   if (c.descripcion) msg += `\n📝 ${c.descripcion}\n`;
 
-  if (total > 0 && totPzas > 0) {
-    const precioUnit = total / totPzas;
-    msg += `\n💵 *$${precioUnit.toFixed(2)}/unidad · ${totPzas} pieza${totPzas === 1 ? "" : "s"}*`;
+  if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
+  if (total > 0) {
     msg += `\n💰 *Total: $${total.toFixed(2)}*`;
-  } else {
-    if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
-    if (total > 0) msg += `\n💰 *Total: $${total.toFixed(2)}*`;
+    msg += `\n💵 Anticipo 50%: *$${(total * 0.5).toFixed(2)}* al confirmar · saldo contra entrega`;
   }
-  if (c.notas) msg += `\n📋 ${c.notas}`;
-  msg += `\n📌 Cotización válida ${validez} días${venceStr ? ` (vence ${venceStr})` : ""}`;
+  msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
   msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
 }
@@ -233,7 +229,7 @@ export function mensajeComparativoWA(cots) {
     msg += `   *$${unit.toFixed(2)} c/u${qty > 0 ? ` · $${total.toFixed(2)} (${qty} u.)` : ""}*\n`;
   });
   msg += `\n━━━━━━━━━━━━━━━━━━\n`;
-  msg += `Se elige una sola opción · válida 15 días 🙌`;
+  msg += `Se elige una sola opción · 50% anticipo al confirmar 🙌`;
   return msg;
 }
 
