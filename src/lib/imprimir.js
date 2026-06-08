@@ -5,6 +5,7 @@ import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
+import { mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
 import QRCode from "qrcode";
@@ -93,7 +94,9 @@ export async function imprimirPedido(p, esAdmin, todosPedidos = []) {
 // window.open — así cada sitio cambia solo la línea del open. Al cerrar el
 // documento dispara print() nativo, que en móvil abre el diálogo de
 // imprimir / guardar como PDF del sistema.
-export function nuevaVentanaImpresion() {
+// titulo (opcional): Chrome Android usa el document.title del padre para el
+// nombre de archivo al guardar PDF — lo cambiamos temporalmente y lo restauramos.
+export function nuevaVentanaImpresion(titulo = null) {
   const prev = document.getElementById("__print_frame__");
   if (prev) prev.remove();
   const iframe = document.createElement("iframe");
@@ -110,8 +113,14 @@ export function nuevaVentanaImpresion() {
         idoc.close();
         const imprimir = () => {
           try {
+            const prevTitle = document.title;
+            if (titulo) document.title = titulo;
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
+            // Restaurar título al cerrar el diálogo de impresión.
+            const restore = () => { document.title = prevTitle; };
+            iframe.contentWindow.addEventListener("afterprint", restore, { once: true });
+            setTimeout(restore, 15000); // fallback si afterprint no dispara
           } catch (e) {
             console.warn("print():", e);
           }
@@ -161,7 +170,8 @@ export async function imprimirCotizacion(p) {
   const iva = precioFinal - subtotal;
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
-  const w = nuevaVentanaImpresion();
+  const waText = mensajeCotizacionWA(p);
+  const w = nuevaVentanaImpresion(titulo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${titulo}</title>
 <style>
@@ -174,13 +184,35 @@ export async function imprimirCotizacion(p) {
 
 <div class="no-print" style="margin-bottom:14px;">
   <div style="background:#F3E5F5;border:1px solid #d4b3df;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#6B2D8B;">
-    💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
+    💾 <strong>Nombre del archivo:</strong> <strong>${titulo}.pdf</strong>
+    &nbsp;·&nbsp; Guardalo y luego adjuntálo en WhatsApp.
   </div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;">
-    <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
-    <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+    <button id="wa-btn" onclick="compartirWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">💬 Compartir WA</button>
+    <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📥 Guardar PDF</button>
   </div>
 </div>
+<script>
+const _waMsg = ${JSON.stringify(waText)};
+async function compartirWA() {
+  const btn = document.getElementById('wa-btn');
+  try {
+    if (navigator.share) {
+      await navigator.share({ text: _waMsg });
+      btn.textContent = '✓ Compartido';
+    } else {
+      await navigator.clipboard.writeText(_waMsg);
+      btn.textContent = '✓ Copiado';
+    }
+  } catch(e) {
+    if (e && e.name !== 'AbortError') {
+      await navigator.clipboard.writeText(_waMsg).catch(() => {});
+      btn.textContent = '✓ Copiado';
+    }
+  }
+  setTimeout(() => { btn.textContent = '💬 Compartir WA'; }, 3000);
+}
+</script>
 
 <!-- ENCABEZADO con datos fiscales del emisor -->
 <div style="border-bottom:3px solid #2C1654;padding-bottom:12px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
@@ -471,7 +503,7 @@ export function imprimirRecibo(p) {
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
   const tituloRecibo = nombrePDF("Recibo", p.id, p.cliente);
-  const w = nuevaVentanaImpresion();
+  const w = nuevaVentanaImpresion(tituloRecibo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloRecibo}</title>
   <style>
@@ -670,7 +702,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       </div>
     </div>` : "";
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
-  const w = nuevaVentanaImpresion();
+  const w = nuevaVentanaImpresion(tituloProd);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloProd}</title>
   <style>
@@ -964,7 +996,8 @@ export function exportarPedidoPDF(pedido, tipo) {
   if (tipo === "confeccion") {
     imprimirRecibo(pedido, true);
   } else {
-    const w = nuevaVentanaImpresion();
+    const idStrTmp = tipo === "bordado" ? "BORD-" + String(pedido.id).padStart(3, "0") : "CUEL-" + String(pedido.id).padStart(3, "0");
+    const w = nuevaVentanaImpresion(idStrTmp + "_" + (pedido.cliente || "").replace(/\s+/g, "-").slice(0, 30));
     const pM = v => {
       const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
       return isNaN(n) ? 0 : n;
