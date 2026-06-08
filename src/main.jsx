@@ -950,9 +950,9 @@ function App() {
                 okLabel: "Sí, convertir",
               });
               if (!ok) return;
-              const actualizado = { ...c, esCotizacion: false, estatus: "Corte" };
-              setPedidos(prev => prev.map(p => p.id === c.id ? actualizado : p));
-              try { await gsGuardar(actualizado); } catch {}
+              const convertido = { ...c, esCotizacion: false, estatus: "Corte" };
+              setPedidos(prev => prev.map(p => p.id === c.id ? convertido : p));
+              try { await gsGuardar(convertido); } catch {}
               // Si el cliente NO existe en el CRM, lo agregamos automático.
               // Match case-insensitive por nombre normalizado.
               const nombre = (c.cliente || "").trim();
@@ -980,8 +980,12 @@ function App() {
                   pushToast(`Cliente "${nombre}" agregado al CRM`, "success", 4000);
                 }
               }
-              pushToast("Cotización convertida a pedido ✓", "success");
-              setSec("pedidos");
+              // Abre el formulario con tallasItems vacías para que el usuario
+              // ingrese las tallas reales del cliente (la cotización tenía
+              // cantidades estimadas, no el desglose por talla confirmado).
+              // Las imágenes y el resto del pedido quedan copiadas.
+              pushToast("Cotización convertida — añadí las tallas confirmadas ✏️", "success", 5000);
+              setModal({ ...convertido, tallasItems: [] });
             }}
             onEliminar={async (c) => {
               const ok = await pushConfirm({

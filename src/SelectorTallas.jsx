@@ -659,6 +659,40 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
                           background: "#fafafa",
                         }}
                       />
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontSize: 9, color: "#bbb", whiteSpace: "nowrap", flexShrink: 0 }}>
+                          &lt;12 pzas:
+                        </span>
+                        <div style={{ position: "relative", flex: 1 }}>
+                          <span style={{
+                            position: "absolute", left: 5, top: "50%",
+                            transform: "translateY(-50%)", fontSize: 10,
+                            color: "#bbb", pointerEvents: "none",
+                          }}>$</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={it.precioUnitario != null ? it.precioUnitario : ""}
+                            onChange={e => {
+                              const v = e.target.value.trim();
+                              if (v === "") { editField(it.id, "precioUnitario", null); return; }
+                              const n = parseFloat(v);
+                              editField(it.id, "precioUnitario", Number.isFinite(n) ? n : null);
+                            }}
+                            placeholder="—"
+                            title="Precio por pieza suelta (menos de 12 unidades)"
+                            style={{
+                              width: "100%", padding: "2px 4px 2px 14px",
+                              borderRadius: 4, border: "1px solid " + (it.precioUnitario ? "#f0c060" : "#e8e8e8"),
+                              fontSize: 11, outline: "none",
+                              color: it.precioUnitario ? "#B7770D" : "#bbb",
+                              background: it.precioUnitario ? "#FFFBF0" : "#fafafa",
+                            }}
+                          />
+                        </div>
+                      </div>
                       {sub != null && (
                         <div
                           style={{
