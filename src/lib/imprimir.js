@@ -263,6 +263,21 @@ ${items.length ? `
   </table>
 </div>
 
+<!-- CONDICIONES DE PAGO -->
+<div style="background:#E8F5E9;border:2px solid #27AE60;border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:12px;">
+  <div style="font-weight:900;color:#1A5F33;margin-bottom:7px;">💵 Condiciones de pago</div>
+  <table style="width:100%;border-collapse:collapse;color:#1A5F33;font-size:12px;">
+    <tr>
+      <td style="padding:3px 0;">Anticipo al confirmar el pedido <strong>(50%)</strong>:</td>
+      <td style="text-align:right;font-weight:900;font-size:14px;">$${(precioFinal * 0.5).toFixed(2)}</td>
+    </tr>
+    <tr style="border-top:1px dashed #a8d5b5;">
+      <td style="padding:4px 0 0;">Saldo contra entrega <strong>(50%)</strong>:</td>
+      <td style="text-align:right;font-weight:800;padding-top:4px;">$${(precioFinal * 0.5).toFixed(2)}</td>
+    </tr>
+  </table>
+</div>
+
 ${p.descripcion ? `
 <div style="background:#F9F0FF;border-left:3px solid #9B59B6;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#4A235A;line-height:1.5;">
   <strong>Observaciones:</strong><br>${p.descripcion}
@@ -284,7 +299,6 @@ ${(p.plazoEntrega || p.lugarEntrega || p.formaPago) ? `
 <div style="font-size:10px;color:#666;line-height:1.6;margin-bottom:24px;border-top:1px dashed #ddd;padding-top:10px;">
   <strong>Condiciones generales:</strong><br>
   • Los precios incluyen IVA, mano de obra y materiales según especificación.<br>
-  • Forma de pago: anticipo del 50% al confirmar pedido, saldo contra entrega.<br>
   • Fecha de entrega a coordinar al momento de la confirmación.<br>
   • Cambios al diseño o cantidades pueden modificar el precio final.<br>
   • Cotización emitida con base a especificaciones recibidas del cliente.
