@@ -198,7 +198,11 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
             />
           </a>
         )}
-        <div style={{ flex: 1 }}>
+        <div
+          onClick={onEditar}
+          style={{ flex: 1, cursor: "pointer" }}
+          title="Toca para editar esta cotización"
+        >
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: "#9B59B6", fontWeight: 700 }}>
               COT-{String(c.id).padStart(4, "0")}
@@ -206,6 +210,7 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
             <strong style={{ fontSize: 14, color: "#2C1654" }}>{c.cliente || "(sin cliente)"}</strong>
             {telWA && (
               <a href={telWA} target="_blank" rel="noopener" title="WhatsApp"
+                onClick={e => e.stopPropagation()}
                 style={{ fontSize: 11, color: "#25D366", textDecoration: "none", fontWeight: 700 }}>
                 💬 {c.telefono}
               </a>
@@ -222,7 +227,11 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
             }
           </div>
         </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <div
+          onClick={onEditar}
+          style={{ textAlign: "right", flexShrink: 0, cursor: "pointer" }}
+          title="Toca para editar esta cotización"
+        >
           <div style={{ fontSize: 18, fontWeight: 900, color: "#27AE60" }}>{fmt$(c.precio)}</div>
           <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: .5 }}>cotizado</div>
         </div>
@@ -254,14 +263,6 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         <button onClick={onEnviarEmail} style={BTN("#27AE60")} title="Enviar por email al cliente">
           📧 Email
         </button>
-        {tieneDesglose && (
-          <button onClick={onReabrirEstimador} style={BTN("#E67E22")} title="Reabrir en el estimador para ajustar precios">
-            ✏️ Editar estimador
-          </button>
-        )}
-        <button onClick={onEditar} style={BTN("#1A5276")}>
-          ✏️ Editar
-        </button>
         <button onClick={onVerVersiones} style={BTN("#888", true)} title="Ver versiones anteriores de esta cotización">
           🕗 Versiones
         </button>
@@ -270,7 +271,7 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         </button>
       </div>
 
-      {tieneDesglose && <DesgloseEstimador desglose={c.desgloseEstimador} />}
+      {tieneDesglose && <DesgloseEstimador desglose={c.desgloseEstimador} onEdit={onReabrirEstimador} />}
     </div>
   );
 }
