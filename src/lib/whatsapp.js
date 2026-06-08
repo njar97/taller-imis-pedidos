@@ -165,7 +165,10 @@ export function mensajeCotizacionWA(c) {
     venceStr = d.toISOString().split("T")[0];
   }
 
-  let msg = `🧵 *Taller IMIS — Cotización N°${num}*\n\n`;
+  let msg = `🧵 *Taller IMIS — Cotización N°${num}*\n`;
+  msg += `Para: *${c.cliente || "Cliente"}*`;
+  if (c.nombreContacto) msg += ` · Attn. ${c.nombreContacto}`;
+  msg += `\n\n`;
 
   if (items.length) {
     msg += items.map(it => {
