@@ -189,7 +189,7 @@ export async function imprimirCotizacion(p) {
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
     <button id="wa-btn" onclick="compartirWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">💬 Compartir WA</button>
-    <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📥 Guardar PDF</button>
+    <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📥 Guardar PDF</button>
   </div>
 </div>
 <script>
@@ -455,6 +455,10 @@ ${(() => {
 </div>
 `;
 })() : ""}
+<script>
+const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+</script>
 </body></html>`);
   w.document.close();
 }
@@ -522,7 +526,7 @@ export function imprimirRecibo(p) {
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
       <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
-      <button onclick="window.print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="_print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
       <button onclick="window.close()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
     </div>
   </div>
@@ -620,11 +624,18 @@ export function imprimirRecibo(p) {
   </div>
   <script>
   const _waMsg = ${JSON.stringify(waText)};
+  const _pt = (function(){ try{ return window.parent.document.title; }catch(e){ return ''; } })();
+  function _print() {
+    try{ window.parent.document.title = document.title; }catch(e){}
+    window.print();
+    window.addEventListener('afterprint', function(){ try{ window.parent.document.title = _pt; }catch(e){} }, { once: true });
+    setTimeout(function(){ try{ window.parent.document.title = _pt; }catch(e){} }, 15000);
+  }
   async function enviarPorWA() {
     const btn = document.getElementById('wa-pdf-btn');
     btn.disabled = true;
     btn.textContent = '⏳ Guardando PDF...';
-    window.print();
+    _print();
     window.addEventListener('afterprint', async function handler() {
       window.removeEventListener('afterprint', handler);
       btn.textContent = '📤 Abriendo WA...';
@@ -759,7 +770,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloProd}.pdf</strong>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button onclick="window.print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
       <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
     </div>
   </div>
@@ -879,7 +890,10 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       ${Array.from({ length: 6 }, () => `<div style="height:22px;border-bottom:1px solid #f0f0f0;"></div>`).join("")}
     </div>
   </div>
-
+  <script>
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+  </script>
   </body></html>`);
   w.document.close();
 }
@@ -1056,7 +1070,7 @@ export function exportarPedidoPDF(pedido, tipo) {
       .total-box{background:${color};color:#fff;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-top:16px}
     </style></head><body>
     <div class="no-print" style="text-align:right;margin-bottom:10px">
-      <button onclick="window.print()" style="padding:8px 20px;background:${color};color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:14px">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="_print()" style="padding:8px 20px;background:${color};color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:14px">🖨️ Guardar PDF</button>
     </div>
     <div class="header">
       <div><div class="logo">🧵 Taller IMIS</div><div style="font-size:11px;color:#aaa;margin-top:3px">${tipo === "bordado" ? "Bordado" : "Tejido de cuello"}</div></div>
@@ -1089,6 +1103,10 @@ export function exportarPedidoPDF(pedido, tipo) {
       <div style="text-align:right"><div style="font-size:11px;opacity:.8">Saldo pendiente</div><div style="font-size:24px;font-weight:900">$${saldo.toFixed(2)}</div></div>
     </div>` : ""}
     ${pedido.notas ? `<div class="sec">📝 Notas</div><p style="font-size:12px;color:#555;padding:8px 10px;background:#f9f9f9;border-radius:7px">${pedido.notas}</p>` : ""}
+    <script>
+    const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+    function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+    </script>
     </body></html>`);
     w.document.close();
   }
