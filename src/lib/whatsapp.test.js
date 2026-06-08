@@ -201,9 +201,9 @@ describe("mensajeCotizacionWA", () => {
     expect(msg).toContain("Logo bordado incluido");
   });
 
-  it("incluye monto del anticipo (50% del total)", () => {
+  it("incluye framing de 2 pagos", () => {
     const msg = mensajeCotizacionWA(cot);
-    expect(msg).toContain("$90.00"); // 50% de $180
+    expect(msg).toContain("2 partes");
   });
 });
 

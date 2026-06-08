@@ -193,7 +193,7 @@ export function mensajeCotizacionWA(c) {
 
   if (total > 0) {
     msg += `\n*Total: $${total.toFixed(2)}*`;
-    msg += `\nPara confirmar: *$${(total * 0.5).toFixed(2)}* de anticipo`;
+    msg += `\nPago en 2 partes: 50% al confirmar · 50% al recibir`;
   }
   msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
   return msg;
