@@ -157,7 +157,6 @@ export function mensajeCotizacionWA(c) {
   const num = String(c.id).padStart(4, "0");
   const items = itemsResumen(c);
   const total = parseFloat(c.precio || 0);
-  const totPzas = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
   const validez = c.validezDias || 15;
   let venceStr = "";
   if (c.fecha) {
@@ -165,33 +164,29 @@ export function mensajeCotizacionWA(c) {
     d.setDate(d.getDate() + validez);
     venceStr = d.toISOString().split("T")[0];
   }
-  const tipoIcon =
-    c.tipoCliente === "escuela" ? "🏫" : c.tipoCliente === "empresa" ? "🏢" : "👤";
 
-  let msg = `🧵 *TALLER IMIS — Cotización N°${num}*\n`;
-  msg += `━━━━━━━━━━━━━━━━━━\n`;
-  msg += `${tipoIcon} *${c.cliente || "Cliente"}*`;
-  if (c.nombreContacto) msg += `\n   Contacto: ${c.nombreContacto}`;
-  if (c.telefono) msg += `\n   📱 ${c.telefono}`;
-  msg += `\n\n`;
-  msg += `✂️ *${c.tipoPrenda || "(sin especificar)"}*`;
-  if (c.tela || c.color) msg += `\n   ${[c.tela, c.color].filter(Boolean).join(" · ")}`;
-  msg += `\n`;
+  let msg = `🧵 *Taller IMIS — Cotización N°${num}*\n\n`;
 
   if (items.length) {
-    msg += `\n📦 *Detalle:*\n`;
-    msg += items.map(it => lineaResumen(it, true)).join("\n");
-    msg += `\n`;
+    msg += items.map(it => {
+      const pr = parseFloat(it.precio) || 0;
+      const sub = pr * it.qty;
+      const tipo = it.tipo || it.talla || "—";
+      const spec = it.spec ? ` (${it.spec})` : "";
+      return pr > 0
+        ? `*${it.qty}× ${tipo}*${spec} — $${pr.toFixed(2)} c/u = *$${sub.toFixed(2)}*`
+        : `*${it.qty}× ${tipo}*${spec}`;
+    }).join("\n");
+    msg += "\n";
   }
+
   if (c.descripcion) msg += `\n📝 ${c.descripcion}\n`;
 
-  if (totPzas > 0) msg += `\n📦 *Total piezas: ${totPzas}*`;
   if (total > 0) {
-    msg += `\n💰 *Total: $${total.toFixed(2)}*`;
-    msg += `\n💵 Anticipo 50%: *$${(total * 0.5).toFixed(2)}* al confirmar · saldo contra entrega`;
+    msg += `\n*Total: $${total.toFixed(2)}*`;
+    msg += `\nPara confirmar: *$${(total * 0.5).toFixed(2)}* de anticipo`;
   }
   msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
-  msg += `\n━━━━━━━━━━━━━━━━━━`;
   return msg;
 }
 
