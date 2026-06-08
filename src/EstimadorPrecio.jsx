@@ -73,6 +73,7 @@ function itemNuevo(catalogo = []) {
   return {
     id: Date.now() + Math.random(),
     tipoPrenda: primerTipo,
+    descripcion: "",
     qty: 1,
     telaId: "",
     telaNombre: "",
@@ -81,8 +82,7 @@ function itemNuevo(catalogo = []) {
     moModo: "hechura", // 'hechura' (por prenda) | 'tiempo' (por hora)
     moCostoUnit: "3",
     moHoras: "1",
-    bordActivo: false,
-    bordPunt: "",
+    bordados: [], // array de { id, nombre, puntadas } — una entrada por ubicación
     otros: [],
     expandido: true, // primer item arranca expandido
   };
@@ -95,7 +95,11 @@ function costoItem(it) {
   const mo = modo === "hechura"
     ? num(it.moCostoUnit) * num(it.qty)
     : num(it.moCostoUnit) * num(it.moHoras);
-  const bord = it.bordActivo ? calcCostoBordado(it.bordPunt) * num(it.qty) : 0;
+  // Backwards-compat: bordActivo/bordPunt (pre-array) → bordados array vacío con un elemento.
+  const bordados = Array.isArray(it.bordados) && it.bordados.length
+    ? it.bordados
+    : (it.bordActivo && it.bordPunt) ? [{ id: 0, puntadas: it.bordPunt }] : [];
+  const bord = bordados.reduce((s, b) => s + calcCostoBordado(b.puntadas), 0) * num(it.qty);
   const otros = (it.otros || []).reduce((s, o) => s + num(o.qty) * num(o.costo), 0);
   return { tela, mo, bord, otros, total: tela + mo + bord + otros };
 }
@@ -108,6 +112,18 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefresca
   const editOtro = (oid, k, v) => onChange({
     ...it,
     otros: (it.otros || []).map(o => o.id === oid ? { ...o, [k]: v } : o),
+  });
+  const addBordado = (nombre = "") => onChange({
+    ...it,
+    bordados: [...(it.bordados || []), { id: Date.now() + Math.random(), nombre, puntadas: "" }],
+  });
+  const editBordado = (bid, k, v) => onChange({
+    ...it,
+    bordados: (it.bordados || []).map(b => b.id === bid ? { ...b, [k]: v } : b),
+  });
+  const delBordado = bid => onChange({
+    ...it,
+    bordados: (it.bordados || []).filter(b => b.id !== bid),
   });
   const addOtro = (preset = null) => onChange({
     ...it,
@@ -204,7 +220,7 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefresca
       {it.expandido && (
         <div style={{ padding: 10 }}>
           {/* Tipo de prenda + cantidad */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.6fr 70px", gap: 6, marginBottom: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.6fr 70px", gap: 6, marginBottom: 6 }}>
             <div>
               <label style={LBL}>Tipo de prenda</label>
               <input
@@ -227,6 +243,15 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefresca
                 onChange={e => editField("qty", Math.max(1, parseInt(e.target.value) || 1))}
               />
             </div>
+          </div>
+          {/* Notas del item: charreteras, bolsas, detalles que afectan el costo */}
+          <div style={{ marginBottom: 8 }}>
+            <input
+              style={{ ...INP, fontSize: 12, color: "#666" }}
+              value={it.descripcion || ""}
+              onChange={e => editField("descripcion", e.target.value)}
+              placeholder="Detalles: charreteras, 2 bolsas con tapa, manga larga…"
+            />
           </div>
 
           {/* 🧵 Tela */}
@@ -361,27 +386,48 @@ function ItemConfeccion({ it, idx, costos, onChange, onDel, onToggle, onRefresca
           })()}
           <div style={{ fontSize: 10, color: "#27AE60", textAlign: "right", marginTop: 2 }}>= {fmt$(c.mo)}</div>
 
-          {/* 🪡 Bordado opcional */}
-          <div style={SEC("#9B59B6")}>🪡 Bordado (opcional)</div>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4, cursor: "pointer", fontSize: 12 }}>
-            <input
-              type="checkbox"
-              checked={it.bordActivo}
-              onChange={e => editField("bordActivo", e.target.checked)}
-            />
-            ¿Lleva bordado?
-          </label>
-          {it.bordActivo && (
-            <>
-              <input
-                type="number" min="0" inputMode="numeric"
-                style={INP} value={it.bordPunt}
-                onChange={e => editField("bordPunt", e.target.value)}
-                placeholder="Puntadas del diseño (ej. 8500)"
-              />
-              <div style={{ fontSize: 10, color: "#9B59B6", textAlign: "right", marginTop: 2 }}>= {fmt$(c.bord)}</div>
-            </>
+          {/* 🪡 Bordados — una fila por ubicación */}
+          <div style={SEC("#9B59B6")}>🪡 Bordados</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 4 }}>
+            {["Pecho izq.", "Pecho der.", "Espalda", "Manga izq.", "Manga der.", "Cuello", "Gorra"].map(ub => (
+              <button key={ub} onClick={() => addBordado(ub)} style={{
+                padding: "3px 8px", borderRadius: 12,
+                border: "1.5px dashed #d4b3df", background: "#F3E5F5",
+                color: "#9B59B6", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "inherit",
+              }}>
+                + {ub}
+              </button>
+            ))}
+            <button onClick={() => addBordado("")} style={{
+              padding: "3px 8px", borderRadius: 12,
+              border: "1.5px solid #9B59B6", background: "#9B59B6",
+              color: "#fff", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "inherit",
+            }}>
+              + Otro
+            </button>
+          </div>
+          {(it.bordados || []).length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 2 }}>
+              {(it.bordados || []).map(b => (
+                <div key={b.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 24px", gap: 3 }}>
+                  <input
+                    style={{ ...INP, padding: "4px 6px", fontSize: 11 }}
+                    value={b.nombre} placeholder="Ubicación (Pecho izq., Espalda…)"
+                    onChange={e => editBordado(b.id, "nombre", e.target.value)}
+                  />
+                  <input
+                    type="number" min="0" inputMode="numeric"
+                    style={{ ...INP, padding: "4px 6px", textAlign: "center", fontSize: 11 }}
+                    value={b.puntadas} placeholder="Puntadas"
+                    onChange={e => editBordado(b.id, "puntadas", e.target.value)}
+                  />
+                  <button onClick={() => delBordado(b.id)}
+                    style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", fontSize: 14 }}>×</button>
+                </div>
+              ))}
+            </div>
           )}
+          <div style={{ fontSize: 10, color: "#9B59B6", textAlign: "right", marginTop: 2 }}>= {fmt$(c.bord)}</div>
 
           {/* ➕ Otros */}
           <div style={SEC("#E67E22")}>➕ Otros (botones, zíperes, cuello, hilos…)</div>
