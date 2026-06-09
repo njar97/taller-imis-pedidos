@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guía de Posición de Logos — IMELTEX</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0ece8; color: #222; padding: 24px; }
+    .page { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 14px; padding: 36px 44px; box-shadow: 0 4px 32px rgba(0,0,0,0.10); }
+    header { border-bottom: 3px solid #1A5276; padding-bottom: 18px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+    header h1 { font-size: 22px; color: #1A5276; font-family: Georgia, serif; line-height: 1.2; }
+    header .meta { font-size: 11px; color: #aaa; text-align: right; line-height: 1.7; }
+    h2 { font-size: 11px; font-weight: 800; color: #1A5276; text-transform: uppercase; letter-spacing: 1.2px; margin: 32px 0 14px; border-bottom: 2px solid #e8f0f8; padding-bottom: 5px; }
+
+    /* ── Diagramas ────────────────────────── */
+    .diagrams { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap; }
+    .diagram-box { flex: 1; min-width: 270px; background: #fafaf8; border: 1.5px solid #dde8f0; border-radius: 10px; padding: 18px; text-align: center; }
+    .diagram-box h3 { font-size: 10px; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+
+    /* ── Nota ────────────────────────────── */
+    .nota { background: #FFF8E1; border-left: 4px solid #F39C12; padding: 13px 16px; border-radius: 0 8px 8px 0; margin: 22px 0; font-size: 13px; line-height: 1.65; }
+    .nota strong { color: #9A6000; }
+
+    /* ── Tabla ───────────────────────────── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+    thead th { background: #1A5276; color: #fff; padding: 10px 14px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+    thead th:first-child { border-radius: 6px 0 0 0; }
+    thead th:last-child  { border-radius: 0 6px 0 0; }
+    tbody td { padding: 10px 14px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    tbody tr:nth-child(even) td { background: #f9f9f9; }
+    .chip { display: inline-block; background: #E3F2FD; color: #1A5276; border-radius: 10px; padding: 2px 7px; font-size: 10px; font-weight: 800; margin: 1px; }
+    .chip.nino { background: #E8F5E9; color: #27AE60; }
+    .medida { font-weight: 900; color: #E67E22; font-size: 14px; }
+    .pos { font-weight: 900; color: #1A5276; }
+
+    /* ── Reglas ──────────────────────────── */
+    .reglas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .regla { background: #f5f8ff; border-radius: 9px; padding: 14px 16px; border-top: 3px solid #1A5276; }
+    .regla-num { font-size: 28px; font-weight: 900; color: #1A5276; line-height: 1; }
+    .regla-lbl { font-size: 9px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; margin-bottom: 6px; }
+    .regla-desc { font-size: 12px; color: #444; line-height: 1.55; }
+
+    footer { margin-top: 34px; padding-top: 14px; border-top: 1px solid #eee; font-size: 10px; color: #bbb; display: flex; justify-content: space-between; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .page { box-shadow: none; padding: 20px 24px; border-radius: 0; }
+      .reglas { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      .page { padding: 20px; }
+      .diagrams { flex-direction: column; }
+      .reglas { grid-template-columns: 1fr; }
+      header { flex-direction: column; gap: 8px; }
+      header .meta { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div>
+      <h1>📐 Guía de Posición de Logos en Camisas</h1>
+      <div style="font-size:12px;color:#888;margin-top:5px;">Estándar para sublimación · DTF · Bordado · IMELTEX</div>
+    </div>
+    <div class="meta">
+      Versión 1.0 · Junio 2026<br>
+      Basado en estándares industria<br>
+      DTF/sublimación poliéster
+    </div>
+  </header>
+
+  <!-- ══════════════ DIAGRAMAS ══════════════ -->
+  <h2>Diagramas de referencia (talla adulto M–L)</h2>
+  <div class="diagrams">
+
+    <!-- FRENTE -->
+    <div class="diagram-box">
+      <h3>Vista frontal — Pecho izquierdo</h3>
+      <svg viewBox="0 0 300 340" width="100%" style="max-width:280px;" xmlns="http://www.w3.org/2000/svg">
+        <!-- Cuerpo camisa -->
+        <path d="M70,50 L30,85 L30,300 L270,300 L270,85 L230,50" fill="#EBF5FB" stroke="#1A5276" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- Manga izq hint -->
+        <path d="M70,50 L18,100 L38,108 L70,68" fill="#D6EAF8" stroke="#1A5276" stroke-width="1.5"/>
+        <!-- Manga der hint -->
+        <path d="M230,50 L282,100 L262,108 L230,68" fill="#D6EAF8" stroke="#1A5276" stroke-width="1.5"/>
+        <!-- Cuello V -->
+        <path d="M70,50 Q150,38 230,50 L208,68 Q150,85 92,68 Z" fill="#D6EAF8" stroke="#1A5276" stroke-width="1.5"/>
+        <!-- Punto ref cuello -->
+        <circle cx="150" cy="70" r="4" fill="#E74C3C"/>
+        <text x="165" y="73" font-size="9" fill="#E74C3C" font-weight="800">← punto de medición</text>
+
+        <!-- Línea central punteada -->
+        <line x1="150" y1="70" x2="150" y2="300" stroke="#ccc" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="150" y="315" text-anchor="middle" font-size="9" fill="#bbb">centro</text>
+
+        <!-- Flecha posición vertical (cuello → logo) -->
+        <defs>
+          <marker id="arr-red" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="#E74C3C"/>
+          </marker>
+          <marker id="arr-red2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+            <polygon points="0,0 8,4 0,8" fill="#E74C3C"/>
+          </marker>
+          <marker id="arr-purple" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="#9B59B6"/>
+          </marker>
+          <marker id="arr-purple2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+            <polygon points="0,0 8,4 0,8" fill="#9B59B6"/>
+          </marker>
+          <marker id="arr-green" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="#27AE60"/>
+          </marker>
+          <marker id="arr-green2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+            <polygon points="0,0 8,4 0,8" fill="#27AE60"/>
+          </marker>
+        </defs>
+
+        <line x1="78" y1="72" x2="78" y2="163"
+              stroke="#E74C3C" stroke-width="1.8" stroke-dasharray="5,3"
+              marker-start="url(#arr-red2)" marker-end="url(#arr-red)"/>
+        <!-- Etiqueta 16cm -->
+        <rect x="34" y="106" width="40" height="18" rx="5" fill="#E74C3C"/>
+        <text x="54" y="119" text-anchor="middle" font-size="11" fill="white" font-weight="900">16 cm</text>
+
+        <!-- Caja logo -->
+        <rect x="95" y="163" width="65" height="52" rx="5"
+              fill="rgba(155,89,182,0.13)" stroke="#9B59B6" stroke-width="2.2" stroke-dasharray="6,3"/>
+        <text x="127" y="186" text-anchor="middle" font-size="10" fill="#6C3483" font-weight="800">LOGO</text>
+        <text x="127" y="200" text-anchor="middle" font-size="9" fill="#9B59B6">10 × 8 cm</text>
+        <text x="127" y="211" text-anchor="middle" font-size="8" fill="#9B59B6">(adulto M–L)</text>
+
+        <!-- Flecha ancho logo -->
+        <line x1="95" y1="228" x2="160" y2="228"
+              stroke="#9B59B6" stroke-width="1.5"
+              marker-start="url(#arr-purple2)" marker-end="url(#arr-purple)"/>
+        <text x="127" y="242" text-anchor="middle" font-size="9" fill="#9B59B6" font-weight="700">10 cm</text>
+
+        <!-- Flecha alto logo -->
+        <line x1="172" y1="163" x2="172" y2="215"
+              stroke="#9B59B6" stroke-width="1.5"
+              marker-start="url(#arr-purple2)" marker-end="url(#arr-purple)"/>
+        <text x="190" y="194" text-anchor="middle" font-size="9" fill="#9B59B6" font-weight="700">8 cm</text>
+
+        <!-- Flecha posición horizontal -->
+        <line x1="150" y1="152" x2="95" y2="152"
+              stroke="#27AE60" stroke-width="1.5" stroke-dasharray="3,2"
+              marker-start="url(#arr-green2)" marker-end="url(#arr-green)"/>
+        <text x="120" y="145" text-anchor="middle" font-size="8" fill="#27AE60" font-weight="700">~5 cm</text>
+        <text x="120" y="154" text-anchor="middle" font-size="7" fill="#27AE60">del centro</text>
+      </svg>
+    </div>
+
+    <!-- MANGA -->
+    <div class="diagram-box">
+      <h3>Manga izquierda (extendida)</h3>
+      <svg viewBox="0 0 300 340" width="100%" style="max-width:280px;" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ma-red" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="#E74C3C"/>
+          </marker>
+          <marker id="ma-red2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+            <polygon points="0,0 8,4 0,8" fill="#E74C3C"/>
+          </marker>
+          <marker id="ma-purple" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+            <polygon points="0,0 8,4 0,8" fill="#9B59B6"/>
+          </marker>
+          <marker id="ma-purple2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+            <polygon points="0,0 8,4 0,8" fill="#9B59B6"/>
+          </marker>
+        </defs>
+        <!-- Manga forma trapezoide (más ancha arriba) -->
+        <path d="M30,40 L270,40 L240,300 L60,300 Z" fill="#EBF5FB" stroke="#1A5276" stroke-width="2.5"/>
+        <!-- Etiquetas extremos -->
+        <text x="150" y="30" text-anchor="middle" font-size="9" fill="#888">costura del hombro</text>
+        <text x="150" y="320" text-anchor="middle" font-size="9" fill="#888">puño</text>
+
+        <!-- Línea central -->
+        <line x1="150" y1="40" x2="150" y2="300" stroke="#ccc" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Flecha posición desde hombro -->
+        <line x1="50" y1="40" x2="50" y2="120"
+              stroke="#E74C3C" stroke-width="1.8" stroke-dasharray="5,3"
+              marker-start="url(#ma-red2)" marker-end="url(#ma-red)"/>
+        <rect x="4" y="72" width="40" height="18" rx="5" fill="#E74C3C"/>
+        <text x="24" y="85" text-anchor="middle" font-size="11" fill="white" font-weight="900">8 cm</text>
+        <text x="24" y="66" text-anchor="middle" font-size="8" fill="#E74C3C">desde hombro</text>
+
+        <!-- Caja logo -->
+        <rect x="100" y="120" width="100" height="80" rx="5"
+              fill="rgba(155,89,182,0.13)" stroke="#9B59B6" stroke-width="2.2" stroke-dasharray="6,3"/>
+        <text x="150" y="157" text-anchor="middle" font-size="10" fill="#6C3483" font-weight="800">LOGO</text>
+        <text x="150" y="172" text-anchor="middle" font-size="9" fill="#9B59B6">8 × 7 cm</text>
+        <text x="150" y="183" text-anchor="middle" font-size="8" fill="#9B59B6">(adulto M–L)</text>
+
+        <!-- Flecha ancho logo -->
+        <line x1="100" y1="216" x2="200" y2="216"
+              stroke="#9B59B6" stroke-width="1.5"
+              marker-start="url(#ma-purple2)" marker-end="url(#ma-purple)"/>
+        <text x="150" y="230" text-anchor="middle" font-size="9" fill="#9B59B6" font-weight="700">8 cm</text>
+
+        <!-- Flecha alto logo -->
+        <line x1="212" y1="120" x2="212" y2="200"
+              stroke="#9B59B6" stroke-width="1.5"
+              marker-start="url(#ma-purple2)" marker-end="url(#ma-purple)"/>
+        <text x="236" y="165" text-anchor="middle" font-size="9" fill="#9B59B6" font-weight="700">7 cm</text>
+
+        <text x="150" y="270" text-anchor="middle" font-size="9" fill="#888" font-style="italic">Logo siempre centrado en el ancho de la manga</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="nota">
+    <strong>📏 Cómo tomar la medida de posición:</strong> Siempre medir desde la <strong>costura del cuello hacia abajo</strong> hasta el <strong>borde superior del logo</strong>. Usar cinta métrica antes de planchar o bordar. La posición horizontal en el pecho es a ~5 cm del centro hacia la izquierda (zona del bolsillo). En la manga, el logo va <strong>centrado</strong> en el ancho.
+  </div>
+
+  <!-- ══════════════ TABLA ══════════════ -->
+  <h2>Medidas estándar por grupo de talla</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Grupo</th>
+        <th>Tallas</th>
+        <th>Logo pecho izq. (W × H)</th>
+        <th>Logo manga izq. (W × H)</th>
+        <th>Pos. desde cuello</th>
+        <th>Pos. horizontal pecho</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Niños pequeños</strong></td>
+        <td>
+          <span class="chip nino">8</span>
+          <span class="chip nino">10</span>
+        </td>
+        <td><span class="medida">7 × 5 cm</span></td>
+        <td><span class="medida">5 × 4 cm</span></td>
+        <td><span class="pos">11 cm</span></td>
+        <td>3 cm del centro</td>
+      </tr>
+      <tr>
+        <td><strong>Niños grandes</strong></td>
+        <td>
+          <span class="chip nino">12</span>
+          <span class="chip nino">14</span>
+        </td>
+        <td><span class="medida">9 × 7 cm</span></td>
+        <td><span class="medida">7 × 5 cm</span></td>
+        <td><span class="pos">13 cm</span></td>
+        <td>4 cm del centro</td>
+      </tr>
+      <tr>
+        <td><strong>Adulto estándar</strong></td>
+        <td>
+          <span class="chip">XS</span>
+          <span class="chip">S</span>
+          <span class="chip">M</span>
+          <span class="chip">L</span>
+          <span class="chip">XL</span>
+        </td>
+        <td><span class="medida">10 × 8 cm</span></td>
+        <td><span class="medida">8 × 7 cm</span></td>
+        <td><span class="pos">15–16 cm</span></td>
+        <td>5 cm del centro</td>
+      </tr>
+      <tr>
+        <td><strong>Adulto plus</strong></td>
+        <td>
+          <span class="chip">2XL</span>
+          <span class="chip">3XL</span>
+        </td>
+        <td><span class="medida">12 × 9 cm</span></td>
+        <td><span class="medida">9 × 8 cm</span></td>
+        <td><span class="pos">17 cm</span></td>
+        <td>6 cm del centro</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="nota" style="margin-top:14px;">
+    <strong>⚠️ Cuando el cliente manda sus propias medidas:</strong> usar siempre las del cliente. Esta tabla aplica solo cuando el cliente <em>no especifica</em> tamaño. Si el logo tiene proporciones distintas (ej: logo horizontal muy ancho), ajustar el <strong>ancho</strong> según la tabla y escalar el alto manteniendo la proporción original del archivo.
+  </div>
+
+  <!-- ══════════════ REGLAS ══════════════ -->
+  <h2>Reglas rápidas de referencia</h2>
+  <div class="reglas">
+    <div class="regla">
+      <div class="regla-num">1</div>
+      <div class="regla-lbl">Referencia de medición</div>
+      <div class="regla-desc">La posición siempre se mide desde la <strong>costura del cuello</strong> (no del hombro) hasta el <strong>borde superior del logo</strong>. Es el punto más consistente entre tallas.</div>
+    </div>
+    <div class="regla">
+      <div class="regla-num">2</div>
+      <div class="regla-lbl">Logo en manga</div>
+      <div class="regla-desc">Siempre <strong>centrado</strong> en el ancho de la manga. La posición vertical es ~8 cm desde la costura del hombro para adulto, ~6 cm para niños.</div>
+    </div>
+    <div class="regla">
+      <div class="regla-num">3</div>
+      <div class="regla-lbl">Escalar manteniendo proporción</div>
+      <div class="regla-desc">Si el diseño del cliente tiene aspecto diferente, ajustar el <strong>ancho</strong> a la medida de la tabla y calcular el alto: <em>alto = ancho × (H_original / W_original)</em>.</div>
+    </div>
+    <div class="regla">
+      <div class="regla-num">4</div>
+      <div class="regla-lbl">Logo en espalda</div>
+      <div class="regla-desc">Centrado horizontalmente. Posición: <strong>28 cm desde el cuello</strong> hasta el borde superior (adulto M–L). Tamaño máx. recomendado: <strong>28 × 13 cm</strong>.</div>
+    </div>
+  </div>
+
+  <footer>
+    <span>IMELTEX · Guía interna de producción · docs/guia-posicion-logos.html</span>
+    <span>Medidas basadas en estándar industria DTF/sublimación. Actualizar si se confirman medidas propias.</span>
+  </footer>
+</div>
+</body>
+</html>
