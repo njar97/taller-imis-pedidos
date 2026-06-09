@@ -182,12 +182,23 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
       const A4W = 612, A4H = 792; // Carta (Letter)
       const imgW = A4W;
       const imgH = (canvas.height / canvas.width) * imgW;
+      // Compactar: si la última página tiene < 20% de contenido, escalar para
+      // que quepa en una página menos (el texto queda ~95% del tamaño original).
+      const naturalPages = Math.ceil(imgH / A4H);
+      const lastFraction = (imgH / A4H) - Math.floor(imgH / A4H);
+      let finalW = imgW, finalH = imgH;
+      if (naturalPages > 1 && lastFraction > 0 && lastFraction < 0.20) {
+        const scale = ((naturalPages - 1) * A4H) / imgH;
+        finalH = (naturalPages - 1) * A4H;
+        finalW = imgW * scale;
+      }
+      const xOff = (A4W - finalW) / 2;
       const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "letter" });
       const imgData = canvas.toDataURL("image/jpeg", 0.88);
       let y = 0, pg = 0;
-      while (y < imgH) {
+      while (y < finalH) {
         if (pg > 0) pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, -y, imgW, imgH);
+        pdf.addImage(imgData, "JPEG", xOff, -y, finalW, finalH);
         y += A4H; pg++;
       }
       const blob = pdf.output("blob");
@@ -740,6 +751,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
     .filter(x =>
       x.id !== p.id &&
       !x.deletedAt &&
+      !x.esCotizacion &&
       x.cliente &&
       x.cliente.trim().toLowerCase() === (p.cliente || "").trim().toLowerCase()
     )
