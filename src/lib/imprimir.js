@@ -134,8 +134,6 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
 
   overlay.appendChild(bar);
   overlay.appendChild(iframe);
-  document.body.appendChild(iframe); // append iframe first to get contentWindow
-  overlay.appendChild(iframe);       // reparent into overlay
   document.body.appendChild(overlay);
 
   // Parchear window.close() del iframe para cerrar el overlay
