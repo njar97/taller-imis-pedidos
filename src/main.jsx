@@ -755,7 +755,8 @@ function App() {
       <ConfirmDialog />
     </>
   );
-  const NAV = getNavItems(rolPrevia || rol, esAdminVista);
+  // En vista previa pasamos "operario" (sin módulo) para que el nav muestre los 3 módulos
+  const NAV = getNavItems(rolPrevia ? "operario" : rol, esAdminVista);
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       {progreso && (
@@ -930,7 +931,7 @@ function App() {
         {seccion === "config" && esAdminVista && (
           <SeccionConfig
             onConfigCambia={() => setCargaConfigTick(t => t + 1)}
-            onVerComoOperario={(mod) => { setRolPrevia("operario_" + mod); setSec("pedidos"); }}
+            onVerComoOperario={(mod) => { setRolPrevia("operario_" + mod); setSec(mod); }}
           />
         )}
         {seccion === "cotizaciones" && esAdminVista && (
