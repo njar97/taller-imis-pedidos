@@ -8,7 +8,20 @@ import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
 import { mensajeCotizacionWA, mensajeWA } from "./whatsapp.js";
 import { pushToastAccion } from "./feedback.js";
 import { imgSrc } from "./imagenes.js";
-import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
+import { MEDIDAS_DEF, TALLER, EC, TALLAS_A, TALLAS_N, TALLAS_NUM } from "./constants.js";
+
+// Orden canónico de tallas para sortear filas en la tabla de producción
+const ORDEN_TALLAS = [...TALLAS_A, ...TALLAS_N, ...TALLAS_NUM];
+function sortTallas(items) {
+  return [...items].sort((a, b) => {
+    const ia = ORDEN_TALLAS.indexOf(a.talla || "");
+    const ib = ORDEN_TALLAS.indexOf(b.talla || "");
+    if (ia === -1 && ib === -1) return (a.talla || "").localeCompare(b.talla || "");
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+}
 import QRCode from "qrcode";
 
 // Genera el HTML de "Detalle por persona" — tabla donde cada fila es una
@@ -187,7 +200,7 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
       const naturalPages = Math.ceil(imgH / A4H);
       const lastFraction = (imgH / A4H) - Math.floor(imgH / A4H);
       let finalW = imgW, finalH = imgH;
-      if (naturalPages > 1 && lastFraction > 0 && lastFraction < 0.20) {
+      if (naturalPages > 1 && lastFraction > 0 && lastFraction < 0.30) {
         const scale = ((naturalPages - 1) * A4H) / imgH;
         finalH = (naturalPages - 1) * A4H;
         finalW = imgW * scale;
@@ -291,8 +304,8 @@ export async function imprimirCotizacion(p) {
 <title>${titulo}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:28px 36px;font-size:12px;line-height:1.4;}
-  @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:letter;}}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:12px;line-height:1.4;}
+  @media print{body{padding:16px 24px;}.no-print{display:none!important;}@page{margin:14mm;size:letter;}}
   table{border-collapse:collapse;width:100%;}
   .lbl{font-size:9px;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:.6px;}
 </style></head><body>
@@ -610,8 +623,8 @@ export function imprimirRecibo(p) {
   <title>${tituloRecibo}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
-    @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:letter;}}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:13px;}
+    @media print{body{padding:16px 24px;}.no-print{display:none!important;}@page{margin:14mm;size:letter;}}
     table{border-collapse:collapse;width:100%;}
     .sec{font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #9B59B6;padding-bottom:4px;margin:16px 0 10px;}
   </style></head><body>
@@ -787,25 +800,26 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   // Tabla principal: TIPO + TALLA + CANT + SPEC. La columna TIPO solo
   // aparece si al menos un item tiene tipo (modo lista o modo tallas
   // post-PR91). Para legacy sin tipo, fallback al layout anterior.
-  const tablaPrendasHTML = items.length ? `
-    <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
+  const sortedItems = sortTallas(items);
+  const tablaPrendasHTML = sortedItems.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:12px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
-        ${algunoTieneTipo ? `<th style="padding:9px 12px;text-align:left;">Tipo de prenda</th>` : ""}
-        <th style="padding:9px 12px;text-align:center;width:80px;">Talla</th>
-        <th style="padding:9px 12px;text-align:center;width:80px;">Cant.</th>
-        <th style="padding:9px 12px;text-align:left;">Especificación / instrucción</th>
+        ${algunoTieneTipo ? `<th style="padding:6px 10px;text-align:left;">Tipo de prenda</th>` : ""}
+        <th style="padding:6px 10px;text-align:center;width:70px;">Talla</th>
+        <th style="padding:6px 10px;text-align:center;width:60px;">Cant.</th>
+        <th style="padding:6px 10px;text-align:left;">Especificación / instrucción</th>
       </tr></thead>
       <tbody>
-        ${items.map((it, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
-          ${algunoTieneTipo ? `<td style="padding:9px 12px;font-weight:800;font-size:14px;color:#2C1654;">${it.tipo || "—"}</td>` : ""}
-          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:16px;color:#E67E22;">${it.talla || "S/T"}</td>
-          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:18px;color:#1A5276;">${it.qty}</td>
-          <td style="padding:9px 12px;color:#444;font-size:12px;">${it.spec || ""}</td>
+        ${sortedItems.map((it, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
+          ${algunoTieneTipo ? `<td style="padding:5px 10px;font-weight:800;font-size:13px;color:#2C1654;">${it.tipo || "—"}</td>` : ""}
+          <td style="padding:5px 10px;text-align:center;font-weight:900;font-size:14px;color:#E67E22;">${it.talla || "S/T"}</td>
+          <td style="padding:5px 10px;text-align:center;font-weight:900;font-size:15px;color:#1A5276;">${it.qty}</td>
+          <td style="padding:5px 10px;color:#444;font-size:12px;">${it.spec || ""}</td>
         </tr>`).join("")}
         <tr style="background:#1A5276;color:#fff;font-weight:800;">
-          <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:9px 12px;text-align:right;">TOTAL A CONFECCIONAR</td>
-          <td style="padding:9px 12px;text-align:center;font-size:18px;">${totalPzas}</td>
-          <td style="padding:9px 12px;font-size:11px;opacity:.85;">piezas</td>
+          <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:6px 10px;text-align:right;font-size:11px;">TOTAL A CONFECCIONAR</td>
+          <td style="padding:6px 10px;text-align:center;font-size:15px;">${totalPzas}</td>
+          <td style="padding:6px 10px;font-size:11px;opacity:.85;">piezas</td>
         </tr>
       </tbody>
     </table>` : tallasTxt ? `<div style="font-size:14px;color:#E67E22;font-weight:700;margin-top:6px;">📦 ${tallasTxt}</div>` : `<div style="color:#aaa;font-style:italic;">(sin prendas especificadas)</div>`;
@@ -823,8 +837,8 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   <title>${tituloProd}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:24px 30px;font-size:13px;}
-    @media print{body{padding:12px 16px;}.no-print{display:none!important;}@page{margin:8mm;size:letter;}}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:13px;}
+    @media print{body{padding:16px 24px;}.no-print{display:none!important;}@page{margin:14mm;size:letter;}}
     table{border-collapse:collapse;width:100%;}
     .sec{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid currentColor;padding-bottom:3px;margin:14px 0 9px;}
     .ficha{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;}
@@ -1134,8 +1148,8 @@ export function exportarPedidoPDF(pedido, tipo) {
     <title>Pedido ${idStr}</title>
     <style>
       *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px}
-      @media print{body{padding:14px 20px}.no-print{display:none!important}@page{margin:10mm;size:letter}}
+      body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:13px}
+      @media print{body{padding:16px 24px}.no-print{display:none!important}@page{margin:14mm;size:letter}}
       .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid ${color}}
       .logo{font-size:22px;font-weight:900;color:${color};font-family:Georgia,serif}
       .id{font-size:28px;font-weight:900;color:${color};font-family:monospace}
