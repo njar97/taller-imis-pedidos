@@ -162,15 +162,21 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
         import("jspdf"),
       ]);
       const body = idocEl.body;
-      const fullH = body.scrollHeight;
+      // Forzar ancho A4 (794px a 96dpi) para que el layout del iframe coincida
+      // con el diseño de impresión, no con el ancho de pantalla del celular.
+      const origW = iframe.style.width;
       const origH = iframe.style.height;
+      iframe.style.width = "794px";
+      await new Promise(r => setTimeout(r, 80)); // esperar reflow
+      const fullH = body.scrollHeight;
       iframe.style.height = fullH + "px";
-      await new Promise(r => setTimeout(r, 80));
+      await new Promise(r => setTimeout(r, 60));
       const canvas = await html2canvas(body, {
         scale: 1.5, useCORS: true, allowTaint: false,
         scrollX: 0, scrollY: 0,
-        windowWidth: body.scrollWidth || 800, windowHeight: fullH,
+        windowWidth: 794, windowHeight: fullH,
       });
+      iframe.style.width = origW;
       iframe.style.height = origH;
       noPrints.forEach(el => { el.style.display = el._pd || ""; delete el._pd; });
       const A4W = 595.28, A4H = 841.89;
@@ -189,7 +195,10 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
       const file = new File([blob], fileName, { type: "application/pdf" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], text: waText || "" });
-        setBtn("✅ Compartido");
+        // WA ignora el campo text cuando hay archivo adjunto — copiamos al portapapeles
+        // para que el usuario lo pegue en el chat después de enviar el PDF.
+        if (waText) { try { await navigator.clipboard.writeText(waText); } catch {} }
+        setBtn("✅ PDF · 📋 Texto copiado");
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -198,9 +207,9 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 5000);
         if (waText) { try { await navigator.clipboard.writeText(waText); } catch {} }
-        setBtn("⬇️ PDF descargado");
+        setBtn("⬇️ PDF descargado · 📋 Texto copiado");
       }
-      setTimeout(() => setBtn(origText, false), 3500);
+      setTimeout(() => setBtn(origText, false), 4000);
     } catch (err) {
       if (err?.name !== "AbortError") {
         console.error("shareWithPDF:", err);
@@ -279,8 +288,7 @@ export async function imprimirCotizacion(p) {
 
 <div class="no-print" style="margin-bottom:14px;">
   <div style="background:#F3E5F5;border:1px solid #d4b3df;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#6B2D8B;">
-    💾 <strong>Nombre del archivo:</strong> <strong>${titulo}.pdf</strong>
-    &nbsp;·&nbsp; Guardalo y luego adjuntálo en WhatsApp.
+    💬 Tocá <strong>"💬 Compartir WA"</strong> → se adjunta el PDF y el texto se copia al portapapeles → pegalo en el chat de WA después de enviar el PDF.
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
     <button id="wa-btn" onclick="compartirWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">💬 Compartir WA</button>
@@ -602,7 +610,7 @@ export function imprimirRecibo(p) {
   <!-- Botones no-print -->
   <div class="no-print" style="margin-bottom:20px;">
     <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
-      💾 <strong>Tip:</strong> para enviar por WhatsApp → tocá <strong>"📤 Enviar PDF por WA"</strong>: guardá el PDF cuando aparezca el diálogo, luego elegí WhatsApp y adjuntá el PDF desde Descargas.
+      💬 Tocá <strong>"📤 Enviar PDF por WA"</strong> → se adjunta el PDF y el texto se copia al portapapeles → pegalo en el chat de WA después de enviar el PDF.
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
       <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
