@@ -114,16 +114,16 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
   const bar = document.createElement("div");
   bar.style.cssText =
     "display:flex;align-items:center;justify-content:space-between;" +
-    "padding:10px 14px;background:#2C1654;flex-shrink:0;gap:8px;";
+    "padding:8px 12px;background:#2C1654;flex-shrink:0;gap:8px;min-height:44px;";
   const lbl = document.createElement("span");
-  lbl.style.cssText = "color:#e8d5ff;font-size:12px;font-weight:700;font-family:system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;";
+  lbl.style.cssText = "color:#e8d5ff;font-size:11px;font-weight:600;font-family:system-ui;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;";
   lbl.textContent = titulo || "Vista previa";
   const closeBtn = document.createElement("button");
-  closeBtn.textContent = "✕ Cerrar";
+  closeBtn.textContent = "✕";
   closeBtn.style.cssText =
-    "background:rgba(255,255,255,.15);border:none;color:#fff;font-size:13px;" +
-    "font-weight:700;cursor:pointer;border-radius:8px;padding:6px 14px;" +
-    "font-family:system-ui;flex-shrink:0;";
+    "background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;" +
+    "font-weight:700;cursor:pointer;border-radius:8px;padding:4px 12px;" +
+    "font-family:system-ui;flex-shrink:0;line-height:1.4;";
   closeBtn.onclick = () => overlay.remove();
   bar.appendChild(lbl);
   bar.appendChild(closeBtn);
@@ -287,13 +287,11 @@ export async function imprimirCotizacion(p) {
 </style></head><body>
 
 <div class="no-print" style="margin-bottom:14px;">
-  <div style="background:#F3E5F5;border:1px solid #d4b3df;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#6B2D8B;">
-    💬 Tocá <strong>"💬 Compartir WA"</strong> → se adjunta el PDF y el texto se copia al portapapeles → pegalo en el chat de WA después de enviar el PDF.
+  <div style="display:flex;gap:8px;">
+    <button id="wa-btn" onclick="compartirWA()" style="flex:2;padding:11px 6px;border-radius:9px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">📤 Enviar por WA</button>
+    <button onclick="_print()" style="flex:1;padding:11px 6px;border-radius:9px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ PDF</button>
   </div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-    <button id="wa-btn" onclick="compartirWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">💬 Compartir WA</button>
-    <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📥 Guardar PDF</button>
-  </div>
+  <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">El texto se copia al portapapeles al enviar — pegalo en el chat de WA.</div>
 </div>
 <script>
 const _waMsg = ${JSON.stringify(waText)};
@@ -608,15 +606,13 @@ export function imprimirRecibo(p) {
   </style></head><body>
 
   <!-- Botones no-print -->
-  <div class="no-print" style="margin-bottom:20px;">
-    <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
-      💬 Tocá <strong>"📤 Enviar PDF por WA"</strong> → se adjunta el PDF y el texto se copia al portapapeles → pegalo en el chat de WA después de enviar el PDF.
+  <div class="no-print" style="margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
+      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 6px;border-radius:9px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">📤 Enviar por WA</button>
+      <button onclick="_print()" style="padding:11px 6px;border-radius:9px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ PDF</button>
+      <button onclick="window.close()" style="padding:11px 6px;border-radius:9px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:13px;cursor:pointer;">✕ Cerrar</button>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
-      <button onclick="_print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
-      <button onclick="window.close()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
-    </div>
+    <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">El texto se copia al portapapeles al enviar — pegalo en el chat de WA.</div>
   </div>
 
   <!-- ENCABEZADO -->
@@ -829,13 +825,11 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   </style></head><body>
 
   <div class="no-print" style="margin-bottom:16px;">
-    <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
-      💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloProd}.pdf</strong>
+    <div style="display:flex;gap:8px;">
+      <button onclick="_print()" style="flex:2;padding:11px 6px;border-radius:9px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="window.close()" style="flex:1;padding:11px 6px;border-radius:9px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:13px;cursor:pointer;">✕ Cerrar</button>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
-      <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
-    </div>
+    <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">En el diálogo de impresión elegí "Guardar como PDF".</div>
   </div>
 
   <!-- ENCABEZADO: taller + N° + entrega + QR -->
