@@ -6,6 +6,7 @@ import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
 import { mensajeCotizacionWA, mensajeWA } from "./whatsapp.js";
+import { pushToastAccion } from "./feedback.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
 import QRCode from "qrcode";
@@ -96,7 +97,7 @@ export async function imprimirPedido(p, esAdmin, todosPedidos = []) {
 // imprimir / guardar como PDF del sistema.
 // titulo (opcional): Chrome Android usa el document.title del padre para el
 // nombre de archivo al guardar PDF — lo cambiamos temporalmente y lo restauramos.
-export function nuevaVentanaImpresion(titulo = null) {
+export function nuevaVentanaImpresion(titulo = null, onAfterPrint = null) {
   const prev = document.getElementById("__print_frame__");
   if (prev) prev.remove();
   const iframe = document.createElement("iframe");
@@ -117,8 +118,12 @@ export function nuevaVentanaImpresion(titulo = null) {
             if (titulo) document.title = titulo;
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
-            // Restaurar título al cerrar el diálogo de impresión.
-            const restore = () => { document.title = prevTitle; };
+            // Restaurar título y disparar callback WA al cerrar el diálogo.
+            let fired = false;
+            const restore = () => {
+              document.title = prevTitle;
+              if (onAfterPrint && !fired) { fired = true; onAfterPrint(); }
+            };
             iframe.contentWindow.addEventListener("afterprint", restore, { once: true });
             setTimeout(restore, 15000); // fallback si afterprint no dispara
           } catch (e) {
@@ -171,7 +176,16 @@ export async function imprimirCotizacion(p) {
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
   const waText = mensajeCotizacionWA(p);
-  const w = nuevaVentanaImpresion(titulo);
+  const w = nuevaVentanaImpresion(titulo, () => {
+    pushToastAccion("PDF guardado ✓", "📤 Enviar por WA", async () => {
+      try {
+        if (navigator.share) await navigator.share({ text: waText });
+        else { await navigator.clipboard.writeText(waText); }
+      } catch (e) {
+        if (e?.name !== "AbortError") navigator.clipboard.writeText(waText).catch(() => {});
+      }
+    }, 12000);
+  });
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${titulo}</title>
 <style>
@@ -508,7 +522,17 @@ export function imprimirRecibo(p) {
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
   const tituloRecibo = nombrePDF("Recibo", p.id, p.cliente);
-  const w = nuevaVentanaImpresion(tituloRecibo);
+  const waTextRecibo = mensajeWA(p, true);
+  const w = nuevaVentanaImpresion(tituloRecibo, () => {
+    pushToastAccion("PDF guardado ✓", "📤 Enviar por WA", async () => {
+      try {
+        if (navigator.share) await navigator.share({ text: waTextRecibo });
+        else { await navigator.clipboard.writeText(waTextRecibo); }
+      } catch (e) {
+        if (e?.name !== "AbortError") navigator.clipboard.writeText(waTextRecibo).catch(() => {});
+      }
+    }, 12000);
+  });
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloRecibo}</title>
   <style>

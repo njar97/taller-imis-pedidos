@@ -76,6 +76,30 @@ export function pushUndo(msg, onUndo, duracion = 6000) {
   return id;
 }
 
+/** Toast con botón de acción de etiqueta personalizada (ej. "📤 Enviar WA"). */
+export function pushToastAccion(msg, labelAccion, onAccion, duracion = 8000) {
+  buzz(15);
+  const id = Date.now() + Math.random();
+  let usado = false;
+  const accion = {
+    label: labelAccion,
+    onClick: () => {
+      if (usado) return;
+      usado = true;
+      _toastBus.items = _toastBus.items.filter(t => t.id !== id);
+      _toastBus.listeners.forEach(fn => fn());
+      try { onAccion(); } catch (e) { console.error("accion falló:", e); }
+    },
+  };
+  _toastBus.items = [..._toastBus.items, { id, msg, kind: "success", accion }];
+  _toastBus.listeners.forEach(fn => fn());
+  setTimeout(() => {
+    _toastBus.items = _toastBus.items.filter(t => t.id !== id);
+    _toastBus.listeners.forEach(fn => fn());
+  }, duracion);
+  return id;
+}
+
 export function _subscribeToasts(fn) {
   _toastBus.listeners.add(fn);
   return () => _toastBus.listeners.delete(fn);
