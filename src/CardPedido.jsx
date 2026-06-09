@@ -252,10 +252,8 @@ export default function CardPedido({
         className="card-actions"
         style={{
           display: "flex",
-          gap: 6,
+          gap: 5,
           marginTop: 13,
-          justifyContent: "space-between",
-          flexWrap: "wrap",
           alignItems: "center",
         }}
       >
@@ -275,7 +273,8 @@ export default function CardPedido({
             display: "flex",
             alignItems: "center",
             gap: 5,
-            flex: 1,
+            flex: "1 1 0",
+            minWidth: 0,
             justifyContent: "center",
           }}
         >

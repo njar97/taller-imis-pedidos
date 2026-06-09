@@ -5,7 +5,7 @@
 // El listado oficial de pedidos (SeccionPedidos) ya las filtra fuera,
 // así que viven en su propio espacio sin contaminar producción.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { fmt$, itemsResumen } from "./lib/dominio.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { pushConfirm, pushToast } from "./lib/feedback.js";
@@ -148,6 +148,15 @@ export default function SeccionCotizaciones({
 }
 
 function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const menuRef = useRef(null);
+  useEffect(() => {
+    if (!menuAbierto) return;
+    const close = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuAbierto(false); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("touchstart", close); };
+  }, [menuAbierto]);
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
@@ -234,44 +243,75 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button onClick={onConvertir} style={BTN("#27AE60")}>
-          ✅ Convertir a pedido
-        </button>
-        <button onClick={onImprimir} style={BTN("#9B59B6")}>
-          📄 Imprimir
-        </button>
-        <button
-          onClick={async () => {
-            const r = await compartirCotizacion(c);
-            if (r === "copiado") pushToast("Texto copiado — adjuntá la imagen aparte", "success");
-          }}
-          style={BTN("#25D366")}
-          title="Compartir la cotización (imagen + texto) por WhatsApp"
-        >
+      {/* CTA principal */}
+      <button onClick={onConvertir} className="btn-action" style={{
+        width: "100%", padding: "10px", borderRadius: 8, border: "none",
+        background: "#27AE60", color: "#fff", fontWeight: 700, fontSize: 13,
+        cursor: "pointer", fontFamily: "inherit", marginBottom: 6,
+      }}>
+        ✅ Convertir a pedido
+      </button>
+
+      {/* Acciones secundarias: compartir + overflow */}
+      <div style={{ display: "flex", gap: 6, position: "relative" }}>
+        <button className="btn-action" onClick={async () => {
+          const r = await compartirCotizacion(c);
+          if (r === "copiado") pushToast("Texto copiado — adjuntá la imagen aparte", "success");
+        }} style={BTN("#25D366")} title="Compartir por WhatsApp">
           💬 WhatsApp
         </button>
-        <button onClick={onEnviarEmail} style={BTN("#27AE60")} title="Enviar por email al cliente">
+        <button className="btn-action" onClick={onEnviarEmail} style={BTN("#1A5276")} title="Enviar por email">
           📧 Email
         </button>
-        {tieneDesglose && (
-          <button onClick={onReabrirEstimador} style={BTN("#E67E22")} title="Reabrir en el estimador para ajustar precios">
-            ✏️ Editar estimador
+        <button className="btn-action" onClick={onImprimir} style={BTN("#9B59B6")} title="Ver / imprimir PDF">
+          📄 PDF
+        </button>
+        {/* Menú de acciones secundarias */}
+        <div ref={menuRef} style={{ marginLeft: "auto", position: "relative" }}>
+          <button
+            className="btn-action"
+            onClick={() => setMenuAbierto(v => !v)}
+            style={{ ...BTN("#888", true), padding: "6px 10px", fontWeight: 900, fontSize: 15 }}
+            title="Más acciones"
+          >
+            ⋮
           </button>
-        )}
-        <button onClick={onEditar} style={BTN("#1A5276")}>
-          ✏️ Editar
-        </button>
-        <button onClick={onVerVersiones} style={BTN("#888", true)} title="Ver versiones anteriores de esta cotización">
-          🕗 Versiones
-        </button>
-        <button onClick={onEliminar} style={BTN("#E74C3C", true)}>
-          🗑️
-        </button>
+          {menuAbierto && (
+            <div style={{
+              position: "absolute", bottom: "calc(100% + 6px)", right: 0,
+              background: "#fff", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              border: "1.5px solid #e8e0f0", zIndex: 50, minWidth: 160, overflow: "hidden",
+            }}>
+              <MenuItem icon="✏️" label="Editar" onClick={() => { setMenuAbierto(false); onEditar(); }} />
+              {tieneDesglose && <MenuItem icon="🔍" label="Estimador" onClick={() => { setMenuAbierto(false); onReabrirEstimador(); }} color="#E67E22" />}
+              <MenuItem icon="🕗" label="Versiones" onClick={() => { setMenuAbierto(false); onVerVersiones(); }} color="#888" />
+              <div style={{ height: 1, background: "#f0e8f8", margin: "2px 0" }} />
+              <MenuItem icon="🗑️" label="Eliminar" onClick={() => { setMenuAbierto(false); onEliminar(); }} color="#E74C3C" />
+            </div>
+          )}
+        </div>
       </div>
 
-      {tieneDesglose && <DesgloseEstimador desglose={c.desgloseEstimador} />}
+      {tieneDesglose && <DesgloseEstimador desglose={c.desgloseEstimador} onEdit={onReabrirEstimador} />}
     </div>
+  );
+}
+
+function MenuItem({ icon, label, onClick, color = "#333" }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%",
+        padding: "10px 14px", border: "none", background: "transparent",
+        color, fontSize: 13, fontWeight: 600, cursor: "pointer",
+        fontFamily: "inherit", textAlign: "left",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "#f8f4fc"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    >
+      <span>{icon}</span><span>{label}</span>
+    </button>
   );
 }
 
