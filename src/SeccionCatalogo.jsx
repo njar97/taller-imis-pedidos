@@ -32,6 +32,65 @@ const ICONOS = ["✂️", "👔", "👕", "👗", "👖", "🤵", "⚽", "🪡",
 
 const fmtT = n => n ? `${n} día${n !== 1 ? "s" : ""}` : "-";
 
+const TECNICAS_OPC = ["Sublimación", "DTF", "Bordado", "Serigrafía"];
+
+function EditorTecnicas({ value = [], onChange }) {
+  const add = () => onChange([...value, { tipo: "Sublimación", precioBase: "", disenos: [] }]);
+  const remove = i => onChange(value.filter((_, idx) => idx !== i));
+  const upd = (i, k, v) => onChange(value.map((row, idx) => idx === i ? { ...row, [k]: v } : row));
+  const addD = i => { const t = value[i]; upd(i, "disenos", [...(t.disenos || []), { ubicacion: "", ancho: "", alto: "", notas: "" }]); };
+  const removeD = (i, j) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).filter((_, idx) => idx !== j)); };
+  const updD = (i, j, k, v) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).map((d, idx) => idx === j ? { ...d, [k]: v } : d)); };
+  const S = { ...INPS, fontSize: 12, padding: "5px 8px" };
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={LBL}>Técnicas disponibles</label>
+      {value.map((tec, i) => (
+        <div key={i} style={{ background: "#faf6ff", border: "1px solid #e0d5f5", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+            <select style={{ ...S, flex: 2 }} value={tec.tipo} onChange={e => upd(i, "tipo", e.target.value)}>
+              {TECNICAS_OPC.map(t => <option key={t}>{t}</option>)}
+            </select>
+            <input type="number" style={{ ...S, flex: 1 }} value={tec.precioBase} placeholder="Precio $"
+              onChange={e => upd(i, "precioBase", e.target.value)} />
+            <button onClick={() => remove(i)}
+              style={{ padding: "0 8px", border: "none", background: "transparent", color: "#ccc", cursor: "pointer", fontSize: 18 }}>×</button>
+          </div>
+          <div style={{ paddingLeft: 8, borderLeft: "2px solid #e0d5f5" }}>
+            <div style={{ fontSize: 9, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+              Specs de diseño por defecto
+            </div>
+            {(tec.disenos || []).map((d, j) => (
+              <div key={j} style={{ display: "flex", gap: 4, marginBottom: 4, alignItems: "center", flexWrap: "wrap" }}>
+                <input style={{ ...S, flex: 2 }} value={d.ubicacion} placeholder="Ubicación"
+                  onChange={e => updD(i, j, "ubicacion", e.target.value)} />
+                <input type="number" style={{ ...S, width: 52, textAlign: "center" }} value={d.ancho} placeholder="W"
+                  onChange={e => updD(i, j, "ancho", e.target.value)} />
+                <span style={{ fontSize: 11, color: "#aaa" }}>×</span>
+                <input type="number" style={{ ...S, width: 52, textAlign: "center" }} value={d.alto} placeholder="H"
+                  onChange={e => updD(i, j, "alto", e.target.value)} />
+                <span style={{ fontSize: 10, color: "#aaa" }}>cm</span>
+                <input style={{ ...S, flex: 2 }} value={d.notas} placeholder="Notas"
+                  onChange={e => updD(i, j, "notas", e.target.value)} />
+                <button onClick={() => removeD(i, j)}
+                  style={{ padding: "0 6px", border: "none", background: "transparent", color: "#ddd", cursor: "pointer", fontSize: 16 }}>×</button>
+              </div>
+            ))}
+            <button onClick={() => addD(i)}
+              style={{ fontSize: 11, padding: "3px 10px", borderRadius: 6, border: "1px dashed #9B59B6", background: "transparent", color: "#9B59B6", cursor: "pointer", fontWeight: 700 }}>
+              + Spec
+            </button>
+          </div>
+        </div>
+      ))}
+      <button onClick={add}
+        style={{ fontSize: 12, padding: "5px 14px", borderRadius: 8, border: "1.5px dashed #2C1654", background: "transparent", color: "#2C1654", cursor: "pointer", fontWeight: 700, width: "100%" }}>
+        + Técnica
+      </button>
+    </div>
+  );
+}
+
 function ModalFormProducto({ initial, onSave, onCancel }) {
   const def = {
     nombre: "",
@@ -46,6 +105,7 @@ function ModalFormProducto({ initial, onSave, onCancel }) {
     precioBase: "",
     preciosPorTalla: { XS: "", S: "", M: "", L: "", XL: "", "2XL": "", "3XL": "" },
     notas: "",
+    tecnicas: [],
   };
   const [f, setF] = useState({ ...def, ...(initial || {}) });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -141,6 +201,8 @@ function ModalFormProducto({ initial, onSave, onCancel }) {
             <span>🧶 Lleva cuello tejido</span>
           </label>
         </div>
+
+        <EditorTecnicas value={f.tecnicas || []} onChange={v => set("tecnicas", v)} />
 
         <ChipsInput label="Telas sugeridas" valor={f.telas || []} input={newTela} setInput={setNT} onAdd={addTela} onRemove={i => set("telas", (f.telas || []).filter((_, j) => j !== i))} placeholder="Agregar tela..." />
         <ChipsInput label="Colores comunes" valor={f.colores || []} input={newColor} setInput={setNC} onAdd={addColor} onRemove={i => set("colores", (f.colores || []).filter((_, j) => j !== i))} placeholder="Agregar color..." />
