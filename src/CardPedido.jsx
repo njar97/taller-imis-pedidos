@@ -1,13 +1,10 @@
-// Tarjeta resumen de un pedido en la lista principal.
-// Antes vivía como CardPedido compilado en main.js (~286 líneas).
-
 import { EC, ESTATUS } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen, sumarAbonos } from "./lib/dominio.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { copiarWA } from "./lib/whatsapp.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function CardPedido({
   p,
@@ -28,6 +25,22 @@ export default function CardPedido({
     dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(p.estatus);
 
   const [copiado, setCopiado] = useState(false);
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuAbierto) return;
+    const close = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuAbierto(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [menuAbierto]);
+
   const handleWA = () => {
     copiarWA(p, esAdmin);
     setCopiado(true);
@@ -42,7 +55,7 @@ export default function CardPedido({
   return (
     <div
       className="card-pedido"
-      onClick={() => onVer(p)}
+      onClick={() => onEditar(p)}
       style={{
         background: "#fff",
         borderRadius: 16,
@@ -54,15 +67,7 @@ export default function CardPedido({
       }}
     >
       {/* Cabecera: número + cliente + badge estatus */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 8,
-          gap: 8,
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: "0.06em", marginBottom: 2 }}>
             N°<span className="num">{String(p.id).padStart(4, "0")}</span> {tipoIcon}
@@ -108,18 +113,10 @@ export default function CardPedido({
       {(() => {
         const items = itemsResumen(p);
         if (items.length > 0) {
-          return (
-            <div style={{ marginBottom: 6 }}>
-              <TallasChips items={items} compact />
-            </div>
-          );
+          return <div style={{ marginBottom: 6 }}><TallasChips items={items} compact /></div>;
         }
         if (tallasR) {
-          return (
-            <div style={{ fontSize: 12, color: "#E67E22", fontWeight: 700, marginBottom: 5 }}>
-              {tallasR}
-            </div>
-          );
+          return <div style={{ fontSize: 12, color: "#E67E22", fontWeight: 700, marginBottom: 5 }}>{tallasR}</div>;
         }
         return null;
       })()}
@@ -127,16 +124,7 @@ export default function CardPedido({
       {/* Badges + fotos */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4, alignItems: "center" }}>
         {p.tieneBordado && (
-          <span
-            style={{
-              fontSize: 11,
-              background: "#FCE4EC",
-              color: "#880E4F",
-              padding: "3px 9px",
-              borderRadius: 20,
-              fontWeight: 700,
-            }}
-          >
+          <span style={{ fontSize: 11, background: "#FCE4EC", color: "#880E4F", padding: "3px 9px", borderRadius: 20, fontWeight: 700 }}>
             🪡 Bordado
           </span>
         )}
@@ -146,39 +134,20 @@ export default function CardPedido({
               <img
                 key={i}
                 src={imgSrc(img)}
-                onClick={e => {
-                  e.stopPropagation();
-                  onVerFoto && onVerFoto({ imgs: fotos.map(imgSrc), idx: i });
-                }}
+                onClick={e => { e.stopPropagation(); onVerFoto && onVerFoto({ imgs: fotos.map(imgSrc), idx: i }); }}
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 8,
-                  objectFit: "contain",
-                  background: "#f5f5f5",
-                  border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e8e0f0"),
-                  cursor: "zoom-in",
-                  flexShrink: 0,
-                  transition: "transform .15s",
+                  width: 40, height: 40, borderRadius: 8, objectFit: "contain",
+                  background: "#f5f5f5", border: "1.5px solid " + (img.driveUrl ? "#a8d8a8" : "#e8e0f0"),
+                  cursor: "zoom-in", flexShrink: 0, transition: "transform .15s",
                 }}
               />
             ))}
             {nFotos > 3 && (
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 8,
-                  background: "#f0ebf8",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 11,
-                  color: "#7B5EA7",
-                  fontWeight: 700,
-                  border: "1.5px solid #e8e0f0",
-                }}
-              >
+              <div style={{
+                width: 40, height: 40, borderRadius: 8, background: "#f0ebf8",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, color: "#7B5EA7", fontWeight: 700, border: "1.5px solid #e8e0f0",
+              }}>
                 +{nFotos - 3}
               </div>
             )}
@@ -189,28 +158,16 @@ export default function CardPedido({
       {/* Fecha entrega + días restantes */}
       {p.fechaEntrega && (
         <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span
-            style={{
-              fontSize: 12,
-              color: urgent ? "#E63946" : "#666",
-              fontWeight: urgent ? 700 : 500,
-            }}
-          >
-            {urgent ? "⚠️ " : "📌 "}
-            {p.fechaEntrega}
+          <span style={{ fontSize: 12, color: urgent ? "#E63946" : "#666", fontWeight: urgent ? 700 : 500 }}>
+            {urgent ? "⚠️ " : "📌 "}{p.fechaEntrega}
           </span>
           {dias !== null && !["Entregado", "Cancelado"].includes(p.estatus) && (
-            <span
-              className="num"
-              style={{
-                fontSize: 11,
-                background: dias < 0 ? "#F8D7DA" : dias <= 2 ? "#FFF3CD" : "#e8f5e9",
-                color: dias < 0 ? "#721C24" : dias <= 2 ? "#856404" : "#155724",
-                padding: "2px 9px",
-                borderRadius: 20,
-                fontWeight: 700,
-              }}
-            >
+            <span className="num" style={{
+              fontSize: 11,
+              background: dias < 0 ? "#F8D7DA" : dias <= 2 ? "#FFF3CD" : "#e8f5e9",
+              color: dias < 0 ? "#721C24" : dias <= 2 ? "#856404" : "#155724",
+              padding: "2px 9px", borderRadius: 20, fontWeight: 700,
+            }}>
               {dias < 0 ? `Venció ${Math.abs(dias)}d` : dias === 0 ? "¡Hoy!" : `${dias}d`}
             </span>
           )}
@@ -219,22 +176,12 @@ export default function CardPedido({
 
       {/* Precio + saldo (solo admin) */}
       {esAdmin && p.precio && (
-        <div
-          style={{
-            marginTop: 7,
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ marginTop: 7, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span className="num" style={{ fontSize: 15, fontWeight: 700, color: "#2C1654" }}>
             {fmt$(p.precio)}
           </span>
           {saldo > 0 ? (
-            <span className="num" style={{ fontSize: 12, color: "#E63946", fontWeight: 700 }}>
-              Resta {fmt$(saldo)}
-            </span>
+            <span className="num" style={{ fontSize: 12, color: "#E63946", fontWeight: 700 }}>Resta {fmt$(saldo)}</span>
           ) : (
             <span style={{ fontSize: 12, color: "#28A745", fontWeight: 700 }}>✅ Pagado</span>
           )}
@@ -246,110 +193,93 @@ export default function CardPedido({
         </div>
       )}
 
-      {/* Acciones */}
+      {/* Acciones: WA | PDF | ⋮ */}
       <div
         onClick={e => e.stopPropagation()}
         className="card-actions"
-        style={{
-          display: "flex",
-          gap: 5,
-          marginTop: 13,
-          alignItems: "center",
-        }}
+        style={{ display: "flex", gap: 5, marginTop: 13, alignItems: "center" }}
       >
+        {/* WA */}
         <button
           className="btn-action"
           onClick={handleWA}
           style={{
-            padding: "9px 14px",
-            borderRadius: 10,
+            flex: "1 1 0", minWidth: 0,
+            padding: "9px 14px", borderRadius: 10,
             border: "1.5px solid " + (copiado ? "#25D366" : "#e8e0f0"),
             background: copiado ? "#e8fdf0" : "#fff",
-            cursor: "pointer",
-            fontSize: 12,
-            fontWeight: 700,
-            fontFamily: "inherit",
+            cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit",
             color: copiado ? "#25D366" : "#555",
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            flex: "1 1 0",
-            minWidth: 0,
-            justifyContent: "center",
+            display: "flex", alignItems: "center", gap: 5, justifyContent: "center",
           }}
         >
           {copiado ? "✅ Copiado" : "📋 WhatsApp"}
         </button>
+
+        {/* PDF */}
         <button
           className="btn-action"
           onClick={() => onImprimir(p)}
           style={{
-            padding: "9px 12px",
-            borderRadius: 10,
-            border: "1.5px solid #9B59B6",
-            background: "#fff",
-            cursor: "pointer",
-            fontSize: 13,
-            fontFamily: "inherit",
-            color: "#9B59B6",
-            fontWeight: 700,
+            padding: "9px 12px", borderRadius: 10,
+            border: "1.5px solid #9B59B6", background: "#fff",
+            cursor: "pointer", fontSize: 13, fontFamily: "inherit", color: "#9B59B6", fontWeight: 700,
           }}
         >
           🖨️
         </button>
-        <button
-          className="btn-action"
-          onClick={() => onEditar(p)}
-          style={{
-            padding: "9px 14px",
-            borderRadius: 10,
-            border: "none",
-            background: "#9B59B6",
-            color: "#fff",
-            cursor: "pointer",
-            fontSize: 13,
-            fontFamily: "inherit",
-            fontWeight: 700,
-          }}
-        >
-          ✏️
-        </button>
-        <button
-          className="btn-action"
-          title="Duplicar pedido"
-          onClick={() => onDuplicar(p)}
-          style={{
-            padding: "9px 12px",
-            borderRadius: 10,
-            border: "1.5px solid #C8E6C9",
-            background: "#F1FFF4",
-            cursor: "pointer",
-            fontSize: 13,
-            fontFamily: "inherit",
-            color: "#27AE60",
-          }}
-        >
-          📄
-        </button>
-        {esAdmin && (
+
+        {/* ⋮ menú */}
+        <div ref={menuRef} style={{ position: "relative" }}>
           <button
             className="btn-action"
-            onClick={() => onEliminar(p.id)}
+            onClick={() => setMenuAbierto(v => !v)}
             style={{
-              padding: "9px 12px",
-              borderRadius: 10,
-              border: "1.5px solid #fdd",
-              background: "#fff8f8",
-              cursor: "pointer",
-              fontSize: 13,
-              fontFamily: "inherit",
-              color: "#DC3545",
+              padding: "9px 12px", borderRadius: 10,
+              border: "1.5px solid #e8e0f0", background: "#fff",
+              cursor: "pointer", fontSize: 16, fontFamily: "inherit",
+              color: "#888", fontWeight: 900, lineHeight: 1,
             }}
           >
-            🗑️
+            ⋮
           </button>
-        )}
+          {menuAbierto && (
+            <div style={{
+              position: "absolute", bottom: "calc(100% + 6px)", right: 0,
+              background: "#fff", borderRadius: 10,
+              boxShadow: "0 4px 20px rgba(0,0,0,.15)",
+              border: "1.5px solid #e8e0f0", zIndex: 50, minWidth: 160, overflow: "hidden",
+            }}>
+              <MenuItemCard icon="🔍" label="Ver detalle" onClick={() => { setMenuAbierto(false); onVer(p); }} />
+              <MenuItemCard icon="📄" label="Duplicar" onClick={() => { setMenuAbierto(false); onDuplicar(p); }} />
+              {esAdmin && (
+                <>
+                  <div style={{ height: 1, background: "#f5f0fb", margin: "2px 0" }} />
+                  <MenuItemCard icon="🗑️" label="Eliminar" onClick={() => { setMenuAbierto(false); onEliminar(p.id); }} color="#E74C3C" />
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function MenuItemCard({ icon, label, onClick, color = "#333" }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%",
+        padding: "10px 14px", border: "none", background: "transparent",
+        color, fontSize: 13, fontWeight: 600, cursor: "pointer",
+        fontFamily: "inherit", textAlign: "left",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "#f8f4fc"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    >
+      <span>{icon}</span><span>{label}</span>
+    </button>
   );
 }
