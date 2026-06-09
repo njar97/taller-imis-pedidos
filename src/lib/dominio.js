@@ -160,6 +160,7 @@ export const PEDIDO_BASE = {
   costurera: "(Sin asignar)",
   vendedor: "",
   notas: "",
+  disenos: [],
   medidas: medInit(),
   imagenes: [],
   abonos: [],
