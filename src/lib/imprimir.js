@@ -166,7 +166,7 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
       // con el diseño de impresión, no con el ancho de pantalla del celular.
       const origW = iframe.style.width;
       const origH = iframe.style.height;
-      iframe.style.width = "794px";
+      iframe.style.width = "816px";
       await new Promise(r => setTimeout(r, 80)); // esperar reflow
       const fullH = body.scrollHeight;
       iframe.style.height = fullH + "px";
@@ -174,15 +174,15 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
       const canvas = await html2canvas(body, {
         scale: 1.5, useCORS: true, allowTaint: false,
         scrollX: 0, scrollY: 0,
-        windowWidth: 794, windowHeight: fullH,
+        windowWidth: 816, windowHeight: fullH,
       });
       iframe.style.width = origW;
       iframe.style.height = origH;
       noPrints.forEach(el => { el.style.display = el._pd || ""; delete el._pd; });
-      const A4W = 595.28, A4H = 841.89;
+      const A4W = 612, A4H = 792; // Carta (Letter)
       const imgW = A4W;
       const imgH = (canvas.height / canvas.width) * imgW;
-      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "letter" });
       const imgData = canvas.toDataURL("image/jpeg", 0.88);
       let y = 0, pg = 0;
       while (y < imgH) {
@@ -281,7 +281,7 @@ export async function imprimirCotizacion(p) {
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:28px 36px;font-size:12px;line-height:1.4;}
-  @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:A4;}}
+  @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:letter;}}
   table{border-collapse:collapse;width:100%;}
   .lbl{font-size:9px;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:.6px;}
 </style></head><body>
@@ -602,7 +602,7 @@ export function imprimirRecibo(p) {
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
-    @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:A4;}}
+    @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:letter;}}
     table{border-collapse:collapse;width:100%;}
     .sec{font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #9B59B6;padding-bottom:4px;margin:16px 0 10px;}
   </style></head><body>
@@ -815,7 +815,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:24px 30px;font-size:13px;}
-    @media print{body{padding:12px 16px;}.no-print{display:none!important;}@page{margin:8mm;size:A4;}}
+    @media print{body{padding:12px 16px;}.no-print{display:none!important;}@page{margin:8mm;size:letter;}}
     table{border-collapse:collapse;width:100%;}
     .sec{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid currentColor;padding-bottom:3px;margin:14px 0 9px;}
     .ficha{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;}
@@ -1121,7 +1121,7 @@ export function exportarPedidoPDF(pedido, tipo) {
     <style>
       *{margin:0;padding:0;box-sizing:border-box}
       body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px}
-      @media print{body{padding:14px 20px}.no-print{display:none!important}@page{margin:10mm;size:A4}}
+      @media print{body{padding:14px 20px}.no-print{display:none!important}@page{margin:10mm;size:letter}}
       .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid ${color}}
       .logo{font-size:22px;font-weight:900;color:${color};font-family:Georgia,serif}
       .id{font-size:28px;font-weight:900;color:${color};font-family:monospace}
