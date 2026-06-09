@@ -805,6 +805,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       </div>
     </div>` : "";
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
+  const waTextProd = mensajeWA(p, false);
   const w = nuevaVentanaImpresion(tituloProd);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloProd}</title>
@@ -825,12 +826,19 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   </style></head><body>
 
   <div class="no-print" style="margin-bottom:16px;">
-    <div style="display:flex;gap:8px;">
-      <button onclick="_print()" style="flex:2;padding:11px 6px;border-radius:9px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ Guardar PDF</button>
-      <button onclick="window.close()" style="flex:1;padding:11px 6px;border-radius:9px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:13px;cursor:pointer;">✕ Cerrar</button>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
+      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 6px;border-radius:9px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">📤 Enviar por WA</button>
+      <button onclick="_print()" style="padding:11px 6px;border-radius:9px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ PDF</button>
+      <button onclick="window.close()" style="padding:11px 6px;border-radius:9px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:13px;cursor:pointer;">✕ Cerrar</button>
     </div>
-    <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">En el diálogo de impresión elegí "Guardar como PDF".</div>
+    <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">El texto se copia al portapapeles al enviar — pegalo en el chat de WA.</div>
   </div>
+  <script>
+  const _waMsg = ${JSON.stringify(waTextProd)};
+  async function enviarPorWA() {
+    await window.parent.__shareWithPDF__(document.title, _waMsg);
+  }
+  </script>
 
   <!-- ENCABEZADO: taller + N° + entrega + QR -->
   <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1A5276;padding-bottom:10px;margin-bottom:14px;gap:14px;">
