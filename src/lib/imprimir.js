@@ -97,42 +97,60 @@ export async function imprimirPedido(p, esAdmin, todosPedidos = []) {
 // imprimir / guardar como PDF del sistema.
 // titulo (opcional): Chrome Android usa el document.title del padre para el
 // nombre de archivo al guardar PDF — lo cambiamos temporalmente y lo restauramos.
-export function nuevaVentanaImpresion(titulo = null, onAfterPrint = null) {
-  const prev = document.getElementById("__print_frame__");
-  if (prev) prev.remove();
+// Muestra el documento de impresión como overlay fullscreen. El usuario
+// ve los botones in-page (Guardar PDF, Compartir WA, Cerrar) y elige
+// qué hacer. El _print() embebido en cada página HTML maneja el swap
+// de document.title → nombre inteligente en el diálogo de guardado.
+export function nuevaVentanaImpresion(titulo = null, _unused = null) {
+  document.getElementById("__print_overlay__")?.remove();
+
+  // Overlay fullscreen
+  const overlay = document.createElement("div");
+  overlay.id = "__print_overlay__";
+  overlay.style.cssText =
+    "position:fixed;inset:0;z-index:9999;background:#1a1a2e;display:flex;flex-direction:column;";
+
+  // Barra superior con título y botón cerrar
+  const bar = document.createElement("div");
+  bar.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;" +
+    "padding:10px 14px;background:#2C1654;flex-shrink:0;gap:8px;";
+  const lbl = document.createElement("span");
+  lbl.style.cssText = "color:#e8d5ff;font-size:12px;font-weight:700;font-family:system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;";
+  lbl.textContent = titulo || "Vista previa";
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "✕ Cerrar";
+  closeBtn.style.cssText =
+    "background:rgba(255,255,255,.15);border:none;color:#fff;font-size:13px;" +
+    "font-weight:700;cursor:pointer;border-radius:8px;padding:6px 14px;" +
+    "font-family:system-ui;flex-shrink:0;";
+  closeBtn.onclick = () => overlay.remove();
+  bar.appendChild(lbl);
+  bar.appendChild(closeBtn);
+
   const iframe = document.createElement("iframe");
   iframe.id = "__print_frame__";
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
-  document.body.appendChild(iframe);
+  iframe.style.cssText = "flex:1;border:0;background:#fff;width:100%;";
+
+  overlay.appendChild(bar);
+  overlay.appendChild(iframe);
+  document.body.appendChild(iframe); // append iframe first to get contentWindow
+  overlay.appendChild(iframe);       // reparent into overlay
+  document.body.appendChild(overlay);
+
+  // Parchear window.close() del iframe para cerrar el overlay
+  const patch = () => {
+    try { iframe.contentWindow.close = () => overlay.remove(); } catch (_) {}
+  };
+
   const idoc = iframe.contentWindow.document;
   return {
     document: {
       write: html => idoc.write(html),
       close: () => {
         idoc.close();
-        const imprimir = () => {
-          try {
-            const prevTitle = document.title;
-            if (titulo) document.title = titulo;
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-            // Restaurar título y disparar callback WA al cerrar el diálogo.
-            let fired = false;
-            const restore = () => {
-              document.title = prevTitle;
-              if (onAfterPrint && !fired) { fired = true; onAfterPrint(); }
-            };
-            iframe.contentWindow.addEventListener("afterprint", restore, { once: true });
-            setTimeout(restore, 15000); // fallback si afterprint no dispara
-          } catch (e) {
-            console.warn("print():", e);
-          }
-        };
-        // Esperar a que carguen imágenes/fuentes antes de imprimir.
-        if (idoc.readyState === "complete") setTimeout(imprimir, 300);
-        else iframe.contentWindow.onload = () => setTimeout(imprimir, 300);
+        if (idoc.readyState === "complete") patch();
+        else iframe.contentWindow.addEventListener("load", patch, { once: true });
       },
     },
   };
@@ -176,16 +194,7 @@ export async function imprimirCotizacion(p) {
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
   const waText = mensajeCotizacionWA(p);
-  const w = nuevaVentanaImpresion(titulo, () => {
-    pushToastAccion("PDF guardado ✓", "📤 Enviar por WA", async () => {
-      try {
-        if (navigator.share) await navigator.share({ text: waText });
-        else { await navigator.clipboard.writeText(waText); }
-      } catch (e) {
-        if (e?.name !== "AbortError") navigator.clipboard.writeText(waText).catch(() => {});
-      }
-    }, 12000);
-  });
+  const w = nuevaVentanaImpresion(titulo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${titulo}</title>
 <style>
@@ -522,17 +531,7 @@ export function imprimirRecibo(p) {
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
   const tituloRecibo = nombrePDF("Recibo", p.id, p.cliente);
-  const waTextRecibo = mensajeWA(p, true);
-  const w = nuevaVentanaImpresion(tituloRecibo, () => {
-    pushToastAccion("PDF guardado ✓", "📤 Enviar por WA", async () => {
-      try {
-        if (navigator.share) await navigator.share({ text: waTextRecibo });
-        else { await navigator.clipboard.writeText(waTextRecibo); }
-      } catch (e) {
-        if (e?.name !== "AbortError") navigator.clipboard.writeText(waTextRecibo).catch(() => {});
-      }
-    }, 12000);
-  });
+  const w = nuevaVentanaImpresion(tituloRecibo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloRecibo}</title>
   <style>
