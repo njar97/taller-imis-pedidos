@@ -136,9 +136,83 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
   overlay.appendChild(iframe);
   document.body.appendChild(overlay);
 
+  const closeOverlay = () => { overlay.remove(); delete window.__shareWithPDF__; };
+  closeBtn.onclick = closeOverlay;
+
   // Parchear window.close() del iframe para cerrar el overlay
   const patch = () => {
-    try { iframe.contentWindow.close = () => overlay.remove(); } catch (_) {}
+    try { iframe.contentWindow.close = closeOverlay; } catch (_) {}
+  };
+
+  // Genera PDF con jsPDF+html2canvas y lo comparte via Web Share API Level 2.
+  // Llamado desde el iframe como: window.parent.__shareWithPDF__(document.title, _waMsg)
+  window.__shareWithPDF__ = async (tituloArch, waText) => {
+    const idocEl = iframe.contentWindow.document;
+    const btn = idocEl.getElementById("wa-pdf-btn") || idocEl.getElementById("wa-btn");
+    const origText = btn?.textContent || "💬 Compartir WA";
+    const setBtn = (text, disabled = false) => {
+      if (btn) { btn.textContent = text; btn.disabled = disabled; }
+    };
+    try {
+      setBtn("⏳ Generando PDF...", true);
+      const noPrints = Array.from(idocEl.querySelectorAll(".no-print"));
+      noPrints.forEach(el => { el._pd = el.style.display; el.style.display = "none"; });
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const body = idocEl.body;
+      const fullH = body.scrollHeight;
+      const origH = iframe.style.height;
+      iframe.style.height = fullH + "px";
+      await new Promise(r => setTimeout(r, 80));
+      const canvas = await html2canvas(body, {
+        scale: 1.5, useCORS: true, allowTaint: false,
+        scrollX: 0, scrollY: 0,
+        windowWidth: body.scrollWidth || 800, windowHeight: fullH,
+      });
+      iframe.style.height = origH;
+      noPrints.forEach(el => { el.style.display = el._pd || ""; delete el._pd; });
+      const A4W = 595.28, A4H = 841.89;
+      const imgW = A4W;
+      const imgH = (canvas.height / canvas.width) * imgW;
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.88);
+      let y = 0, pg = 0;
+      while (y < imgH) {
+        if (pg > 0) pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, -y, imgW, imgH);
+        y += A4H; pg++;
+      }
+      const blob = pdf.output("blob");
+      const fileName = (tituloArch || "documento") + ".pdf";
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: waText || "" });
+        setBtn("✅ Compartido");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        if (waText) { try { await navigator.clipboard.writeText(waText); } catch {} }
+        setBtn("⬇️ PDF descargado");
+      }
+      setTimeout(() => setBtn(origText, false), 3500);
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        console.error("shareWithPDF:", err);
+        if (waText) {
+          try {
+            if (navigator.share) await navigator.share({ text: waText });
+            else await navigator.clipboard.writeText(waText);
+          } catch {}
+        }
+      }
+      setBtn(origText, false);
+    }
   };
 
   const idoc = iframe.contentWindow.document;
@@ -216,22 +290,7 @@ export async function imprimirCotizacion(p) {
 <script>
 const _waMsg = ${JSON.stringify(waText)};
 async function compartirWA() {
-  const btn = document.getElementById('wa-btn');
-  try {
-    if (navigator.share) {
-      await navigator.share({ text: _waMsg });
-      btn.textContent = '✓ Compartido';
-    } else {
-      await navigator.clipboard.writeText(_waMsg);
-      btn.textContent = '✓ Copiado';
-    }
-  } catch(e) {
-    if (e && e.name !== 'AbortError') {
-      await navigator.clipboard.writeText(_waMsg).catch(() => {});
-      btn.textContent = '✓ Copiado';
-    }
-  }
-  setTimeout(() => { btn.textContent = '💬 Compartir WA'; }, 3000);
+  await window.parent.__shareWithPDF__(document.title, _waMsg);
 }
 </script>
 
@@ -653,32 +712,7 @@ export function imprimirRecibo(p) {
     setTimeout(function(){ try{ window.parent.document.title = _pt; }catch(e){} }, 15000);
   }
   async function enviarPorWA() {
-    const btn = document.getElementById('wa-pdf-btn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Guardando PDF...';
-    _print();
-    window.addEventListener('afterprint', async function handler() {
-      window.removeEventListener('afterprint', handler);
-      btn.textContent = '📤 Abriendo WA...';
-      try {
-        if (navigator.share) {
-          await navigator.share({ text: _waMsg });
-          btn.textContent = '✓ Compartido';
-        } else {
-          await navigator.clipboard.writeText(_waMsg);
-          btn.textContent = '✓ Copiado';
-        }
-      } catch(e) {
-        if (e && e.name !== 'AbortError') {
-          await navigator.clipboard.writeText(_waMsg).catch(() => {});
-          btn.textContent = '✓ Copiado';
-        } else {
-          btn.textContent = '📤 Enviar PDF por WA';
-        }
-      }
-      btn.disabled = false;
-      setTimeout(() => { btn.textContent = '📤 Enviar PDF por WA'; }, 4000);
-    }, { once: true });
+    await window.parent.__shareWithPDF__(document.title, _waMsg);
   }
   </script>
   </body></html>`);
