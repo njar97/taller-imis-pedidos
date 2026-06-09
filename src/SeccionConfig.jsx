@@ -27,7 +27,7 @@ const LBL = {
   textTransform: "uppercase", letterSpacing: 0.4,
 };
 
-export default function SeccionConfig({ onConfigCambia }) {
+export default function SeccionConfig({ onConfigCambia, onVerComoOperario }) {
   const [config, setConfig] = useState(null);
   const [subiendo, setSubiendo] = useState({ firma: false, sello: false });
 
@@ -121,6 +121,35 @@ export default function SeccionConfig({ onConfigCambia }) {
 
       {/* Usuarios autorizados */}
       <UsuariosEditor />
+
+      {/* Vista previa de operario */}
+      {onVerComoOperario && (
+        <Seccion titulo="👁️ Vista operario" color="#E67E22">
+          <p style={{ fontSize: 12, color: "#666", marginBottom: 12, lineHeight: 1.5 }}>
+            Simulá cómo ve la app un operario según su módulo. Un banner naranja aparecerá para que puedas salir.
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[
+              { id: "pedidos",  icon: "✂️", label: "Costura" },
+              { id: "bordados", icon: "🪡", label: "Bordados" },
+              { id: "cuellos",  icon: "🧶", label: "Cuellos" },
+            ].map(m => (
+              <button
+                key={m.id}
+                onClick={() => onVerComoOperario(m.id)}
+                style={{
+                  flex: 1, padding: "11px 4px", borderRadius: 9,
+                  border: "1.5px solid #E67E22", background: "#FFF3E0",
+                  color: "#C0392B", fontWeight: 700, cursor: "pointer",
+                  fontSize: 13, fontFamily: "inherit",
+                }}
+              >
+                {m.icon} {m.label}
+              </button>
+            ))}
+          </div>
+        </Seccion>
+      )}
 
 
 

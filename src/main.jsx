@@ -259,6 +259,7 @@ const gsCatalogoGuardar = dbCatalogoGuardar;
 function App() {
   const [rol, setRol] = useState(null);
   const [sesionUser, setSesionUser] = useState(null); // { email, nombre, rol, modulos }
+  const [rolPrevia, setRolPrevia] = useState(null); // null = modo normal; "operario_X" = vista previa
   const [seccion, setSec] = useState("pedidos");
 
   // Al cargar: recuperar sesion previa de localStorage. Si el rol es
@@ -449,6 +450,9 @@ function App() {
   }, [cuellos]);
   const rolBase = (rol || "").startsWith("operario_") ? "operario" : rol;
   const esAdmin = rolBase === "admin";
+  // esAdminVista: como esAdmin pero false cuando admin está en modo vista previa de operario.
+  // Los hooks de datos (useCargarDatos/useRealtime) siguen usando esAdmin/rolBase reales.
+  const esAdminVista = esAdmin && !rolPrevia;
   // Carga inicial de todos los datos. Lógica extraída a useCargarDatos.js.
   useCargarDatos(rolBase, rol, { setPedidos, setNextId, setBordados, setNextBordId, setCuellos, setNextCuelId, setClientes, setCatalogo, setSync, setSec });
 
@@ -751,7 +755,7 @@ function App() {
       <ConfirmDialog />
     </>
   );
-  const NAV = getNavItems(rol, esAdmin);
+  const NAV = getNavItems(rolPrevia || rol, esAdminVista);
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       {progreso && (
@@ -762,7 +766,7 @@ function App() {
         />
       )}
       <SidebarDesktop
-        esAdmin={esAdmin}
+        esAdmin={esAdminVista}
         sync={sync}
         syncInfo={syncInfo}
         nav={NAV}
@@ -795,7 +799,7 @@ function App() {
         }}
       >
         <TopbarMobile
-          esAdmin={esAdmin}
+          esAdmin={esAdminVista}
           sync={sync}
           syncInfo={syncInfo}
           porCobrar={porCobrar}
@@ -851,7 +855,7 @@ function App() {
             ))}
           </div>
         }>
-        {seccion === "estadisticas" && esAdmin && (
+        {seccion === "estadisticas" && esAdminVista && (
           <SeccionEstadisticas
             pedidos={pedidos}
             bordados={bordados}
@@ -866,7 +870,7 @@ function App() {
             setInventario={setInventario}
             asignaciones={asignaciones}
             setAsignaciones={setAsignaciones}
-            esAdmin={esAdmin}
+            esAdmin={esAdminVista}
           />
         )}
         {seccion === "bordados" && (
@@ -876,7 +880,7 @@ function App() {
             nextBordId={nextBordId}
             setNextBordId={setNextBordId}
             pedidosConf={pedidos}
-            esAdmin={esAdmin}
+            esAdmin={esAdminVista}
             clientes={clientes}
             upsertClienteLocal={upsertClienteLocal}
             exportarPedidoPDF={exportarPedidoPDF}
@@ -889,7 +893,7 @@ function App() {
             nextCuelId={nextCuelId}
             setNextCuelId={setNextCuelId}
             pedidosConf={pedidos}
-            esAdmin={esAdmin}
+            esAdmin={esAdminVista}
             clientes={clientes}
             upsertClienteLocal={upsertClienteLocal}
             exportarPedidoPDF={exportarPedidoPDF}
@@ -899,17 +903,17 @@ function App() {
           <SeccionCatalogo
             catalogo={catalogo}
             setCatalogo={setCatalogo}
-            esAdmin={esAdmin}
+            esAdmin={esAdminVista}
           />
         )}
-        {seccion === "clientes" && esAdmin && (
+        {seccion === "clientes" && esAdminVista && (
           <SeccionClientes
             clientes={clientes}
             setClientes={setClientes}
             pedidos={pedidos}
             bordados={bordados}
             cuellos={cuellos}
-            esAdmin={esAdmin}
+            esAdmin={esAdminVista}
             onAbrirPedido={(p) => setDet(p)}
           />
         )}
@@ -923,10 +927,13 @@ function App() {
             onAbrirCuello={() => setSec("cuellos")}
           />
         )}
-        {seccion === "config" && esAdmin && (
-          <SeccionConfig onConfigCambia={() => setCargaConfigTick(t => t + 1)} />
+        {seccion === "config" && esAdminVista && (
+          <SeccionConfig
+            onConfigCambia={() => setCargaConfigTick(t => t + 1)}
+            onVerComoOperario={(mod) => { setRolPrevia("operario_" + mod); setSec("pedidos"); }}
+          />
         )}
-        {seccion === "cotizaciones" && esAdmin && (
+        {seccion === "cotizaciones" && esAdminVista && (
           <SeccionCotizaciones
             pedidos={pedidos}
             onImprimir={(c) => imprimirCotizacion(c)}
@@ -999,7 +1006,7 @@ function App() {
             }}
           />
         )}
-        {seccion === "papelera" && esAdmin && (
+        {seccion === "papelera" && esAdminVista && (
           <Suspense
             fallback={
               <div style={{ padding: 32, textAlign: "center", color: "#999" }}>
@@ -1028,7 +1035,7 @@ function App() {
             onMainTouchMove={onMainTouchMove}
             onMainTouchEnd={onMainTouchEnd}
             diasPara={diasPara}
-            esAdmin={esAdmin}
+            esAdmin={esAdminVista}
             asignaciones={asignaciones}
             nextId={nextId}
             setDet={setDet}
@@ -1037,8 +1044,8 @@ function App() {
             setConf={setConf}
             setVisor={setVisor}
             cambiarEstatus={cambiarEstatus}
-            onImprimir={(p) => imprimirPedido(p, esAdmin, pedidos)}
-            onCopiarWA={(p) => copiarWA(p, esAdmin)}
+            onImprimir={(p) => imprimirPedido(p, esAdminVista, pedidos)}
+            onCopiarWA={(p) => copiarWA(p, esAdminVista)}
           />
         )}
         <BottomNav
@@ -1048,7 +1055,7 @@ function App() {
           masOpen={masOpen}
           setMasOpen={setMasOpen}
           setRol={setRol}
-          esAdmin={esAdmin}
+          esAdmin={esAdminVista}
           vencidosSinArchivar={vencidosSinArchivar}
           matAgotados={matAgotados}
         />
@@ -1059,7 +1066,7 @@ function App() {
             setSec={setSec}
             setMasOpen={setMasOpen}
             setRol={setRol}
-            esAdmin={esAdmin}
+            esAdmin={esAdminVista}
           />
         )}
       </main>
@@ -1187,7 +1194,7 @@ function App() {
       {detalle && (
         <DetallePedidoModal
           pedido={detalle}
-          esAdmin={esAdmin}
+          esAdmin={esAdminVista}
           bordados={bordados}
           cuellos={cuellos}
           onClose={() => setDet(null)}
@@ -1271,7 +1278,7 @@ function App() {
             setDet(null);
           }}
           onWhatsApp={() => {
-            copiarWA(detalle, esAdmin);
+            copiarWA(detalle, esAdminVista);
             pushToast("Mensaje de WhatsApp copiado — pegalo en el chat", "success");
           }}
           onExportarPDF={() => exportarPedidoPDF(detalle, "confeccion")}
@@ -1343,12 +1350,33 @@ function App() {
           />
         </Suspense>
       )}
-      {esAdmin && (
+      {esAdminVista && (
         <RecordatorioInicio
           pedidos={pedidos}
           onIrAVencidos={() => { setSec("pedidos"); setFiltro("Vencidos"); }}
           onIrAProximos={() => { setSec("calendario"); }}
         />
+      )}
+      {rolPrevia && (
+        <div style={{
+          position: "fixed", bottom: 64, left: "50%", transform: "translateX(-50%)",
+          zIndex: 200, background: "#E67E22", color: "#fff", borderRadius: 24,
+          padding: "8px 8px 8px 16px", display: "flex", alignItems: "center",
+          gap: 8, boxShadow: "0 4px 20px rgba(0,0,0,.3)", fontSize: 13,
+          fontWeight: 700, whiteSpace: "nowrap", fontFamily: "system-ui",
+        }}>
+          👁️ Vista operario
+          <button
+            onClick={() => { setRolPrevia(null); setSec("config"); }}
+            style={{
+              background: "rgba(0,0,0,.25)", border: "none", color: "#fff",
+              borderRadius: 16, padding: "5px 14px", cursor: "pointer",
+              fontWeight: 800, fontFamily: "inherit", fontSize: 12,
+            }}
+          >
+            Salir
+          </button>
+        </div>
       )}
     </div>
   );
