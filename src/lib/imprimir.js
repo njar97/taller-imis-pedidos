@@ -5,7 +5,7 @@ import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
-import { mensajeWA } from "./whatsapp.js";
+import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
 import QRCode from "qrcode";
@@ -87,33 +87,136 @@ export async function imprimirPedido(p, esAdmin, todosPedidos = []) {
   else await imprimirProduccion(p, todosPedidos);
 }
 
-// Reemplazo de window.open para imprimir / guardar PDF. El PWA de Android
-// (y muchos navegadores móviles) bloquean o se portan raro con las ventanas
-// nuevas, así que en vez de eso montamos un IFRAME oculto y exponemos la
-// misma interfaz mínima (document.write/close) que usaba el código con
-// window.open — así cada sitio cambia solo la línea del open. Al cerrar el
-// documento dispara print() nativo, que en móvil abre el diálogo de
-// imprimir / guardar como PDF del sistema.
+// Reemplazo de window.open para imprimir / guardar PDF. Monta un overlay
+// full-screen con un iframe visible — necesario para que html2canvas pueda
+// capturar el contenido y generar un PDF compartible por WhatsApp.
+// Expone window.__shareWithPDF__(tituloArch, waText) en el padre, que el
+// iframe llama al pulsar el botón "Compartir WA".
 export function nuevaVentanaImpresion(titulo = null) {
-  const prev = document.getElementById("__print_frame__");
-  if (prev) prev.remove();
+  const prev = document.getElementById("__print_overlay__");
+  if (prev) {
+    prev.remove();
+    document.body.style.overflow = "";
+    delete window.__shareWithPDF__;
+    delete window.__closeFrame__;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "__print_overlay__";
+  overlay.style.cssText =
+    "position:fixed;inset:0;z-index:99999;background:#f5f5f5;overflow:hidden;";
+
   const iframe = document.createElement("iframe");
   iframe.id = "__print_frame__";
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
-  document.body.appendChild(iframe);
+  iframe.style.cssText = "display:block;width:100%;height:100%;border:0;background:#fff;";
+  overlay.appendChild(iframe);
+  document.body.appendChild(overlay);
+  document.body.style.overflow = "hidden";
+
+  const closeOverlay = () => {
+    overlay.remove();
+    document.body.style.overflow = "";
+    delete window.__shareWithPDF__;
+    delete window.__closeFrame__;
+  };
+  window.__closeFrame__ = closeOverlay;
+
+  window.__shareWithPDF__ = async (tituloArch, waText) => {
+    const idoc = iframe.contentWindow.document;
+    const btn = idoc.getElementById("wa-pdf-btn");
+    const setBtn = (text, disabled = false) => {
+      if (btn) { btn.textContent = text; btn.disabled = disabled; }
+    };
+
+    try {
+      setBtn("⏳ Generando PDF...", true);
+
+      // Ocultar elementos no-print para captura limpia
+      const noPrints = Array.from(idoc.querySelectorAll(".no-print"));
+      noPrints.forEach(el => { el._pd = el.style.display; el.style.display = "none"; });
+
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      const body = idoc.body;
+      const fullH = body.scrollHeight;
+      const origH = iframe.style.height;
+      // Expandir iframe para que html2canvas vea el contenido completo
+      iframe.style.height = fullH + "px";
+      await new Promise(r => setTimeout(r, 80));
+
+      const canvas = await html2canvas(body, {
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: false,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: body.scrollWidth || 800,
+        windowHeight: fullH,
+      });
+
+      iframe.style.height = origH;
+      noPrints.forEach(el => { el.style.display = el._pd || ""; delete el._pd; });
+
+      // Construir PDF A4 multi-página
+      const A4W = 595.28; // pt
+      const A4H = 841.89; // pt
+      const imgW = A4W;
+      const imgH = (canvas.height / canvas.width) * imgW;
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.88);
+      let y = 0; let pg = 0;
+      while (y < imgH) {
+        if (pg > 0) pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, -y, imgW, imgH);
+        y += A4H; pg++;
+      }
+
+      const blob = pdf.output("blob");
+      const fileName = (tituloArch || "documento") + ".pdf";
+      const file = new File([blob], fileName, { type: "application/pdf" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: waText || "" });
+        setBtn("✅ Compartido");
+      } else {
+        // Fallback: descarga el PDF + copia el texto
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        if (waText) { try { await navigator.clipboard.writeText(waText); } catch {} }
+        setBtn("⬇️ PDF descargado");
+      }
+      setTimeout(() => setBtn("💬 Compartir WA", false), 3500);
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        console.error("shareWithPDF:", err);
+        if (waText) {
+          try {
+            if (navigator.share) await navigator.share({ text: waText });
+            else await navigator.clipboard.writeText(waText);
+          } catch {}
+        }
+      }
+      setBtn("💬 Compartir WA", false);
+    }
+  };
+
   const idoc = iframe.contentWindow.document;
   return {
     document: {
       write: html => idoc.write(html),
       close: () => {
         idoc.close();
-        const imprimir = () => {
+        const doImprimir = () => {
+          // Monkey-patch close del iframe para que onclick="window.close()" cierre el overlay
+          try { iframe.contentWindow.close = closeOverlay; } catch {}
           try {
-            // Android Chrome usa el document.title del PADRE para sugerir el
-            // nombre del PDF, no el <title> del iframe. Lo cambiamos antes de
-            // llamar print() y lo restauramos al salir del diálogo.
             const prevTitle = document.title;
             if (titulo) document.title = titulo;
             iframe.contentWindow.focus();
@@ -125,9 +228,8 @@ export function nuevaVentanaImpresion(titulo = null) {
             console.warn("print():", e);
           }
         };
-        // Esperar a que carguen imágenes/fuentes antes de imprimir.
-        if (idoc.readyState === "complete") setTimeout(imprimir, 300);
-        else iframe.contentWindow.onload = () => setTimeout(imprimir, 300);
+        if (idoc.readyState === "complete") setTimeout(doImprimir, 300);
+        else iframe.contentWindow.onload = () => setTimeout(doImprimir, 300);
       },
     },
   };
@@ -170,6 +272,7 @@ export async function imprimirCotizacion(p) {
   const iva = precioFinal - subtotal;
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
+  const waMsg = mensajeCotizacionWA(p);
   const w = nuevaVentanaImpresion(titulo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${titulo}</title>
@@ -185,7 +288,8 @@ export async function imprimirCotizacion(p) {
   <div style="background:#F3E5F5;border:1px solid #d4b3df;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#6B2D8B;">
     💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
   </div>
-  <div style="display:flex;gap:8px;justify-content:flex-end;">
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+    <button id="wa-pdf-btn" onclick="window.parent.__shareWithPDF__(document.title,_waMsg)" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">💬 Compartir WA</button>
     <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
     <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
   </div>
@@ -433,6 +537,7 @@ ${(() => {
 `;
 })() : ""}
 <script>
+const _waMsg=${JSON.stringify(waMsg)};
 const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
 function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
 </script>
@@ -609,22 +714,7 @@ export function imprimirRecibo(p) {
     setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);
   }
   async function enviarPorWA(){
-    const btn=document.getElementById('wa-pdf-btn');
-    btn.disabled=true;btn.textContent='⏳ Guardando PDF...';
-    _print();
-    window.addEventListener('afterprint',async function handler(){
-      window.removeEventListener('afterprint',handler);
-      btn.textContent='📤 Abriendo WA...';
-      try{
-        if(navigator.share){await navigator.share({text:_waMsg});btn.textContent='✓ Compartido';}
-        else{await navigator.clipboard.writeText(_waMsg);btn.textContent='✓ Copiado';}
-      }catch(e){
-        if(e&&e.name!=='AbortError'){await navigator.clipboard.writeText(_waMsg).catch(()=>{});btn.textContent='✓ Copiado';}
-        else{btn.textContent='📤 Enviar PDF por WA';}
-      }
-      btn.disabled=false;
-      setTimeout(()=>{btn.textContent='📤 Enviar PDF por WA';},4000);
-    },{once:true});
+    await window.parent.__shareWithPDF__(document.title,_waMsg);
   }
   </script>
   </body></html>`);
