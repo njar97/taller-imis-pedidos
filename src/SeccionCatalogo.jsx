@@ -38,7 +38,7 @@ function EditorTecnicas({ value = [], onChange }) {
   const add = () => onChange([...value, { tipo: "Sublimación", precioBase: "", disenos: [] }]);
   const remove = i => onChange(value.filter((_, idx) => idx !== i));
   const upd = (i, k, v) => onChange(value.map((row, idx) => idx === i ? { ...row, [k]: v } : row));
-  const addD = i => { const t = value[i]; upd(i, "disenos", [...(t.disenos || []), { ubicacion: "", ancho: "", alto: "", notas: "" }]); };
+  const addD = i => { const t = value[i]; upd(i, "disenos", [...(t.disenos || []), { ubicacion: "", ancho: "", alto: "", posicionCuello: "", notas: "" }]); };
   const removeD = (i, j) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).filter((_, idx) => idx !== j)); };
   const updD = (i, j, k, v) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).map((d, idx) => idx === j ? { ...d, [k]: v } : d)); };
   const S = { ...INPS, fontSize: 12, padding: "5px 8px" };
@@ -70,6 +70,9 @@ function EditorTecnicas({ value = [], onChange }) {
                 <input type="number" style={{ ...S, width: 52, textAlign: "center" }} value={d.alto} placeholder="H"
                   onChange={e => updD(i, j, "alto", e.target.value)} />
                 <span style={{ fontSize: 10, color: "#aaa" }}>cm</span>
+                <input type="number" style={{ ...S, width: 46, textAlign: "center" }} value={d.posicionCuello || ""} placeholder="↕cm"
+                  title="cm desde cuello"
+                  onChange={e => updD(i, j, "posicionCuello", e.target.value)} />
                 <input style={{ ...S, flex: 2 }} value={d.notas} placeholder="Notas"
                   onChange={e => updD(i, j, "notas", e.target.value)} />
                 <button onClick={() => removeD(i, j)}
