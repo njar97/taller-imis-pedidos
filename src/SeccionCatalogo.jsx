@@ -5,7 +5,8 @@ import { Modal } from "./lib/Modal.jsx";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { dbCatalogoGuardar as gsCatalogoGuardar } from "./lib/db.js";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
 
 const INPS = {
   width: "100%",
@@ -34,6 +35,12 @@ const fmtT = n => n ? `${n} día${n !== 1 ? "s" : ""}` : "-";
 
 const TECNICAS_OPC = ["Sublimación", "DTF", "Bordado", "Serigrafía"];
 
+const EJEMPLO_PREV = [
+  { ubicacion: "Pecho izquierdo", tecnica: "Sublimación", ancho: "10", alto: "8", posicionCuello: "16" },
+  { ubicacion: "Espalda",         tecnica: "DTF",          ancho: "28", alto: "20", posicionCuello: "25" },
+  { ubicacion: "Manga derecha",   tecnica: "Bordado",      ancho: "4",  alto: "3",  posicionCuello: "" },
+];
+
 function EditorTecnicas({ value = [], onChange }) {
   const add = () => onChange([...value, { tipo: "Sublimación", precioBase: "", disenos: [] }]);
   const remove = i => onChange(value.filter((_, idx) => idx !== i));
@@ -42,9 +49,37 @@ function EditorTecnicas({ value = [], onChange }) {
   const removeD = (i, j) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).filter((_, idx) => idx !== j)); };
   const updD = (i, j, k, v) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).map((d, idx) => idx === j ? { ...d, [k]: v } : d)); };
   const S = { ...INPS, fontSize: 12, padding: "5px 8px" };
+
+  const pngUrl = useMemo(() => {
+    const all = value.flatMap(t => (t.disenos || []).map(d => ({ ...d, tecnica: t.tipo })));
+    const src = all.some(d => d.ubicacion) ? all : EJEMPLO_PREV;
+    return diagramaCamisaPNG(src, { ancho: 160, alto: 185 });
+  }, [value]);
+  const hasReal = value.some(t => (t.disenos || []).some(d => d.ubicacion));
+
   return (
     <div style={{ marginBottom: 12 }}>
       <label style={LBL}>Técnicas disponibles</label>
+      <div style={{ display: "flex", gap: 10, marginBottom: 10, padding: 10, background: "#faf6ff", borderRadius: 10, border: "1px solid #e8d8ff" }}>
+        <div style={{ textAlign: "center", flexShrink: 0 }}>
+          {pngUrl && <img src={pngUrl} style={{ width: 80, height: "auto", borderRadius: 6 }} alt="preview" />}
+          <div style={{ fontSize: 7, color: "#ccc", marginTop: 1 }}>D ← | → I</div>
+        </div>
+        <div style={{ flex: 1, fontSize: 10, color: "#888", alignSelf: "center" }}>
+          {(hasReal
+            ? value.flatMap(t => (t.disenos || []).filter(d => d.ubicacion).map(d => ({ ...d, tecnica: t.tipo })))
+            : EJEMPLO_PREV
+          ).map((d, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: techColor(d.tecnica || ""), flexShrink: 0, display: "inline-block" }} />
+              <span style={{ fontWeight: 700, color: "#555" }}>{i + 1}.</span>
+              <span>{d.ubicacion}</span>
+              {(d.ancho || d.alto) && <span style={{ color: "#bbb", marginLeft: 2 }}>{d.ancho}×{d.alto}cm</span>}
+            </div>
+          ))}
+          {!hasReal && <div style={{ color: "#bbb", fontStyle: "italic", fontSize: 9, marginTop: 4 }}>Ejemplo — agrega specs para ver el diagrama real</div>}
+        </div>
+      </div>
       {value.map((tec, i) => (
         <div key={i} style={{ background: "#faf6ff", border: "1px solid #e0d5f5", borderRadius: 8, padding: 10, marginBottom: 8 }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
