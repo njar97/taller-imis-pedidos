@@ -32,6 +32,51 @@ const ICONOS = ["✂️", "👔", "👕", "👗", "👖", "🤵", "⚽", "🪡",
 
 const fmtT = n => n ? `${n} día${n !== 1 ? "s" : ""}` : "-";
 
+const TECNICAS_OPC = ["Sublimación", "DTF", "Bordado", "Serigrafía"];
+
+function EditorTecnicas({ value = [], onChange }) {
+  const add = () => onChange([...value, { tipo: "Sublimación", precioBase: "", disenos: [] }]);
+  const remove = i => onChange(value.filter((_, idx) => idx !== i));
+  const upd = (i, k, v) => onChange(value.map((row, idx) => idx === i ? { ...row, [k]: v } : row));
+  const addD = i => { const t = value[i]; upd(i, "disenos", [...(t.disenos || []), { ubicacion: "", ancho: "", alto: "", notas: "" }]); };
+  const removeD = (i, j) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).filter((_, idx) => idx !== j)); };
+  const updD = (i, j, k, v) => { const t = value[i]; upd(i, "disenos", (t.disenos || []).map((d, idx) => idx === j ? { ...d, [k]: v } : d)); };
+  const S = { ...INPS, fontSize: 12, padding: "6px 8px" };
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={LBL}>🎨 Técnicas de personalización</label>
+      {value.map((tec, i) => (
+        <div key={i} style={{ background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+            <select style={{ ...S, flex: 1 }} value={tec.tipo} onChange={e => upd(i, "tipo", e.target.value)}>
+              {TECNICAS_OPC.map(t => <option key={t}>{t}</option>)}
+            </select>
+            <input type="number" style={{ ...S, width: 80 }} value={tec.precioBase} placeholder="$ base"
+              onChange={e => upd(i, "precioBase", e.target.value)} />
+            <button onClick={() => remove(i)} style={{ border: "none", background: "transparent", color: "#ccc", cursor: "pointer", fontSize: 18, padding: "0 4px" }}>×</button>
+          </div>
+          {(tec.disenos || []).map((d, j) => (
+            <div key={j} style={{ display: "flex", gap: 4, marginBottom: 4, paddingLeft: 8 }}>
+              <input style={{ ...S, flex: 2 }} value={d.ubicacion} placeholder="Ubicación" onChange={e => updD(i, j, "ubicacion", e.target.value)} />
+              <input style={{ ...S, width: 50, textAlign: "center" }} type="number" value={d.ancho} placeholder="W" onChange={e => updD(i, j, "ancho", e.target.value)} />
+              <span style={{ fontSize: 11, color: "#aaa", alignSelf: "center" }}>×</span>
+              <input style={{ ...S, width: 50, textAlign: "center" }} type="number" value={d.alto} placeholder="H" onChange={e => updD(i, j, "alto", e.target.value)} />
+              <input style={{ ...S, flex: 1 }} value={d.notas} placeholder="notas" onChange={e => updD(i, j, "notas", e.target.value)} />
+              <button onClick={() => removeD(i, j)} style={{ border: "none", background: "transparent", color: "#ccc", cursor: "pointer", fontSize: 16, padding: "0 2px" }}>×</button>
+            </div>
+          ))}
+          <button onClick={() => addD(i)} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 6, border: "1px dashed #9B59B6", background: "transparent", color: "#9B59B6", cursor: "pointer", fontFamily: "inherit" }}>
+            + spec
+          </button>
+        </div>
+      ))}
+      <button onClick={add} style={{ fontSize: 12, padding: "5px 14px", borderRadius: 8, border: "1.5px dashed #9B59B6", background: "transparent", color: "#9B59B6", cursor: "pointer", fontWeight: 700, width: "100%", fontFamily: "inherit" }}>
+        + Agregar técnica
+      </button>
+    </div>
+  );
+}
+
 function ModalFormProducto({ initial, onSave, onCancel }) {
   const def = {
     nombre: "",
@@ -46,6 +91,7 @@ function ModalFormProducto({ initial, onSave, onCancel }) {
     precioBase: "",
     preciosPorTalla: { XS: "", S: "", M: "", L: "", XL: "", "2XL": "", "3XL": "" },
     notas: "",
+    tecnicas: [],
   };
   const [f, setF] = useState({ ...def, ...(initial || {}) });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -141,6 +187,8 @@ function ModalFormProducto({ initial, onSave, onCancel }) {
             <span>🧶 Lleva cuello tejido</span>
           </label>
         </div>
+
+        <EditorTecnicas value={f.tecnicas || []} onChange={v => set("tecnicas", v)} />
 
         <ChipsInput label="Telas sugeridas" valor={f.telas || []} input={newTela} setInput={setNT} onAdd={addTela} onRemove={i => set("telas", (f.telas || []).filter((_, j) => j !== i))} placeholder="Agregar tela..." />
         <ChipsInput label="Colores comunes" valor={f.colores || []} input={newColor} setInput={setNC} onAdd={addColor} onRemove={i => set("colores", (f.colores || []).filter((_, j) => j !== i))} placeholder="Agregar color..." />

@@ -916,6 +916,29 @@ export async function imprimirProduccion(p, todosPedidos = []) {
     ${p.notas ? `<div>${p.notas}</div>` : ""}
   </div>` : ""}
 
+  <!-- ESPECIFICACIONES DE DISEÑO -->
+  ${(p.disenos || []).length ? `
+  <div class="sec" style="color:#9B59B6;">🎨 Especificaciones de diseño</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px;border:1.5px solid #D7BDE2;border-radius:8px;overflow:hidden;">
+    <thead><tr style="background:#F3E5F5;">
+      <th style="padding:6px 10px;text-align:left;color:#6B2D8B;font-weight:800;">Ubicación</th>
+      <th style="padding:6px 10px;text-align:left;color:#6B2D8B;font-weight:800;">Técnica</th>
+      <th style="padding:6px 10px;text-align:center;color:#6B2D8B;font-weight:800;">Ancho</th>
+      <th style="padding:6px 10px;text-align:center;color:#6B2D8B;font-weight:800;">Alto</th>
+      <th style="padding:6px 10px;text-align:left;color:#6B2D8B;font-weight:800;">Notas</th>
+    </tr></thead>
+    <tbody>
+      ${(p.disenos || []).map((d, i) => `
+        <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8ff"};border-bottom:1px solid #f0e6ff;">
+          <td style="padding:6px 10px;font-weight:700;color:#2C1654;">${d.ubicacion || "—"}</td>
+          <td style="padding:6px 10px;color:#6B2D8B;">${d.tecnica || "—"}</td>
+          <td style="padding:6px 10px;text-align:center;font-weight:800;color:#E67E22;">${d.ancho ? d.ancho + " cm" : "—"}</td>
+          <td style="padding:6px 10px;text-align:center;font-weight:800;color:#E67E22;">${d.alto ? d.alto + " cm" : "—"}</td>
+          <td style="padding:6px 10px;color:#666;font-size:11px;">${d.notas || ""}</td>
+        </tr>`).join("")}
+    </tbody>
+  </table>` : ""}
+
   <!-- MEDIDAS -->
   ${medsHTML}
 

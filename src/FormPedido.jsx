@@ -65,6 +65,49 @@ const BTN = (bg = "#9B59B6", disabled = false) => ({
 const TELAS_RAPIDAS = ["Dacrón", "Satín", "Lino", "Gabardina", "Tafeta", "Lycra", "Algodón", "Dril", "Otro"];
 const COLORES_RAPIDOS = ["Blanco", "Negro", "Azul", "Rojo", "Verde", "Café", "Gris", "Morado", "Rosado", "Beige"];
 
+const TECNICAS_DISENO = ["Sublimación", "DTF", "Bordado", "Serigrafía"];
+
+function EditorDisenos({ value = [], onChange }) {
+  const add = () => onChange([...value, { ubicacion: "", tecnica: "Sublimación", ancho: "", alto: "", notas: "" }]);
+  const remove = i => onChange(value.filter((_, idx) => idx !== i));
+  const upd = (i, k, v) => onChange(value.map((row, idx) => idx === i ? { ...row, [k]: v } : row));
+  const S = { ...INP, fontSize: 12, padding: "6px 8px" };
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+        🎨 Especificaciones de diseño
+      </div>
+      {value.map((row, i) => (
+        <div key={i} style={{ background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 8, padding: 8, marginBottom: 6 }}>
+          <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            <input style={{ ...S, flex: 2 }} value={row.ubicacion} placeholder="Ubicación (pecho izq.)"
+              onChange={e => upd(i, "ubicacion", e.target.value)} />
+            <select style={{ ...S, flex: 1 }} value={row.tecnica} onChange={e => upd(i, "tecnica", e.target.value)}>
+              {TECNICAS_DISENO.map(t => <option key={t}>{t}</option>)}
+            </select>
+            <button onClick={() => remove(i)}
+              style={{ padding: "0 8px", border: "none", background: "transparent", color: "#ccc", cursor: "pointer", fontSize: 18 }}>×</button>
+          </div>
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <input style={{ ...S, width: 60, textAlign: "center" }} type="number" value={row.ancho} placeholder="W"
+              onChange={e => upd(i, "ancho", e.target.value)} />
+            <span style={{ fontSize: 12, color: "#aaa" }}>×</span>
+            <input style={{ ...S, width: 60, textAlign: "center" }} type="number" value={row.alto} placeholder="H"
+              onChange={e => upd(i, "alto", e.target.value)} />
+            <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap" }}>cm</span>
+            <input style={{ ...S, flex: 1 }} value={row.notas} placeholder="dorado mate, metálico..."
+              onChange={e => upd(i, "notas", e.target.value)} />
+          </div>
+        </div>
+      ))}
+      <button onClick={add}
+        style={{ fontSize: 12, padding: "5px 14px", borderRadius: 8, border: "1.5px dashed #9B59B6", background: "transparent", color: "#9B59B6", cursor: "pointer", fontWeight: 700, width: "100%", fontFamily: "inherit" }}>
+        + Agregar diseño
+      </button>
+    </div>
+  );
+}
+
 const TIPOS_CLIENTE = [
   ["persona", "👤 Persona"],
   ["empresa", "🏢 Empresa"],
@@ -690,6 +733,48 @@ export default function FormPedido({
         </div>
       )}
 
+      {/* Técnica de personalización — aparece si el producto del catálogo
+          tiene técnicas definidas. Al elegir una, auto-rellena disenos. */}
+      {prodSel && (prodSel.tecnicas || []).length > 0 && (
+        <div style={{ background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+            🎨 Técnica de personalización
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {(prodSel.tecnicas || []).map((tec, i) => {
+              const sel = f.tecnicaSeleccionada === tec.tipo;
+              return (
+                <button key={i} onClick={() => {
+                  setF(p => ({
+                    ...p,
+                    tecnicaSeleccionada: tec.tipo,
+                    catalogoRef: prodSel.id || null,
+                    tieneBordado: true,
+                    disenos: (tec.disenos || []).map(d => ({
+                      ubicacion: d.ubicacion || "",
+                      tecnica: tec.tipo || "Sublimación",
+                      ancho: d.ancho || "",
+                      alto: d.alto || "",
+                      notas: d.notas || "",
+                    })),
+                  }));
+                }}
+                style={{
+                  padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+                  border: "1.5px solid " + (sel ? "#9B59B6" : "#e8d5f5"),
+                  background: sel ? "#9B59B6" : "#fff",
+                  color: sel ? "#fff" : "#6B2D8B",
+                  fontWeight: sel ? 700 : 400,
+                }}>
+                  {tec.tipo}
+                  {tec.precioBase ? <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.8 }}>+${parseFloat(tec.precioBase).toFixed(2)}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Selector de tallas/lista. La talla agregada hereda el tipo de
           prenda actual y se preserva si después cambiás el chip. */}
       <div style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4, marginTop: 8 }}>
@@ -909,12 +994,15 @@ export default function FormPedido({
           onChange={v => s("telaComprada", v)}
         />
         {f.tieneBordado && (
-          <input
-            style={{ ...INP, marginTop: 8 }}
-            value={f.estatusDiseno}
-            placeholder="Estado del diseño en Wilcom..."
-            onChange={e => s("estatusDiseno", e.target.value)}
-          />
+          <>
+            <input
+              style={{ ...INP, marginTop: 8 }}
+              value={f.estatusDiseno}
+              placeholder="Estado del diseño en Wilcom..."
+              onChange={e => s("estatusDiseno", e.target.value)}
+            />
+            <EditorDisenos value={f.disenos || []} onChange={v => s("disenos", v)} />
+          </>
         )}
       </SeccionOpcional>
 

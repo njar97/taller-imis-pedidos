@@ -77,6 +77,27 @@ function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   );
 }
 
+function EspecsDiseno({ disenos }) {
+  if (!disenos || disenos.length === 0) return null;
+  return (
+    <div style={{ marginTop: 12, marginBottom: 4 }}>
+      <div style={{ fontSize: 10, color: "#9B59B6", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+        🎨 Especificaciones de diseño
+      </div>
+      {disenos.map((d, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, padding: "7px 10px", background: i % 2 === 0 ? "#faf6ff" : "#fff", borderRadius: 7, marginBottom: 3, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, color: "#2C1654", fontSize: 13, flex: "1 1 100px" }}>{d.ubicacion || "—"}</span>
+          <span style={{ fontSize: 11, background: "#E8DAEF", color: "#6B2D8B", borderRadius: 10, padding: "2px 8px", fontWeight: 700 }}>{d.tecnica || "—"}</span>
+          {(d.ancho || d.alto) && (
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#E67E22" }}>{d.ancho || "?"} × {d.alto || "?"} cm</span>
+          )}
+          {d.notas && <span style={{ fontSize: 11, color: "#888", flex: "1 1 80px" }}>{d.notas}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function InfoTabla({ pedido, esAdmin }) {
   const filas = [
     ["Cliente",
@@ -742,6 +763,7 @@ export default function DetallePedidoModal({
         onCambiarCosturera={onCambiarCosturera}
       />
       <InfoTabla pedido={pedido} esAdmin={esAdmin} />
+      <EspecsDiseno disenos={pedido.disenos} />
       {esAdmin && <DetalleFactura pedido={pedido} />}
       <Abonos abonos={pedido.abonos} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
