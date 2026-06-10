@@ -18,7 +18,8 @@ import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
 import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
-import { useState } from "react";
+import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
+import { useState, useMemo } from "react";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
@@ -309,22 +310,44 @@ function Abonos({ abonos }) {
 }
 
 function EspecsDiseno({ disenos }) {
-  if (!disenos || disenos.length === 0) return null;
+  const items = (disenos || []).filter(d => d.ubicacion);
+  const pngUrl = useMemo(
+    () => items.length ? diagramaCamisaPNG(disenos, { ancho: 200, alto: 232 }) : "",
+    [disenos] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  if (!items.length) return null;
   return (
     <div style={{ marginTop: 12, marginBottom: 4 }}>
       <div style={{ fontSize: 10, color: "#9B59B6", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
         🎨 Especificaciones de diseño
       </div>
-      {disenos.map((d, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, padding: "7px 10px", background: i % 2 === 0 ? "#faf6ff" : "#fff", borderRadius: 7, marginBottom: 3, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 700, color: "#2C1654", fontSize: 13, flex: "1 1 100px" }}>{d.ubicacion || "—"}</span>
-          <span style={{ fontSize: 11, background: "#E8DAEF", color: "#6B2D8B", borderRadius: 10, padding: "2px 8px", fontWeight: 700 }}>{d.tecnica || "—"}</span>
-          {(d.ancho || d.alto) && (
-            <span style={{ fontSize: 12, fontWeight: 800, color: "#E67E22" }}>{d.ancho || "?"} × {d.alto || "?"} cm</span>
-          )}
-          {d.notas && <span style={{ fontSize: 11, color: "#888", flex: "1 1 80px" }}>{d.notas}</span>}
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 12px", background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 10 }}>
+        {pngUrl && (
+          <div style={{ flexShrink: 0, textAlign: "center" }}>
+            <img src={pngUrl} style={{ width: 100, height: "auto", borderRadius: 6, display: "block" }} alt="diagrama" />
+            <div style={{ fontSize: 7, color: "#ccc", marginTop: 2 }}>D ← | → I (portador)</div>
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {items.map((d, i) => {
+            const col = techColor(d.tecnica);
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 5 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 15, height: 15, borderRadius: 3, background: col, color: "#fff", fontSize: 8, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#2C1654" }}>{d.ubicacion}</div>
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 1 }}>
+                    <span style={{ background: col + "22", color: col, borderRadius: 8, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>{d.tecnica || ""}</span>
+                    {d.ancho && d.alto && <span style={{ color: "#E67E22", fontWeight: 800, fontSize: 11 }}>{d.ancho}×{d.alto}cm</span>}
+                    {d.posicionCuello && <span style={{ color: "#888", fontSize: 10 }}>↕ {d.posicionCuello}cm</span>}
+                    {d.notas && <span style={{ color: "#999", fontStyle: "italic", fontSize: 10 }}>{d.notas}</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </div>
     </div>
   );
 }

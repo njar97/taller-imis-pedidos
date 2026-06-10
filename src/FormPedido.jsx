@@ -64,7 +64,7 @@ const BTN = (bg = "#9B59B6", disabled = false) => ({
 const TECNICAS_DISENO = ["Sublimación", "DTF", "Bordado", "Serigrafía"];
 
 function EditorDisenos({ value = [], onChange }) {
-  const add = () => onChange([...value, { ubicacion: "", tecnica: "Sublimación", ancho: "", alto: "", notas: "" }]);
+  const add = () => onChange([...value, { ubicacion: "", tecnica: "Sublimación", ancho: "", alto: "", posicionCuello: "", notas: "" }]);
   const remove = i => onChange(value.filter((_, idx) => idx !== i));
   const upd = (i, k, v) => onChange(value.map((row, idx) => idx === i ? { ...row, [k]: v } : row));
   const S = { ...INP, fontSize: 12, padding: "6px 8px" };
@@ -84,14 +84,17 @@ function EditorDisenos({ value = [], onChange }) {
             <button onClick={() => remove(i)}
               style={{ padding: "0 8px", border: "none", background: "transparent", color: "#ccc", cursor: "pointer", fontSize: 18 }}>×</button>
           </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <input style={{ ...S, width: 60, textAlign: "center" }} type="number" value={row.ancho} placeholder="W"
+          <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+            <input style={{ ...S, width: 52, textAlign: "center" }} type="number" value={row.ancho} placeholder="W"
               onChange={e => upd(i, "ancho", e.target.value)} />
-            <span style={{ fontSize: 12, color: "#aaa" }}>×</span>
-            <input style={{ ...S, width: 60, textAlign: "center" }} type="number" value={row.alto} placeholder="H"
+            <span style={{ fontSize: 11, color: "#aaa" }}>×</span>
+            <input style={{ ...S, width: 52, textAlign: "center" }} type="number" value={row.alto} placeholder="H"
               onChange={e => upd(i, "alto", e.target.value)} />
-            <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap" }}>cm</span>
-            <input style={{ ...S, flex: 1 }} value={row.notas} placeholder="dorado mate, metálico..."
+            <span style={{ fontSize: 10, color: "#aaa" }}>cm</span>
+            <input style={{ ...S, width: 52, textAlign: "center" }} type="number" value={row.posicionCuello || ""} placeholder="↕cm"
+              title="Distancia desde el cuello al borde superior del diseño (cm)"
+              onChange={e => upd(i, "posicionCuello", e.target.value)} />
+            <input style={{ ...S, flex: 1, minWidth: 70 }} value={row.notas} placeholder="notas (color, acabado...)"
               onChange={e => upd(i, "notas", e.target.value)} />
           </div>
         </div>
