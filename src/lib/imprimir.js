@@ -8,6 +8,7 @@ import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
+import { diagramaCamisaPNG, techColor } from "./diagrama.js";
 import QRCode from "qrcode";
 
 // Genera el HTML de "Detalle por persona" — tabla donde cada fila es una
@@ -802,6 +803,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
         ${imagenes.map(img => `<div style="text-align:center;"><img src="${imgSrc(img)}" style="max-width:160px;max-height:160px;border-radius:8px;border:1.5px solid #e0e0e0;display:block;"/><div style="font-size:9px;color:#aaa;margin-top:3px;">${img.nombre || ""}</div></div>`).join("")}
       </div>
     </div>` : "";
+  const diagramaURL = diagramaCamisaPNG(p.disenos, { ancho: 280, alto: 320 });
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
   const w = nuevaVentanaImpresion(tituloProd);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -917,27 +919,29 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   </div>` : ""}
 
   <!-- ESPECIFICACIONES DE DISEÑO -->
-  ${(p.disenos || []).length ? `
-  <div class="sec" style="color:#9B59B6;">🎨 Especificaciones de diseño</div>
-  <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px;border:1.5px solid #D7BDE2;border-radius:8px;overflow:hidden;">
-    <thead><tr style="background:#F3E5F5;">
-      <th style="padding:6px 10px;text-align:left;color:#6B2D8B;font-weight:800;">Ubicación</th>
-      <th style="padding:6px 10px;text-align:left;color:#6B2D8B;font-weight:800;">Técnica</th>
-      <th style="padding:6px 10px;text-align:center;color:#6B2D8B;font-weight:800;">Ancho</th>
-      <th style="padding:6px 10px;text-align:center;color:#6B2D8B;font-weight:800;">Alto</th>
-      <th style="padding:6px 10px;text-align:left;color:#6B2D8B;font-weight:800;">Notas</th>
-    </tr></thead>
-    <tbody>
-      ${(p.disenos || []).map((d, i) => `
-        <tr style="background:${i % 2 === 0 ? "#fff" : "#fdf8ff"};border-bottom:1px solid #f0e6ff;">
-          <td style="padding:6px 10px;font-weight:700;color:#2C1654;">${d.ubicacion || "—"}</td>
-          <td style="padding:6px 10px;color:#6B2D8B;">${d.tecnica || "—"}</td>
-          <td style="padding:6px 10px;text-align:center;font-weight:800;color:#E67E22;">${d.ancho ? d.ancho + " cm" : "—"}</td>
-          <td style="padding:6px 10px;text-align:center;font-weight:800;color:#E67E22;">${d.alto ? d.alto + " cm" : "—"}</td>
-          <td style="padding:6px 10px;color:#666;font-size:11px;">${d.notas || ""}</td>
-        </tr>`).join("")}
-    </tbody>
-  </table>` : ""}
+  ${diagramaURL ? `
+  <div style="font-size:11px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🎨 Especificaciones de diseño</div>
+  <div style="display:flex;gap:16px;align-items:flex-start;background:#faf6ff;border:1.5px solid #D7BDE2;border-radius:10px;padding:12px;margin-bottom:14px;">
+    <div style="flex-shrink:0;text-align:center;">
+      <img src="${diagramaURL}" style="width:140px;height:auto;border-radius:6px;display:block;" alt="diagrama diseños"/>
+      <div style="font-size:7px;color:#bbb;margin-top:3px;font-style:italic;">vista frontal · D=portador derecho · I=portador izquierdo</div>
+    </div>
+    <div style="flex:1;">
+      ${(p.disenos||[]).filter(d=>d.ubicacion).map((d,i)=>{
+        const col={"Sublimación":"#2980B9","DTF":"#D35400","Bordado":"#8E44AD","Serigrafía":"#27AE60"}[d.tecnica]||"#7F8C8D";
+        const size=d.ancho&&d.alto?`${d.ancho}×${d.alto}cm`:"";
+        const pos=d.posicionCuello?`↕ ${d.posicionCuello}cm desde cuello`:"";
+        return `<div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:6px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:3px;background:${col};color:#fff;font-size:9px;font-weight:900;flex-shrink:0;margin-top:1px;">${i+1}</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#2C1654;">${d.ubicacion||""}</div>
+            <div style="font-size:11px;color:${col};font-weight:700;">${d.tecnica||""}${size?" · "+size:""}${pos?" · "+pos:""}</div>
+            ${d.notas?`<div style="font-size:10px;color:#888;font-style:italic;">${d.notas}</div>`:""}
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>` : ""}
 
   <!-- MEDIDAS -->
   ${medsHTML}
