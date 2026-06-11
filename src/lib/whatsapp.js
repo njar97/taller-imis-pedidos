@@ -136,6 +136,8 @@ export function mensajeWA(p, esAdmin = false) {
         msg += `\n✅ *Pagado completamente*`;
       }
     }
+  } else if (parseFloat(p.precio || 0) > 0 && saldo > 0) {
+    msg += `\n💳 Pago acordado en *2 partes*`;
   }
   // p.notas son OBSERVACIONES INTERNAS del taller (así dice el label en
   // el form). No se mandan al cliente. Si el usuario quiere comunicar
@@ -193,7 +195,7 @@ export function mensajeCotizacionWA(c) {
 
   if (total > 0) {
     msg += `\n*Total: $${total.toFixed(2)}*`;
-    msg += `\nPara confirmar: *$${(total * 0.5).toFixed(2)}* de anticipo`;
+    msg += `\nPago en *2 partes*: $${(total * 0.5).toFixed(2)} de anticipo al confirmar`;
   }
   msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
   return msg;
