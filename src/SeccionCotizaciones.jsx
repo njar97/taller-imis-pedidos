@@ -237,6 +237,11 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         </div>
       </div>
 
+      {(c.tipoPrenda || c.tela) && (
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 5 }}>
+          {[c.tipoPrenda, c.tela, c.color].filter(Boolean).join(" · ")}
+        </div>
+      )}
       {items.length > 0 && (
         <div style={{ marginBottom: 8 }}>
           <TallasChips items={items} compact />
