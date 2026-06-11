@@ -63,6 +63,11 @@
     /* Search bar responsive */
     .search-pedidos{width:100%!important;flex:1!important}
   }
+  /* Focus ring en inputs/selects/textareas — antes eran completamente invisibles al tocar */
+  input:focus,select:focus,textarea:focus{border-color:#9B59B6!important;box-shadow:0 0 0 3px rgba(155,89,182,0.13)!important;background:#fff!important;outline:none!important}
+  /* Excepciones: chips de tipo cliente y chips de prenda (ya tienen su propio estado activo) */
+  button:focus-visible{outline:2px solid #9B59B6;outline-offset:2px}
+
   @media(min-width:768px){
     .search-pedidos{width:200px!important}
   }

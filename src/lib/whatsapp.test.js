@@ -119,6 +119,21 @@ describe("mensajeWA — modo admin vs no-admin", () => {
     expect(msg).not.toContain("Saldo");
     expect(msg).not.toContain("Adelanto");
   });
+
+  it("no-admin con saldo pendiente: muestra framing de 2 partes", () => {
+    const msg = mensajeWA({ ...pedidoBase, precio: "350.00", anticipo: "150.00" }, false);
+    expect(msg).toContain("2 partes");
+  });
+
+  it("no-admin con pago completo: NO muestra framing de 2 partes", () => {
+    const msg = mensajeWA({ ...pedidoBase, precio: "350.00", anticipo: "350.00" }, false);
+    expect(msg).not.toContain("2 partes");
+  });
+
+  it("no-admin sin precio: NO muestra framing de 2 partes", () => {
+    const msg = mensajeWA({ ...pedidoBase, precio: "" }, false);
+    expect(msg).not.toContain("2 partes");
+  });
 });
 
 describe("mensajeWA — campos condicionales", () => {
@@ -201,9 +216,9 @@ describe("mensajeCotizacionWA", () => {
     expect(msg).toContain("Logo bordado incluido");
   });
 
-  it("incluye monto del anticipo (50% del total)", () => {
+  it("incluye framing de 2 pagos", () => {
     const msg = mensajeCotizacionWA(cot);
-    expect(msg).toContain("$90.00"); // 50% de $180
+    expect(msg).toContain("2 partes");
   });
 });
 

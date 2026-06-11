@@ -28,6 +28,8 @@ export const NAV_IDS_VISIBLES = ["pedidos", "bordados", "cuellos", "inventario"]
 
 export function getNavItems(rol, esAdmin) {
   if (esAdmin) return ADMIN_NAV;
+  // "operario" sin módulo específico → muestra los 3 (usado en vista previa admin)
+  if (rol === "operario") return Object.values(NAV_OPERARIO);
   const modulo = (rol || "").startsWith("operario_")
     ? rol.replace("operario_", "")
     : null;
