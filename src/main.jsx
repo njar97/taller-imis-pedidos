@@ -1,4 +1,14 @@
 ﻿
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
+
 // Lector de archivos de bordado (.dst/.pes/.jef/.emb) en chunk lazy.
 // Importar bajo demanda con: (await import("./leerBordado.js")).leerMetadataBordado
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
@@ -226,17 +236,6 @@ import {
 
 // Cache local de imágenes en IndexedDB
 import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
-
-
-import {
-  lazy,
-  Suspense,
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
 import { createRoot } from "react-dom/client";
 import { installGlobalErrorHandlers } from "./lib/reportError.js";
 

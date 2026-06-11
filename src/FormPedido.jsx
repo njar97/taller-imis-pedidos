@@ -992,19 +992,23 @@ export default function FormPedido({
           onChange={e => s("descripcion", e.target.value)}
         />
         <Check label="Lleva bordado" value={f.tieneBordado} onChange={v => s("tieneBordado", v)} />
-        <Check
-          label="Tela comprada ✅"
-          value={f.telaComprada}
-          onChange={v => s("telaComprada", v)}
-        />
+        {!(f.esCotizacion || f.estatus === "Cotización") && (
+          <Check
+            label="Tela comprada ✅"
+            value={f.telaComprada}
+            onChange={v => s("telaComprada", v)}
+          />
+        )}
         {f.tieneBordado && (
           <>
-            <input
-              style={{ ...INP, marginTop: 8 }}
-              value={f.estatusDiseno}
-              placeholder="Estado del diseño en Wilcom..."
-              onChange={e => s("estatusDiseno", e.target.value)}
-            />
+            {!(f.esCotizacion || f.estatus === "Cotización") && (
+              <input
+                style={{ ...INP, marginTop: 8 }}
+                value={f.estatusDiseno}
+                placeholder="Estado del diseño en Wilcom..."
+                onChange={e => s("estatusDiseno", e.target.value)}
+              />
+            )}
             <EditorDisenos value={f.disenos || []} onChange={v => s("disenos", v)} />
           </>
         )}
@@ -1340,7 +1344,7 @@ export default function FormPedido({
           Cancelar
         </button>
         <button onClick={handleGuardar} style={BTN("#9B59B6")}>
-          {initial ? "💾 Guardar cambios" : "💾 Crear pedido"}
+          {initial ? "💾 Guardar cambios" : (f.esCotizacion || f.estatus === "Cotización") ? "💾 Crear cotización" : "💾 Crear pedido"}
         </button>
       </div>
     </div>

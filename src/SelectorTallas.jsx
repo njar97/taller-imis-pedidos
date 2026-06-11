@@ -296,7 +296,7 @@ export function SelectorTallas({ items, onChange, esAdmin, tipoPrendaDefault = "
           }}
         >
           {tGrupo.map(t => {
-            const usada = lista.filter(it => it.talla === t).length;
+            const usada = lista.filter(it => it.talla === t).reduce((s, it) => s + (parseInt(it.qty) || 1), 0);
             const sel = talla === t;
             return (
               <button
