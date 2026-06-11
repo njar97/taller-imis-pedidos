@@ -279,11 +279,11 @@ export async function imprimirCotizacion(p) {
 <title>${titulo}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#111;padding:28px 36px;font-size:13px;line-height:1.5;}
-  @media print{body{padding:12px 18px;}.no-print{display:none!important;}@page{margin:12mm 14mm;size:A4;}}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#111;padding:22px 30px;font-size:12px;line-height:1.45;}
+  @media print{body{padding:0;}.no-print{display:none!important;}@page{margin:8mm 12mm;size:A4;}}
   table{border-collapse:collapse;width:100%;}
   .lbl{font-size:9px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:.8px;}
-  .sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#333;border-bottom:1.5px solid #333;padding-bottom:3px;margin-bottom:8px;}
+  .sec-title{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#333;border-bottom:1.5px solid #333;padding-bottom:2px;margin-bottom:6px;}
 </style></head><body>
 
 <div class="no-print" style="margin-bottom:14px;">
@@ -298,10 +298,10 @@ export async function imprimirCotizacion(p) {
 </div>
 
 <!-- ENCABEZADO -->
-<div style="border-bottom:2.5px solid #111;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
+<div style="border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
   <div style="flex:1;">
-    <div style="font-size:20px;font-weight:900;color:#111;font-family:Georgia,serif;line-height:1.15;">${EMPRESA.razonSocial}</div>
-    <div style="font-size:10.5px;color:#555;margin-top:5px;line-height:1.6;">
+    <div style="font-size:18px;font-weight:900;color:#111;font-family:Georgia,serif;line-height:1.15;">${EMPRESA.razonSocial}</div>
+    <div style="font-size:10px;color:#555;margin-top:4px;line-height:1.55;">
       ${EMPRESA.actividadEconomica}<br>
       ${EMPRESA.direccion}<br>
       Tel: ${EMPRESA.telefonos.join(" · ")}<br>
@@ -309,36 +309,36 @@ export async function imprimirCotizacion(p) {
       <strong>NIT:</strong> ${EMPRESA.nit} &nbsp; <strong>NRC:</strong> ${EMPRESA.nrc}
     </div>
   </div>
-  <div style="text-align:right;border-left:2px solid #888;padding-left:16px;min-width:130px;">
-    <div style="font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:2px;font-weight:700;">Cotización</div>
-    <div style="font-size:32px;font-weight:900;color:#111;line-height:1.1;letter-spacing:-1px;">N° ${num}</div>
-    <div style="font-size:11px;color:#555;margin-top:5px;">Fecha: <strong>${fecha}</strong></div>
+  <div style="text-align:right;border-left:2px solid #888;padding-left:14px;min-width:120px;">
+    <div style="font-size:9px;color:#777;text-transform:uppercase;letter-spacing:2px;font-weight:700;">Cotización</div>
+    <div style="font-size:28px;font-weight:900;color:#111;line-height:1.1;letter-spacing:-1px;">N° ${num}</div>
+    <div style="font-size:10.5px;color:#555;margin-top:4px;">Fecha: <strong>${fecha}</strong></div>
   </div>
 </div>
 
 <!-- DIRIGIDA A -->
-<div style="border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;margin-bottom:14px;">
-  <div class="lbl" style="margin-bottom:4px;">Cotización dirigida a</div>
-  <div style="font-size:16px;font-weight:800;color:#111;">${p.cliente || "Cliente"}</div>
-  ${p.nombreContacto ? `<div style="font-size:12px;color:#444;margin-top:3px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
-  ${p.telefono ? `<div style="font-size:12px;color:#444;">Tel: ${p.telefono}</div>` : ""}
-  ${p.procesoRef ? `<div style="font-size:12px;color:#333;margin-top:4px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
+<div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;margin-bottom:10px;">
+  <div class="lbl" style="margin-bottom:3px;">Cotización dirigida a</div>
+  <div style="font-size:15px;font-weight:800;color:#111;">${p.cliente || "Cliente"}</div>
+  ${p.nombreContacto ? `<div style="font-size:11px;color:#444;margin-top:2px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
+  ${p.telefono ? `<div style="font-size:11px;color:#444;">Tel: ${p.telefono}</div>` : ""}
+  ${p.procesoRef ? `<div style="font-size:11px;color:#333;margin-top:3px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
 </div>
 
-<p style="font-size:12px;color:#444;margin-bottom:12px;">
+<p style="font-size:11px;color:#444;margin-bottom:10px;">
   Por medio de la presente nos permitimos presentar la cotización de los productos solicitados con los siguientes detalles:
 </p>
 
 <!-- TABLA DETALLE -->
 ${items.length ? `
-<table style="border:1.5px solid #333;font-size:12px;margin-bottom:4px;">
+<table style="border:1.5px solid #333;font-size:11.5px;margin-bottom:4px;">
   <thead><tr style="background:#111;color:#fff;">
-    <th style="padding:8px 8px;text-align:center;width:36px;">N°</th>
-    <th style="padding:8px 10px;text-align:left;">Descripción</th>
-    <th style="padding:8px 8px;text-align:center;width:80px;">Talla</th>
-    <th style="padding:8px 8px;text-align:center;width:60px;">Cant.</th>
-    <th style="padding:8px 10px;text-align:right;width:95px;">Precio U.</th>
-    <th style="padding:8px 10px;text-align:right;width:100px;">Subtotal</th>
+    <th style="padding:6px 7px;text-align:center;width:32px;">N°</th>
+    <th style="padding:6px 9px;text-align:left;">Descripción</th>
+    <th style="padding:6px 7px;text-align:center;width:75px;">Talla</th>
+    <th style="padding:6px 7px;text-align:center;width:55px;">Cant.</th>
+    <th style="padding:6px 9px;text-align:right;width:88px;">Precio U.</th>
+    <th style="padding:6px 9px;text-align:right;width:95px;">Subtotal</th>
   </tr></thead>
   <tbody>
     ${items.map((it, i) => {
@@ -347,72 +347,71 @@ ${items.length ? `
       const medida = it.talla || (it.spec && /[\dxm,.]/i.test(it.spec) ? it.spec : "") || "—";
       const descripcion = it.tipo || p.tipoPrenda || "—";
       return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f5f5"};border-bottom:1px solid #ddd;">
-        <td style="padding:9px 8px;text-align:center;font-weight:700;color:#777;">${i + 1}</td>
-        <td style="padding:9px 10px;color:#111;">${descripcion}</td>
-        <td style="padding:9px 8px;text-align:center;font-weight:800;color:#111;">${medida}</td>
-        <td style="padding:9px 8px;text-align:center;font-weight:800;">${it.qty}</td>
-        <td style="padding:9px 10px;text-align:right;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
-        <td style="padding:9px 10px;text-align:right;font-weight:900;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
+        <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;">${i + 1}</td>
+        <td style="padding:7px 9px;color:#111;">${descripcion}</td>
+        <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;">${medida}</td>
+        <td style="padding:7px 7px;text-align:center;font-weight:800;">${it.qty}</td>
+        <td style="padding:7px 9px;text-align:right;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
+        <td style="padding:7px 9px;text-align:right;font-weight:900;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
       </tr>`;
     }).join("")}
   </tbody>
 </table>
-<div style="font-size:10.5px;color:#777;text-align:right;margin-bottom:14px;">
+<div style="font-size:10px;color:#888;text-align:right;margin-bottom:10px;">
   Total piezas: <strong>${totPzas}</strong>
 </div>` : ""}
 
 <!-- TOTALES -->
-<div style="display:flex;justify-content:flex-end;margin-bottom:18px;">
-  <table style="width:auto;min-width:260px;font-size:13px;border-collapse:collapse;border:1.5px solid #333;">
+<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+  <table style="width:auto;min-width:240px;font-size:12px;border-collapse:collapse;border:1.5px solid #333;">
     <tr style="border-bottom:1px solid #ddd;">
-      <td style="padding:7px 16px;text-align:right;color:#555;">Subtotal:</td>
-      <td style="padding:7px 16px;text-align:right;font-weight:700;width:110px;">$${subtotal.toFixed(2)}</td>
+      <td style="padding:5px 14px;text-align:right;color:#555;">Subtotal:</td>
+      <td style="padding:5px 14px;text-align:right;font-weight:700;width:100px;">$${subtotal.toFixed(2)}</td>
     </tr>
     <tr style="border-bottom:1.5px solid #333;">
-      <td style="padding:7px 16px;text-align:right;color:#555;">IVA (13%):</td>
-      <td style="padding:7px 16px;text-align:right;font-weight:700;">$${iva.toFixed(2)}</td>
+      <td style="padding:5px 14px;text-align:right;color:#555;">IVA (13%):</td>
+      <td style="padding:5px 14px;text-align:right;font-weight:700;">$${iva.toFixed(2)}</td>
     </tr>
     <tr style="background:#111;color:#fff;">
-      <td style="padding:9px 16px;text-align:right;font-weight:800;font-size:13px;">TOTAL:</td>
-      <td style="padding:9px 16px;text-align:right;font-weight:900;font-size:17px;">$${precioFinal.toFixed(2)}</td>
+      <td style="padding:7px 14px;text-align:right;font-weight:800;font-size:12px;">TOTAL:</td>
+      <td style="padding:7px 14px;text-align:right;font-weight:900;font-size:16px;">$${precioFinal.toFixed(2)}</td>
     </tr>
   </table>
 </div>
 
 <!-- DOS COLUMNAS: CONDICIONES DE PAGO + OBSERVACIONES -->
-<div style="display:flex;gap:14px;margin-bottom:14px;">
-  <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;font-size:12px;">
+<div style="display:flex;gap:12px;margin-bottom:10px;">
+  <div style="flex:1;border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;">
     <div class="sec-title">Condiciones de pago</div>
-    <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ccc;">
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ccc;">
       <span>Anticipo al confirmar <strong>(50%)</strong></span>
       <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:4px 0;">
+    <div style="display:flex;justify-content:space-between;padding:3px 0;">
       <span>Saldo contra entrega <strong>(50%)</strong></span>
       <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
     </div>
   </div>
   ${p.descripcion ? `
-  <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;font-size:12px;">
+  <div style="flex:1;border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;">
     <div class="sec-title">Descripción del producto</div>
-    <div style="color:#222;line-height:1.6;">${p.descripcion}</div>
+    <div style="color:#222;line-height:1.5;">${p.descripcion}</div>
   </div>` : ""}
 </div>
 
-<!-- CONDICIONES FORMALES -->
-${(p.plazoEntrega || p.lugarEntrega || p.formaPago) ? `
-<div style="border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;margin-bottom:14px;font-size:12px;color:#333;line-height:1.6;">
-  ${p.plazoEntrega ? `<div style="margin-bottom:4px;"><strong>Plazo de entrega:</strong> ${p.plazoEntrega}</div>` : ""}
-  ${p.lugarEntrega ? `<div style="margin-bottom:4px;"><strong>Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
-  ${p.formaPago ? `<div><strong>Forma de pago:</strong> ${p.formaPago}</div>` : ""}
+<!-- CONDICIONES FORMALES (solo plazo/lugar, sin forma de pago — ya está arriba) -->
+${(p.plazoEntrega || p.lugarEntrega) ? `
+<div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;margin-bottom:10px;font-size:11.5px;color:#333;line-height:1.5;">
+  ${p.plazoEntrega ? `<div style="margin-bottom:3px;"><strong>Plazo de entrega:</strong> ${p.plazoEntrega}</div>` : ""}
+  ${p.lugarEntrega ? `<div><strong>Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
 </div>` : ""}
 
 <!-- VALIDEZ -->
-<div style="border:1.5px dashed #999;border-radius:6px;padding:9px 14px;margin-bottom:14px;font-size:12px;color:#333;">
+<div style="border:1.5px dashed #999;border-radius:5px;padding:7px 12px;margin-bottom:10px;font-size:11.5px;color:#333;">
   <strong>Validez:</strong> ${validez} días a partir de la fecha de emisión — vence el <strong>${venceStr}</strong>.
 </div>
 
-<div style="font-size:11px;color:#555;line-height:1.7;margin-bottom:24px;border-top:1px solid #ddd;padding-top:10px;">
+<div style="font-size:10.5px;color:#555;line-height:1.65;margin-bottom:16px;border-top:1px solid #ddd;padding-top:8px;">
   <strong>Condiciones generales:</strong><br>
   • Los precios incluyen IVA, mano de obra y materiales según especificación.<br>
   • Fecha de entrega a coordinar al momento de la confirmación.<br>
@@ -426,7 +425,7 @@ ${(() => {
   const firma = cfg.firma?.url;
   const sello = cfg.sello?.url;
   return `
-  <div style="margin-top:40px;text-align:center;position:relative;">
+  <div style="margin-top:24px;text-align:center;position:relative;">
     ${sello ? `<img src="${sello}" style="position:absolute;right:10%;top:-20px;max-width:90px;max-height:90px;opacity:0.85;" alt="sello" />` : ""}
     <div style="display:inline-block;text-align:center;max-width:340px;position:relative;">
       ${firma ? `<img src="${firma}" style="max-width:200px;max-height:60px;display:block;margin:0 auto -10px;position:relative;z-index:1;" alt="firma" />` : ""}
@@ -439,7 +438,7 @@ ${(() => {
   </div>`;
 })()}
 
-<div style="margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #f0f0f0;padding-top:10px;">
+<div style="margin-top:12px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #f0f0f0;padding-top:8px;">
   Cotización N° ${num} · ${EMPRESA.razonSocial} · ${fecha}
 </div>
 
