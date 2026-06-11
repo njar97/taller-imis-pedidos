@@ -161,6 +161,8 @@ export const PEDIDO_BASE = {
   vendedor: "",
   notas: "",
   disenos: [],
+  catalogoRef: null,
+  tecnicaSeleccionada: "",
   medidas: medInit(),
   imagenes: [],
   abonos: [],

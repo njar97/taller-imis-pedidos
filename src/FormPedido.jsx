@@ -806,6 +806,49 @@ export default function FormPedido({
         </div>
       )}
 
+      {/* Técnica de personalización — aparece si el producto del catálogo
+          tiene técnicas definidas. Al elegir una, auto-rellena disenos. */}
+      {prodSel && (prodSel.tecnicas || []).length > 0 && (
+        <div style={{ background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+            🎨 Técnica de personalización
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {(prodSel.tecnicas || []).map((tec, i) => {
+              const sel = f.tecnicaSeleccionada === tec.tipo;
+              return (
+                <button key={i} onClick={() => {
+                  setF(p => ({
+                    ...p,
+                    tecnicaSeleccionada: tec.tipo,
+                    catalogoRef: prodSel.id || null,
+                    tieneBordado: true,
+                    disenos: (tec.disenos || []).map(d => ({
+                      ubicacion: d.ubicacion || "",
+                      tecnica: tec.tipo || "Sublimación",
+                      ancho: d.ancho || "",
+                      alto: d.alto || "",
+                      posicionCuello: d.posicionCuello || "",
+                      notas: d.notas || "",
+                    })),
+                  }));
+                }}
+                style={{
+                  padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+                  border: "1.5px solid " + (sel ? "#9B59B6" : "#e8d5f5"),
+                  background: sel ? "#9B59B6" : "#fff",
+                  color: sel ? "#fff" : "#6B2D8B",
+                  fontWeight: sel ? 700 : 400,
+                }}>
+                  {tec.tipo}
+                  {tec.precioBase ? <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.8 }}>+${parseFloat(tec.precioBase).toFixed(2)}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Selector de tallas/lista. La talla agregada hereda el tipo de
           prenda actual y se preserva si después cambiás el chip. */}
       <div style={{ fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4, marginTop: 8 }}>
