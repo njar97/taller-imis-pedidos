@@ -142,37 +142,87 @@ export function nuevaVentanaImpresion(titulo = null) {
       ]);
 
       const body = idoc.body;
+
+      // Forzar ancho ≥ 800 px para PDF con layout de escritorio.
+      // En móvil, body.scrollWidth ≈ 375 px → el contenido se dobla en altura
+      // y el corte fijo de A4 cae a mitad de una fila.
+      const origIframeW = iframe.style.width;
+      const origBodyMinW = body.style.minWidth;
+      body.style.minWidth = "800px";
+      if (iframe.offsetWidth < 800) iframe.style.width = "800px";
+      await new Promise(r => setTimeout(r, 80));
+
       const fullH = body.scrollHeight;
       const origH = iframe.style.height;
       // Expandir iframe para que html2canvas vea el contenido completo
       iframe.style.height = fullH + "px";
       await new Promise(r => setTimeout(r, 80));
 
+      // Medir bordes inferiores de las filas ANTES de capturar.
+      // scale=1.5 → canvas px = CSS px × 1.5
+      const HCS = 1.5;
+      const bodyTop = body.getBoundingClientRect().top;
+      const rowEndsPx = Array.from(idoc.querySelectorAll("tbody tr, table tr"))
+        .map(r => (r.getBoundingClientRect().bottom - bodyTop) * HCS)
+        .filter(v => v > 10)
+        .sort((a, b) => a - b);
+
       const canvas = await html2canvas(body, {
-        scale: 1.5,
+        scale: HCS,
         useCORS: true,
         allowTaint: false,
         scrollX: 0,
         scrollY: 0,
-        windowWidth: body.scrollWidth || 800,
+        windowWidth: Math.max(body.scrollWidth || 0, 800),
         windowHeight: fullH,
       });
 
+      // Restaurar dimensiones originales del iframe
       iframe.style.height = origH;
+      iframe.style.width = origIframeW;
+      body.style.minWidth = origBodyMinW;
       noPrints.forEach(el => { el.style.display = el._pd || ""; delete el._pd; });
 
-      // Construir PDF A4 multi-página
+      // Construir PDF A4 con cortes inteligentes (no partir filas).
+      // En vez del corte fijo cada A4H, buscamos el último fin-de-fila
+      // antes del límite de página y cortamos ahí.
       const A4W = 595.28; // pt
       const A4H = 841.89; // pt
-      const imgW = A4W;
-      const imgH = (canvas.height / canvas.width) * imgW;
+      const pxPerPt = canvas.width / A4W;
+      const pageHpx = A4H * pxPerPt; // alto de página en canvas px
+
+      const pageCuts = [0]; // posición de inicio de cada página en canvas px
+      let cur = 0;
+      while (cur < canvas.height) {
+        const pageEnd = cur + pageHpx;
+        if (pageEnd >= canvas.height) break;
+        let cut = pageEnd;
+        // Retroceder al borde inferior de la última fila completa
+        for (let i = rowEndsPx.length - 1; i >= 0; i--) {
+          if (rowEndsPx[i] <= pageEnd && rowEndsPx[i] > cur + 20) {
+            cut = rowEndsPx[i];
+            break;
+          }
+        }
+        pageCuts.push(cut);
+        cur = cut;
+      }
+      pageCuts.push(canvas.height);
+
       const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
-      const imgData = canvas.toDataURL("image/jpeg", 0.88);
-      let y = 0; let pg = 0;
-      while (y < imgH) {
+      for (let pg = 0; pg < pageCuts.length - 1; pg++) {
         if (pg > 0) pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, -y, imgW, imgH);
-        y += A4H; pg++;
+        const startPx = pageCuts[pg];
+        const sliceH = Math.ceil(pageCuts[pg + 1] - startPx);
+        // Sub-canvas con el slice exacto de esta página
+        const pc = document.createElement("canvas");
+        pc.width = canvas.width;
+        pc.height = sliceH;
+        pc.getContext("2d").drawImage(
+          canvas, 0, startPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH
+        );
+        const ptH = sliceH / pxPerPt;
+        pdf.addImage(pc.toDataURL("image/jpeg", 0.88), "JPEG", 0, 0, A4W, ptH);
       }
 
       const blob = pdf.output("blob");
