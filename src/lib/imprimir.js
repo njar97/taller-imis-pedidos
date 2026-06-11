@@ -330,7 +330,39 @@ export async function imprimirCotizacion(p) {
 </p>
 
 <!-- TABLA DETALLE -->
-${items.length ? `
+${items.length ? (() => {
+  // Si todos los items son del mismo tipo (o ninguno tiene tipo) → encabezado de producto
+  // + tabla sin columna Descripción. Si hay múltiples tipos → columna Descripción por fila.
+  const tiposDistintos = [...new Set(items.map(it => it.tipo || "").filter(Boolean))];
+  const multiTipo = tiposDistintos.length > 1;
+  const prodDesc = [p.tipoPrenda, p.tela, p.color].filter(Boolean).join(" · ");
+
+  const filas = items.map((it, i) => {
+    const pr = parseFloat(it.precio) || 0;
+    const sub = pr * it.qty;
+    const medida = it.talla || (it.spec && /[\dxm,.]/i.test(it.spec) ? it.spec : "") || "—";
+    if (multiTipo) {
+      const descripcion = it.tipo || p.tipoPrenda || "—";
+      return `<tr style="background:${i%2===0?"#fff":"#f5f5f5"};border-bottom:1px solid #ddd;">
+        <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;">${i+1}</td>
+        <td style="padding:7px 9px;color:#111;">${descripcion}</td>
+        <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;">${medida}</td>
+        <td style="padding:7px 7px;text-align:center;font-weight:800;">${it.qty}</td>
+        <td style="padding:7px 9px;text-align:right;font-weight:700;">${pr>0?"$"+pr.toFixed(2):"—"}</td>
+        <td style="padding:7px 9px;text-align:right;font-weight:900;">${pr>0?"$"+sub.toFixed(2):"—"}</td>
+      </tr>`;
+    }
+    return `<tr style="background:${i%2===0?"#fff":"#f5f5f5"};border-bottom:1px solid #ddd;">
+      <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;">${i+1}</td>
+      <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;">${medida}</td>
+      <td style="padding:7px 7px;text-align:center;font-weight:800;">${it.qty}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:700;">${pr>0?"$"+pr.toFixed(2):"—"}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:900;">${pr>0?"$"+sub.toFixed(2):"—"}</td>
+    </tr>`;
+  }).join("");
+
+  if (multiTipo) {
+    return `
 <table style="border:1.5px solid #333;font-size:11.5px;margin-bottom:4px;">
   <thead><tr style="background:#111;color:#fff;">
     <th style="padding:6px 7px;text-align:center;width:32px;">N°</th>
@@ -340,26 +372,26 @@ ${items.length ? `
     <th style="padding:6px 9px;text-align:right;width:88px;">Precio U.</th>
     <th style="padding:6px 9px;text-align:right;width:95px;">Subtotal</th>
   </tr></thead>
-  <tbody>
-    ${items.map((it, i) => {
-      const pr = parseFloat(it.precio) || 0;
-      const sub = pr * it.qty;
-      const medida = it.talla || (it.spec && /[\dxm,.]/i.test(it.spec) ? it.spec : "") || "—";
-      const descripcion = it.tipo || p.tipoPrenda || "—";
-      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f5f5"};border-bottom:1px solid #ddd;">
-        <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;">${i + 1}</td>
-        <td style="padding:7px 9px;color:#111;">${descripcion}</td>
-        <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;">${medida}</td>
-        <td style="padding:7px 7px;text-align:center;font-weight:800;">${it.qty}</td>
-        <td style="padding:7px 9px;text-align:right;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
-        <td style="padding:7px 9px;text-align:right;font-weight:900;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
-      </tr>`;
-    }).join("")}
-  </tbody>
-</table>
+  <tbody>${filas}</tbody>
+</table>`;
+  }
+
+  return `
+${prodDesc ? `<div style="background:#f0f0f0;border:1.5px solid #333;border-bottom:none;border-radius:4px 4px 0 0;padding:6px 10px;font-size:11.5px;font-weight:700;color:#111;">${prodDesc}</div>` : ""}
+<table style="border:1.5px solid #333;font-size:11.5px;margin-bottom:4px;${prodDesc?"border-top:none;border-radius:0 0 4px 4px;":""}">
+  <thead><tr style="background:#333;color:#fff;">
+    <th style="padding:6px 7px;text-align:center;width:32px;">N°</th>
+    <th style="padding:6px 7px;text-align:center;width:90px;">Talla</th>
+    <th style="padding:6px 7px;text-align:center;width:65px;">Cantidad</th>
+    <th style="padding:6px 9px;text-align:right;width:95px;">Precio U.</th>
+    <th style="padding:6px 9px;text-align:right;width:100px;">Subtotal</th>
+  </tr></thead>
+  <tbody>${filas}</tbody>
+</table>`;
+})() : ""}
 <div style="font-size:10px;color:#888;text-align:right;margin-bottom:10px;">
   Total piezas: <strong>${totPzas}</strong>
-</div>` : ""}
+</div>
 
 <!-- TOTALES -->
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
@@ -394,7 +426,7 @@ ${items.length ? `
   </div>
   ${p.descripcion ? `
   <div style="flex:1;border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;">
-    <div class="sec-title">Descripción del producto</div>
+    <div class="sec-title">Observaciones</div>
     <div style="color:#222;line-height:1.5;">${p.descripcion}</div>
   </div>` : ""}
 </div>
