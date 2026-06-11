@@ -335,7 +335,9 @@ ${items.length ? (() => {
   // + tabla sin columna Descripción. Si hay múltiples tipos → columna Descripción por fila.
   const tiposDistintos = [...new Set(items.map(it => it.tipo || "").filter(Boolean))];
   const multiTipo = tiposDistintos.length > 1;
-  const prodDesc = [p.tipoPrenda, p.tela, p.color].filter(Boolean).join(" · ");
+  // Quitar paréntesis internos de la tela (ej: "Jersey básico (más económico que piqué)" → "Jersey básico")
+  const telaCorta = p.tela ? p.tela.replace(/\s*\([^)]*\)/g, "").trim() : "";
+  const prodDesc = [p.tipoPrenda, telaCorta, p.color].filter(Boolean).join(" · ");
 
   const filas = items.map((it, i) => {
     const pr = parseFloat(it.precio) || 0;
@@ -352,12 +354,12 @@ ${items.length ? (() => {
         <td style="padding:7px 9px;text-align:right;font-weight:900;">${pr>0?"$"+sub.toFixed(2):"—"}</td>
       </tr>`;
     }
-    return `<tr style="background:${i%2===0?"#fff":"#f5f5f5"};border-bottom:1px solid #ddd;">
-      <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;">${i+1}</td>
-      <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;">${medida}</td>
-      <td style="padding:7px 7px;text-align:center;font-weight:800;">${it.qty}</td>
-      <td style="padding:7px 9px;text-align:right;font-weight:700;">${pr>0?"$"+pr.toFixed(2):"—"}</td>
-      <td style="padding:7px 9px;text-align:right;font-weight:900;">${pr>0?"$"+sub.toFixed(2):"—"}</td>
+    return `<tr style="background:${i%2===0?"#fff":"#f5f5f5"};">
+      <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;border:1px solid #ddd;">${i+1}</td>
+      <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;border:1px solid #ddd;">${medida}</td>
+      <td style="padding:7px 7px;text-align:center;font-weight:800;border:1px solid #ddd;">${it.qty}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:700;border:1px solid #ddd;">${pr>0?"$"+pr.toFixed(2):"—"}</td>
+      <td style="padding:7px 9px;text-align:right;font-weight:900;border:1px solid #ddd;">${pr>0?"$"+sub.toFixed(2):"—"}</td>
     </tr>`;
   }).join("");
 
@@ -377,14 +379,14 @@ ${items.length ? (() => {
   }
 
   return `
-${prodDesc ? `<div style="background:#f0f0f0;border:1.5px solid #333;border-bottom:none;border-radius:4px 4px 0 0;padding:6px 10px;font-size:11.5px;font-weight:700;color:#111;">${prodDesc}</div>` : ""}
-<table style="border:1.5px solid #333;font-size:11.5px;margin-bottom:4px;${prodDesc?"border-top:none;border-radius:0 0 4px 4px;":""}">
+${prodDesc ? `<div style="font-size:11.5px;font-weight:800;color:#111;margin-bottom:4px;padding-bottom:3px;border-bottom:2px solid #333;">${prodDesc}</div>` : ""}
+<table style="border-collapse:collapse;width:100%;font-size:11.5px;margin-bottom:4px;">
   <thead><tr style="background:#333;color:#fff;">
-    <th style="padding:6px 7px;text-align:center;width:32px;">N°</th>
-    <th style="padding:6px 7px;text-align:center;width:90px;">Talla</th>
-    <th style="padding:6px 7px;text-align:center;width:65px;">Cantidad</th>
-    <th style="padding:6px 9px;text-align:right;width:95px;">Precio U.</th>
-    <th style="padding:6px 9px;text-align:right;width:100px;">Subtotal</th>
+    <th style="padding:6px 7px;text-align:center;width:32px;border:1px solid #555;">N°</th>
+    <th style="padding:6px 7px;text-align:center;width:90px;border:1px solid #555;">Talla</th>
+    <th style="padding:6px 7px;text-align:center;width:65px;border:1px solid #555;">Cantidad</th>
+    <th style="padding:6px 9px;text-align:right;width:95px;border:1px solid #555;">Precio U.</th>
+    <th style="padding:6px 9px;text-align:right;width:100px;border:1px solid #555;">Subtotal</th>
   </tr></thead>
   <tbody>${filas}</tbody>
 </table>`;
