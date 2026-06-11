@@ -279,28 +279,29 @@ export async function imprimirCotizacion(p) {
 <title>${titulo}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:28px 36px;font-size:12px;line-height:1.4;}
-  @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:A4;}}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#111;padding:28px 36px;font-size:13px;line-height:1.5;}
+  @media print{body{padding:12px 18px;}.no-print{display:none!important;}@page{margin:12mm 14mm;size:A4;}}
   table{border-collapse:collapse;width:100%;}
-  .lbl{font-size:9px;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:.6px;}
+  .lbl{font-size:9px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:.8px;}
+  .sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#333;border-bottom:1.5px solid #333;padding-bottom:3px;margin-bottom:8px;}
 </style></head><body>
 
 <div class="no-print" style="margin-bottom:14px;">
-  <div style="background:#F3E5F5;border:1px solid #d4b3df;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#6B2D8B;">
-    💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
+  <div style="background:#f5f5f5;border:1px solid #ccc;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#333;">
+    Tip: al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-    <button id="wa-pdf-btn" onclick="window.parent.__shareWithPDF__(document.title,_waMsg)" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">💬 Compartir WA</button>
-    <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
-    <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    <button id="wa-pdf-btn" onclick="window.parent.__shareWithPDF__(document.title,_waMsg)" style="padding:11px 20px;border-radius:6px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">Compartir WA</button>
+    <button onclick="_print()" style="padding:11px 24px;border-radius:6px;border:none;background:#111;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">Guardar PDF</button>
+    <button onclick="window.close()" style="padding:11px 16px;border-radius:6px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">Cerrar</button>
   </div>
 </div>
 
-<!-- ENCABEZADO con datos fiscales del emisor -->
-<div style="border-bottom:3px solid #2C1654;padding-bottom:12px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
+<!-- ENCABEZADO -->
+<div style="border-bottom:2.5px solid #111;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
   <div style="flex:1;">
-    <div style="font-size:22px;font-weight:900;color:#2C1654;font-family:Georgia,serif;line-height:1.1;">${EMPRESA.razonSocial}</div>
-    <div style="font-size:10px;color:#666;margin-top:5px;line-height:1.5;">
+    <div style="font-size:20px;font-weight:900;color:#111;font-family:Georgia,serif;line-height:1.15;">${EMPRESA.razonSocial}</div>
+    <div style="font-size:10.5px;color:#555;margin-top:5px;line-height:1.6;">
       ${EMPRESA.actividadEconomica}<br>
       ${EMPRESA.direccion}<br>
       Tel: ${EMPRESA.telefonos.join(" · ")}<br>
@@ -308,109 +309,110 @@ export async function imprimirCotizacion(p) {
       <strong>NIT:</strong> ${EMPRESA.nit} &nbsp; <strong>NRC:</strong> ${EMPRESA.nrc}
     </div>
   </div>
-  <div style="text-align:right;border-left:3px solid #9B59B6;padding-left:14px;">
-    <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Cotización</div>
-    <div style="font-size:30px;font-weight:900;color:#9B59B6;line-height:1;">N° ${num}</div>
-    <div style="font-size:10px;color:#666;margin-top:6px;">Fecha: <strong>${fecha}</strong></div>
+  <div style="text-align:right;border-left:2px solid #888;padding-left:16px;min-width:130px;">
+    <div style="font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:2px;font-weight:700;">Cotización</div>
+    <div style="font-size:32px;font-weight:900;color:#111;line-height:1.1;letter-spacing:-1px;">N° ${num}</div>
+    <div style="font-size:11px;color:#555;margin-top:5px;">Fecha: <strong>${fecha}</strong></div>
   </div>
 </div>
 
 <!-- DIRIGIDA A -->
-<div style="background:#f8f4ff;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
-  <div class="lbl">Cotización dirigida a</div>
-  <div style="font-size:15px;font-weight:800;color:#2C1654;margin-top:3px;">${p.cliente || "Cliente"}</div>
-  ${p.nombreContacto ? `<div style="font-size:11px;color:#555;margin-top:2px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
-  ${p.telefono ? `<div style="font-size:11px;color:#555;">📱 ${p.telefono}</div>` : ""}
-  ${p.procesoRef ? `<div style="font-size:11px;color:#9B59B6;margin-top:4px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
+<div style="border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;margin-bottom:14px;">
+  <div class="lbl" style="margin-bottom:4px;">Cotización dirigida a</div>
+  <div style="font-size:16px;font-weight:800;color:#111;">${p.cliente || "Cliente"}</div>
+  ${p.nombreContacto ? `<div style="font-size:12px;color:#444;margin-top:3px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
+  ${p.telefono ? `<div style="font-size:12px;color:#444;">Tel: ${p.telefono}</div>` : ""}
+  ${p.procesoRef ? `<div style="font-size:12px;color:#333;margin-top:4px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
 </div>
 
-<p style="font-size:11px;color:#555;margin-bottom:10px;">
+<p style="font-size:12px;color:#444;margin-bottom:12px;">
   Por medio de la presente nos permitimos presentar la cotización de los productos solicitados con los siguientes detalles:
 </p>
 
 <!-- TABLA DETALLE -->
 ${items.length ? `
-<table style="border:1.5px solid #2C1654;font-size:11px;margin-bottom:14px;">
-  <thead><tr style="background:#2C1654;color:#fff;">
-    <th style="padding:7px 8px;text-align:center;width:36px;">N°</th>
-    <th style="padding:7px 10px;text-align:left;">Descripción</th>
-    <th style="padding:7px 8px;text-align:center;width:90px;">Medida</th>
-    <th style="padding:7px 8px;text-align:center;width:60px;">Cant.</th>
-    <th style="padding:7px 10px;text-align:right;width:90px;">Precio U.</th>
-    <th style="padding:7px 10px;text-align:right;width:100px;">Subtotal</th>
+<table style="border:1.5px solid #333;font-size:12px;margin-bottom:4px;">
+  <thead><tr style="background:#111;color:#fff;">
+    <th style="padding:8px 8px;text-align:center;width:36px;">N°</th>
+    <th style="padding:8px 10px;text-align:left;">Descripción</th>
+    <th style="padding:8px 8px;text-align:center;width:80px;">Talla</th>
+    <th style="padding:8px 8px;text-align:center;width:60px;">Cant.</th>
+    <th style="padding:8px 10px;text-align:right;width:95px;">Precio U.</th>
+    <th style="padding:8px 10px;text-align:right;width:100px;">Subtotal</th>
   </tr></thead>
   <tbody>
     ${items.map((it, i) => {
       const pr = parseFloat(it.precio) || 0;
       const sub = pr * it.qty;
-      // "Medida" intenta sacarse de talla (lo más común); si está vacía
-      // y spec parece una medida (contiene 'x' o 'm'), la usamos.
       const medida = it.talla || (it.spec && /[\dxm,.]/i.test(it.spec) ? it.spec : "") || "—";
-      const descripcion = it.tipo || "—";
-      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f0fa"};border-bottom:1px solid #eee;">
-        <td style="padding:8px;text-align:center;font-weight:700;color:#666;">${i + 1}</td>
-        <td style="padding:8px 10px;color:#222;">${descripcion}</td>
-        <td style="padding:8px;text-align:center;font-weight:700;color:#2C1654;">${medida}</td>
-        <td style="padding:8px;text-align:center;font-weight:800;">${it.qty}</td>
-        <td style="padding:8px 10px;text-align:right;color:#27AE60;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#2C1654;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
+      const descripcion = it.tipo || p.tipoPrenda || "—";
+      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f5f5"};border-bottom:1px solid #ddd;">
+        <td style="padding:9px 8px;text-align:center;font-weight:700;color:#777;">${i + 1}</td>
+        <td style="padding:9px 10px;color:#111;">${descripcion}</td>
+        <td style="padding:9px 8px;text-align:center;font-weight:800;color:#111;">${medida}</td>
+        <td style="padding:9px 8px;text-align:center;font-weight:800;">${it.qty}</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:900;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
       </tr>`;
     }).join("")}
   </tbody>
-</table>` : ""}
+</table>
+<div style="font-size:10.5px;color:#777;text-align:right;margin-bottom:14px;">
+  Total piezas: <strong>${totPzas}</strong>
+</div>` : ""}
 
 <!-- TOTALES -->
-<div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-  <table style="width:auto;min-width:280px;font-size:12px;border-collapse:collapse;">
-    <tr>
-      <td style="padding:5px 12px;text-align:right;color:#666;">SUBTOTAL:</td>
-      <td style="padding:5px 12px;text-align:right;font-weight:700;color:#2C1654;width:110px;">$${subtotal.toFixed(2)}</td>
+<div style="display:flex;justify-content:flex-end;margin-bottom:18px;">
+  <table style="width:auto;min-width:260px;font-size:13px;border-collapse:collapse;border:1.5px solid #333;">
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:7px 16px;text-align:right;color:#555;">Subtotal:</td>
+      <td style="padding:7px 16px;text-align:right;font-weight:700;width:110px;">$${subtotal.toFixed(2)}</td>
     </tr>
-    <tr>
-      <td style="padding:5px 12px;text-align:right;color:#666;">IVA (13%):</td>
-      <td style="padding:5px 12px;text-align:right;font-weight:700;color:#2C1654;">$${iva.toFixed(2)}</td>
+    <tr style="border-bottom:1.5px solid #333;">
+      <td style="padding:7px 16px;text-align:right;color:#555;">IVA (13%):</td>
+      <td style="padding:7px 16px;text-align:right;font-weight:700;">$${iva.toFixed(2)}</td>
     </tr>
-    <tr style="border-top:2px solid #2C1654;">
-      <td style="padding:7px 12px;text-align:right;font-weight:900;font-size:13px;color:#2C1654;">TOTAL:</td>
-      <td style="padding:7px 12px;text-align:right;font-weight:900;font-size:16px;color:#27AE60;">$${precioFinal.toFixed(2)}</td>
-    </tr>
-  </table>
-</div>
-
-<!-- CONDICIONES DE PAGO -->
-<div style="background:#E8F5E9;border:2px solid #27AE60;border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:12px;">
-  <div style="font-weight:900;color:#1A5F33;margin-bottom:7px;">💵 Condiciones de pago</div>
-  <table style="width:100%;border-collapse:collapse;color:#1A5F33;font-size:12px;">
-    <tr>
-      <td style="padding:3px 0;">Anticipo al confirmar el pedido <strong>(50%)</strong>:</td>
-      <td style="text-align:right;font-weight:900;font-size:14px;">$${(precioFinal * 0.5).toFixed(2)}</td>
-    </tr>
-    <tr style="border-top:1px dashed #a8d5b5;">
-      <td style="padding:4px 0 0;">Saldo contra entrega <strong>(50%)</strong>:</td>
-      <td style="text-align:right;font-weight:800;padding-top:4px;">$${(precioFinal * 0.5).toFixed(2)}</td>
+    <tr style="background:#111;color:#fff;">
+      <td style="padding:9px 16px;text-align:right;font-weight:800;font-size:13px;">TOTAL:</td>
+      <td style="padding:9px 16px;text-align:right;font-weight:900;font-size:17px;">$${precioFinal.toFixed(2)}</td>
     </tr>
   </table>
 </div>
 
-${p.descripcion ? `
-<div style="background:#F9F0FF;border-left:3px solid #9B59B6;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#4A235A;line-height:1.5;">
-  <strong>Observaciones:</strong><br>${p.descripcion}
-</div>` : ""}
+<!-- DOS COLUMNAS: CONDICIONES DE PAGO + OBSERVACIONES -->
+<div style="display:flex;gap:14px;margin-bottom:14px;">
+  <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;font-size:12px;">
+    <div class="sec-title">Condiciones de pago</div>
+    <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ccc;">
+      <span>Anticipo al confirmar <strong>(50%)</strong></span>
+      <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:4px 0;">
+      <span>Saldo contra entrega <strong>(50%)</strong></span>
+      <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
+    </div>
+  </div>
+  ${p.descripcion ? `
+  <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;font-size:12px;">
+    <div class="sec-title">Descripción del producto</div>
+    <div style="color:#222;line-height:1.6;">${p.descripcion}</div>
+  </div>` : ""}
+</div>
 
-<!-- CONDICIONES FORMALES (opcionales — solo si tienen contenido) -->
+<!-- CONDICIONES FORMALES -->
 ${(p.plazoEntrega || p.lugarEntrega || p.formaPago) ? `
-<div style="background:#FAFAFA;border:1px solid #ddd;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:11px;color:#333;line-height:1.5;">
-  ${p.plazoEntrega ? `<div style="margin-bottom:6px;"><strong style="color:#2C1654;">📅 Plazo de entrega:</strong> ${p.plazoEntrega}</div>` : ""}
-  ${p.lugarEntrega ? `<div style="margin-bottom:6px;"><strong style="color:#2C1654;">📍 Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
-  ${p.formaPago ? `<div><strong style="color:#2C1654;">💳 Forma de pago:</strong> ${p.formaPago}</div>` : ""}
+<div style="border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;margin-bottom:14px;font-size:12px;color:#333;line-height:1.6;">
+  ${p.plazoEntrega ? `<div style="margin-bottom:4px;"><strong>Plazo de entrega:</strong> ${p.plazoEntrega}</div>` : ""}
+  ${p.lugarEntrega ? `<div style="margin-bottom:4px;"><strong>Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
+  ${p.formaPago ? `<div><strong>Forma de pago:</strong> ${p.formaPago}</div>` : ""}
 </div>` : ""}
 
-<!-- VALIDEZ + CONDICIONES -->
-<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#856404;line-height:1.5;">
-  <strong>⏱️ Validez:</strong> ${validez} días a partir de la fecha de emisión (vence el ${venceStr}).
+<!-- VALIDEZ -->
+<div style="border:1.5px dashed #999;border-radius:6px;padding:9px 14px;margin-bottom:14px;font-size:12px;color:#333;">
+  <strong>Validez:</strong> ${validez} días a partir de la fecha de emisión — vence el <strong>${venceStr}</strong>.
 </div>
 
-<div style="font-size:10px;color:#666;line-height:1.6;margin-bottom:24px;border-top:1px dashed #ddd;padding-top:10px;">
+<div style="font-size:11px;color:#555;line-height:1.7;margin-bottom:24px;border-top:1px solid #ddd;padding-top:10px;">
   <strong>Condiciones generales:</strong><br>
   • Los precios incluyen IVA, mano de obra y materiales según especificación.<br>
   • Fecha de entrega a coordinar al momento de la confirmación.<br>
