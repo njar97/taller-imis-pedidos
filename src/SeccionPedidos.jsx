@@ -81,9 +81,10 @@ function Toolbar({ pedidos, busqueda, setBusqueda, onNuevo }) {
   );
 }
 
-function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
-  // Lista de tabs: Todos + Vencidos (especial, rojo si tiene items) + estatus.
+function FiltroTabs({ pedidos, conteos, filtro, setFiltro, cotizaciones }) {
+  // Lista de tabs: Todos + Vencidos (especial, rojo si tiene items) + estatus + Cotizaciones.
   const tabs = ["Todos", "Vencidos", ...ESTATUS];
+  const nCots = cotizaciones?.length || 0;
   return (
     <div
       style={{
@@ -99,8 +100,6 @@ function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
         const count = s === "Todos" ? pedidos.length : (conteos[s] || 0);
         const active = filtro === s;
         const esVencidos = s === "Vencidos";
-        // El tab Vencidos se ve en rojo cuando hay items pendientes —
-        // sutil llamada de atención. Cuando no hay, se pinta apagado.
         const colorActivo = esVencidos ? "#E63946" : "#9B59B6";
         const tieneAlerta = esVencidos && count > 0;
         return (
@@ -111,9 +110,7 @@ function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
               padding: "7px 8px",
               border: "none",
               background: "none",
-              borderBottom: active
-                ? "2.5px solid " + colorActivo
-                : "2.5px solid transparent",
+              borderBottom: active ? "2.5px solid " + colorActivo : "2.5px solid transparent",
               color: active ? colorActivo : tieneAlerta ? "#E63946" : "#999",
               fontWeight: active || tieneAlerta ? 700 : 400,
               cursor: "pointer",
@@ -125,21 +122,71 @@ function FiltroTabs({ pedidos, conteos, filtro, setFiltro }) {
             }}
           >
             {esVencidos && tieneAlerta ? "⚠️ " : ""}{s}
-            <span
-              style={{
-                background: active ? colorActivo : tieneAlerta ? "#FDECEA" : "#eee",
-                color: active ? "#fff" : tieneAlerta ? "#E63946" : "#aaa",
-                borderRadius: 20,
-                padding: "1px 5px",
-                fontSize: 10,
-                fontWeight: 700,
-              }}
-            >
-              {count}
-            </span>
+            <span style={{
+              background: active ? colorActivo : tieneAlerta ? "#FDECEA" : "#eee",
+              color: active ? "#fff" : tieneAlerta ? "#E63946" : "#aaa",
+              borderRadius: 20, padding: "1px 5px", fontSize: 10, fontWeight: 700,
+            }}>{count}</span>
           </button>
         );
       })}
+      <button
+        onClick={() => setFiltro("Cotizaciones")}
+        style={{
+          padding: "7px 8px", border: "none", background: "none",
+          borderBottom: filtro === "Cotizaciones" ? "2.5px solid #9B59B6" : "2.5px solid transparent",
+          color: filtro === "Cotizaciones" ? "#9B59B6" : "#999",
+          fontWeight: filtro === "Cotizaciones" ? 700 : 400,
+          cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap",
+        }}
+      >
+        🧮 Cot.
+        <span style={{
+          background: filtro === "Cotizaciones" ? "#9B59B6" : "#eee",
+          color: filtro === "Cotizaciones" ? "#fff" : "#aaa",
+          borderRadius: 20, padding: "1px 5px", fontSize: 10, fontWeight: 700,
+        }}>{nCots}</span>
+      </button>
+    </div>
+  );
+}
+
+function CardCotizacion({ c, onEditar, onImprimir }) {
+  const items = itemsResumen(c);
+  const prodDesc = [c.tipoPrenda, c.tela, c.color].filter(Boolean).join(" · ");
+  const validez = c.validezDias || 15;
+  const diasRestantes = (() => {
+    if (!c.fecha) return null;
+    const vence = new Date(c.fecha + "T12:00:00");
+    vence.setDate(vence.getDate() + validez);
+    return Math.ceil((vence - new Date()) / 86400000);
+  })();
+  const vencida = diasRestantes !== null && diasRestantes < 0;
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 12, padding: 12, marginBottom: 8,
+      border: "1.5px solid " + (vencida ? "#E74C3C" : "#d4b3df"),
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <div>
+          <span style={{ fontSize: 10, color: "#9B59B6", fontWeight: 700 }}>COT-{String(c.id).padStart(4, "0")}</span>
+          {" "}
+          <strong style={{ fontSize: 14, color: "#2C1654" }}>{c.cliente || "(sin cliente)"}</strong>
+          {c.nombreContacto && <span style={{ fontSize: 10, color: "#666", marginLeft: 4 }}>· {c.nombreContacto}</span>}
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 900, color: "#27AE60" }}>{fmt$(c.precio)}</div>
+      </div>
+      {diasRestantes !== null && (
+        <div style={{ fontSize: 10, marginBottom: 4, fontWeight: vencida || diasRestantes <= 3 ? 700 : 400, color: vencida ? "#E74C3C" : diasRestantes <= 3 ? "#E67E22" : "#888" }}>
+          {vencida ? `⏰ Vencida hace ${Math.abs(diasRestantes)}d` : diasRestantes === 0 ? "⏰ Vence hoy" : `⏰ Vence en ${diasRestantes}d`}
+        </div>
+      )}
+      {prodDesc && <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 5 }}>{prodDesc}</div>}
+      {items.length > 0 && <div style={{ marginBottom: 8 }}><TallasChips items={items} compact /></div>}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={() => onEditar(c)} style={{ flex: 1, padding: "7px", borderRadius: 7, border: "1.5px solid #d4b3df", background: "#f8f4ff", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit" }}>✏️ Editar</button>
+        <button onClick={() => onImprimir(c)} style={{ padding: "7px 12px", borderRadius: 7, border: "1.5px solid #ccc", background: "#fff", cursor: "pointer", fontSize: 12 }}>🖨️</button>
+      </div>
     </div>
   );
 }
@@ -621,6 +668,9 @@ export default function SeccionPedidos({
   cambiarEstatus,
   onImprimir,
   onCopiarWA,
+  cotizaciones = [],
+  onEditarCotizacion,
+  onImprimirCotizacion,
 }) {
   return (
     <>
@@ -635,6 +685,7 @@ export default function SeccionPedidos({
         conteos={conteos}
         filtro={filtro}
         setFiltro={setFiltro}
+        cotizaciones={cotizaciones}
       />
       <div
         className="main-area"
@@ -662,7 +713,25 @@ export default function SeccionPedidos({
           onEditar={setModal}
           onWA={onCopiarWA}
         />
-        {filtrados.length === 0 ? (
+        {filtro === "Cotizaciones" ? (
+          cotizaciones.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 60, color: "#ccc" }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>🧮</div>
+              <div style={{ fontSize: 14, color: "#aaa" }}>No hay cotizaciones</div>
+            </div>
+          ) : (
+            <div>
+              {cotizaciones.map(c => (
+                <CardCotizacion
+                  key={c.id}
+                  c={c}
+                  onEditar={onEditarCotizacion}
+                  onImprimir={onImprimirCotizacion}
+                />
+              ))}
+            </div>
+          )
+        ) : filtrados.length === 0 ? (
           <EmptyState sync={sync} pedidos={pedidos} />
         ) : (
           <TablaYCards

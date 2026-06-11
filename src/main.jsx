@@ -1034,6 +1034,9 @@ function App() {
             cambiarEstatus={cambiarEstatus}
             onImprimir={(p) => imprimirPedido(p, esAdmin, pedidos)}
             onCopiarWA={(p) => copiarWA(p, esAdmin)}
+            cotizaciones={pedidos.filter(p => p.esCotizacion)}
+            onEditarCotizacion={(c) => setModal(c)}
+            onImprimirCotizacion={(c) => imprimirCotizacion(c)}
           />
         )}
         <BottomNav
