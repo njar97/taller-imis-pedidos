@@ -5,7 +5,7 @@
 // El listado oficial de pedidos (SeccionPedidos) ya las filtra fuera,
 // así que viven en su propio espacio sin contaminar producción.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { fmt$, itemsResumen } from "./lib/dominio.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { pushConfirm, pushToast } from "./lib/feedback.js";
@@ -149,6 +149,14 @@ export default function SeccionCotizaciones({
 
 function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const menuRef = useRef(null);
+  useEffect(() => {
+    if (!menuAbierto) return;
+    const close = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuAbierto(false); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("touchstart", close); };
+  }, [menuAbierto]);
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
   const validez = c.validezDias || 15;
@@ -199,11 +207,7 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
             />
           </a>
         )}
-        <div
-          onClick={onEditar}
-          style={{ flex: 1, cursor: "pointer" }}
-          title="Toca para editar esta cotización"
-        >
+        <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11, color: "#9B59B6", fontWeight: 700 }}>
               COT-{String(c.id).padStart(4, "0")}
@@ -211,7 +215,6 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
             <strong style={{ fontSize: 14, color: "#2C1654" }}>{c.cliente || "(sin cliente)"}</strong>
             {telWA && (
               <a href={telWA} target="_blank" rel="noopener" title="WhatsApp"
-                onClick={e => e.stopPropagation()}
                 style={{ fontSize: 11, color: "#25D366", textDecoration: "none", fontWeight: 700 }}>
                 💬 {c.telefono}
               </a>
@@ -228,11 +231,7 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
             }
           </div>
         </div>
-        <div
-          onClick={onEditar}
-          style={{ textAlign: "right", flexShrink: 0, cursor: "pointer" }}
-          title="Toca para editar esta cotización"
-        >
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
           <div style={{ fontSize: 18, fontWeight: 900, color: "#27AE60" }}>{fmt$(c.precio)}</div>
           <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: .5 }}>cotizado</div>
         </div>
@@ -264,11 +263,11 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
         <button className="btn-action" onClick={onEnviarEmail} style={BTN("#1A5276")} title="Enviar por email">
           📧 Email
         </button>
-        <button className="btn-action" onClick={onImprimir} style={BTN("#9B59B6")} title="Imprimir PDF">
+        <button className="btn-action" onClick={onImprimir} style={BTN("#9B59B6")} title="Ver / imprimir PDF">
           📄 PDF
         </button>
         {/* Menú de acciones secundarias */}
-        <div style={{ marginLeft: "auto", position: "relative" }}>
+        <div ref={menuRef} style={{ marginLeft: "auto", position: "relative" }}>
           <button
             className="btn-action"
             onClick={() => setMenuAbierto(v => !v)}
@@ -278,19 +277,16 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
             ⋮
           </button>
           {menuAbierto && (
-            <div
-              onClick={() => setMenuAbierto(false)}
-              style={{
-                position: "absolute", bottom: "calc(100% + 6px)", right: 0,
-                background: "#fff", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-                border: "1.5px solid #e8e0f0", zIndex: 50, minWidth: 160, overflow: "hidden",
-              }}
-            >
-              <MenuItem icon="✏️" label="Editar" onClick={onEditar} />
-              {tieneDesglose && <MenuItem icon="🔍" label="Estimador" onClick={onReabrirEstimador} color="#E67E22" />}
-              <MenuItem icon="🕗" label="Versiones" onClick={onVerVersiones} color="#888" />
+            <div style={{
+              position: "absolute", bottom: "calc(100% + 6px)", right: 0,
+              background: "#fff", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              border: "1.5px solid #e8e0f0", zIndex: 50, minWidth: 160, overflow: "hidden",
+            }}>
+              <MenuItem icon="✏️" label="Editar" onClick={() => { setMenuAbierto(false); onEditar(); }} />
+              {tieneDesglose && <MenuItem icon="🔍" label="Estimador" onClick={() => { setMenuAbierto(false); onReabrirEstimador(); }} color="#E67E22" />}
+              <MenuItem icon="🕗" label="Versiones" onClick={() => { setMenuAbierto(false); onVerVersiones(); }} color="#888" />
               <div style={{ height: 1, background: "#f0e8f8", margin: "2px 0" }} />
-              <MenuItem icon="🗑️" label="Eliminar" onClick={onEliminar} color="#E74C3C" />
+              <MenuItem icon="🗑️" label="Eliminar" onClick={() => { setMenuAbierto(false); onEliminar(); }} color="#E74C3C" />
             </div>
           )}
         </div>

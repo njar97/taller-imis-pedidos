@@ -1,4 +1,14 @@
 ﻿
+import {
+  lazy,
+  Suspense,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
+
 // Lector de archivos de bordado (.dst/.pes/.jef/.emb) en chunk lazy.
 // Importar bajo demanda con: (await import("./leerBordado.js")).leerMetadataBordado
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
@@ -226,17 +236,6 @@ import {
 
 // Cache local de imágenes en IndexedDB
 import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
-
-
-import {
-  lazy,
-  Suspense,
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
 import { createRoot } from "react-dom/client";
 import { installGlobalErrorHandlers } from "./lib/reportError.js";
 
@@ -259,7 +258,6 @@ const gsCatalogoGuardar = dbCatalogoGuardar;
 function App() {
   const [rol, setRol] = useState(null);
   const [sesionUser, setSesionUser] = useState(null); // { email, nombre, rol, modulos }
-  const [rolPrevia, setRolPrevia] = useState(null); // null = modo normal; "operario_X" = vista previa
   const [seccion, setSec] = useState("pedidos");
 
   // Al cargar: recuperar sesion previa de localStorage. Si el rol es
@@ -450,9 +448,6 @@ function App() {
   }, [cuellos]);
   const rolBase = (rol || "").startsWith("operario_") ? "operario" : rol;
   const esAdmin = rolBase === "admin";
-  // esAdminVista: como esAdmin pero false cuando admin está en modo vista previa de operario.
-  // Los hooks de datos (useCargarDatos/useRealtime) siguen usando esAdmin/rolBase reales.
-  const esAdminVista = esAdmin && !rolPrevia;
   // Carga inicial de todos los datos. Lógica extraída a useCargarDatos.js.
   useCargarDatos(rolBase, rol, { setPedidos, setNextId, setBordados, setNextBordId, setCuellos, setNextCuelId, setClientes, setCatalogo, setSync, setSec });
 
@@ -755,8 +750,7 @@ function App() {
       <ConfirmDialog />
     </>
   );
-  // En vista previa pasamos "operario" (sin módulo) para que el nav muestre los 3 módulos
-  const NAV = getNavItems(rolPrevia ? "operario" : rol, esAdminVista);
+  const NAV = getNavItems(rol, esAdmin);
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       {progreso && (
@@ -767,7 +761,7 @@ function App() {
         />
       )}
       <SidebarDesktop
-        esAdmin={esAdminVista}
+        esAdmin={esAdmin}
         sync={sync}
         syncInfo={syncInfo}
         nav={NAV}
@@ -800,7 +794,7 @@ function App() {
         }}
       >
         <TopbarMobile
-          esAdmin={esAdminVista}
+          esAdmin={esAdmin}
           sync={sync}
           syncInfo={syncInfo}
           porCobrar={porCobrar}
@@ -856,7 +850,7 @@ function App() {
             ))}
           </div>
         }>
-        {seccion === "estadisticas" && esAdminVista && (
+        {seccion === "estadisticas" && esAdmin && (
           <SeccionEstadisticas
             pedidos={pedidos}
             bordados={bordados}
@@ -871,7 +865,7 @@ function App() {
             setInventario={setInventario}
             asignaciones={asignaciones}
             setAsignaciones={setAsignaciones}
-            esAdmin={esAdminVista}
+            esAdmin={esAdmin}
           />
         )}
         {seccion === "bordados" && (
@@ -881,7 +875,7 @@ function App() {
             nextBordId={nextBordId}
             setNextBordId={setNextBordId}
             pedidosConf={pedidos}
-            esAdmin={esAdminVista}
+            esAdmin={esAdmin}
             clientes={clientes}
             upsertClienteLocal={upsertClienteLocal}
             exportarPedidoPDF={exportarPedidoPDF}
@@ -894,7 +888,7 @@ function App() {
             nextCuelId={nextCuelId}
             setNextCuelId={setNextCuelId}
             pedidosConf={pedidos}
-            esAdmin={esAdminVista}
+            esAdmin={esAdmin}
             clientes={clientes}
             upsertClienteLocal={upsertClienteLocal}
             exportarPedidoPDF={exportarPedidoPDF}
@@ -904,17 +898,17 @@ function App() {
           <SeccionCatalogo
             catalogo={catalogo}
             setCatalogo={setCatalogo}
-            esAdmin={esAdminVista}
+            esAdmin={esAdmin}
           />
         )}
-        {seccion === "clientes" && esAdminVista && (
+        {seccion === "clientes" && esAdmin && (
           <SeccionClientes
             clientes={clientes}
             setClientes={setClientes}
             pedidos={pedidos}
             bordados={bordados}
             cuellos={cuellos}
-            esAdmin={esAdminVista}
+            esAdmin={esAdmin}
             onAbrirPedido={(p) => setDet(p)}
           />
         )}
@@ -928,13 +922,10 @@ function App() {
             onAbrirCuello={() => setSec("cuellos")}
           />
         )}
-        {seccion === "config" && esAdminVista && (
-          <SeccionConfig
-            onConfigCambia={() => setCargaConfigTick(t => t + 1)}
-            onVerComoOperario={(mod) => { setRolPrevia("operario_" + mod); setSec(mod); }}
-          />
+        {seccion === "config" && esAdmin && (
+          <SeccionConfig onConfigCambia={() => setCargaConfigTick(t => t + 1)} />
         )}
-        {seccion === "cotizaciones" && esAdminVista && (
+        {seccion === "cotizaciones" && esAdmin && (
           <SeccionCotizaciones
             pedidos={pedidos}
             onImprimir={(c) => imprimirCotizacion(c)}
@@ -958,9 +949,9 @@ function App() {
                 okLabel: "Sí, convertir",
               });
               if (!ok) return;
-              const convertido = { ...c, esCotizacion: false, estatus: "Corte" };
-              setPedidos(prev => prev.map(p => p.id === c.id ? convertido : p));
-              try { await gsGuardar(convertido); } catch {}
+              const actualizado = { ...c, esCotizacion: false, estatus: "Corte" };
+              setPedidos(prev => prev.map(p => p.id === c.id ? actualizado : p));
+              try { await gsGuardar(actualizado); } catch {}
               // Si el cliente NO existe en el CRM, lo agregamos automático.
               // Match case-insensitive por nombre normalizado.
               const nombre = (c.cliente || "").trim();
@@ -988,12 +979,8 @@ function App() {
                   pushToast(`Cliente "${nombre}" agregado al CRM`, "success", 4000);
                 }
               }
-              // Abre el formulario con tallasItems vacías para que el usuario
-              // ingrese las tallas reales del cliente (la cotización tenía
-              // cantidades estimadas, no el desglose por talla confirmado).
-              // Las imágenes y el resto del pedido quedan copiadas.
-              pushToast("Cotización convertida — añadí las tallas confirmadas ✏️", "success", 5000);
-              setModal({ ...convertido, tallasItems: [] });
+              pushToast("Cotización convertida a pedido ✓", "success");
+              setSec("pedidos");
             }}
             onEliminar={async (c) => {
               const ok = await pushConfirm({
@@ -1007,7 +994,7 @@ function App() {
             }}
           />
         )}
-        {seccion === "papelera" && esAdminVista && (
+        {seccion === "papelera" && esAdmin && (
           <Suspense
             fallback={
               <div style={{ padding: 32, textAlign: "center", color: "#999" }}>
@@ -1036,7 +1023,7 @@ function App() {
             onMainTouchMove={onMainTouchMove}
             onMainTouchEnd={onMainTouchEnd}
             diasPara={diasPara}
-            esAdmin={esAdminVista}
+            esAdmin={esAdmin}
             asignaciones={asignaciones}
             nextId={nextId}
             setDet={setDet}
@@ -1045,8 +1032,8 @@ function App() {
             setConf={setConf}
             setVisor={setVisor}
             cambiarEstatus={cambiarEstatus}
-            onImprimir={(p) => imprimirPedido(p, esAdminVista, pedidos)}
-            onCopiarWA={(p) => copiarWA(p, esAdminVista)}
+            onImprimir={(p) => imprimirPedido(p, esAdmin, pedidos)}
+            onCopiarWA={(p) => copiarWA(p, esAdmin)}
           />
         )}
         <BottomNav
@@ -1056,7 +1043,7 @@ function App() {
           masOpen={masOpen}
           setMasOpen={setMasOpen}
           setRol={setRol}
-          esAdmin={esAdminVista}
+          esAdmin={esAdmin}
           vencidosSinArchivar={vencidosSinArchivar}
           matAgotados={matAgotados}
         />
@@ -1067,7 +1054,7 @@ function App() {
             setSec={setSec}
             setMasOpen={setMasOpen}
             setRol={setRol}
-            esAdmin={esAdminVista}
+            esAdmin={esAdmin}
           />
         )}
       </main>
@@ -1195,7 +1182,7 @@ function App() {
       {detalle && (
         <DetallePedidoModal
           pedido={detalle}
-          esAdmin={esAdminVista}
+          esAdmin={esAdmin}
           bordados={bordados}
           cuellos={cuellos}
           onClose={() => setDet(null)}
@@ -1279,7 +1266,7 @@ function App() {
             setDet(null);
           }}
           onWhatsApp={() => {
-            copiarWA(detalle, esAdminVista);
+            copiarWA(detalle, esAdmin);
             pushToast("Mensaje de WhatsApp copiado — pegalo en el chat", "success");
           }}
           onExportarPDF={() => exportarPedidoPDF(detalle, "confeccion")}
@@ -1351,33 +1338,12 @@ function App() {
           />
         </Suspense>
       )}
-      {esAdminVista && (
+      {esAdmin && (
         <RecordatorioInicio
           pedidos={pedidos}
           onIrAVencidos={() => { setSec("pedidos"); setFiltro("Vencidos"); }}
           onIrAProximos={() => { setSec("calendario"); }}
         />
-      )}
-      {rolPrevia && (
-        <div style={{
-          position: "fixed", bottom: 64, left: "50%", transform: "translateX(-50%)",
-          zIndex: 200, background: "#E67E22", color: "#fff", borderRadius: 24,
-          padding: "8px 8px 8px 16px", display: "flex", alignItems: "center",
-          gap: 8, boxShadow: "0 4px 20px rgba(0,0,0,.3)", fontSize: 13,
-          fontWeight: 700, whiteSpace: "nowrap", fontFamily: "system-ui",
-        }}>
-          👁️ Vista operario
-          <button
-            onClick={() => { setRolPrevia(null); setSec("config"); }}
-            style={{
-              background: "rgba(0,0,0,.25)", border: "none", color: "#fff",
-              borderRadius: 16, padding: "5px 14px", cursor: "pointer",
-              fontWeight: 800, fontFamily: "inherit", fontSize: 12,
-            }}
-          >
-            Salir
-          </button>
-        </div>
       )}
     </div>
   );

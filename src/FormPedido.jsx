@@ -23,7 +23,6 @@ import FormNav from "./FormNav.jsx";
 import { leerRecientes, marcarReciente } from "./lib/recientesPrendas.js";
 import { contactPickerOK, elegirContacto } from "./lib/contactPicker.js";
 import { leerPlantillas, guardarPlantilla } from "./lib/plantillas.js";
-import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 
@@ -62,65 +61,22 @@ const BTN = (bg = "#9B59B6", disabled = false) => ({
   fontSize: 14,
 });
 
-const TECNICAS_DISENO = ["Sublimación", "DTF", "Bordado", "Serigrafía"];
+// Opciones rápidas locales al formulario
+const TELAS_RAPIDAS = ["Dacrón", "Satín", "Lino", "Gabardina", "Tafeta", "Lycra", "Algodón", "Dril", "Otro"];
+const COLORES_RAPIDOS = ["Blanco", "Negro", "Azul", "Rojo", "Verde", "Café", "Gris", "Morado", "Rosado", "Beige"];
 
-function PreviewCamiseta({ value }) {
-  const pngUrl = useMemo(() => diagramaCamisaPNG(value, { ancho: 180, alto: 208 }), [value]);
-  if (!pngUrl) return null;
-  return (
-    <div style={{ textAlign: "center", marginBottom: 10 }}>
-      <img src={pngUrl} style={{ width: 90, height: "auto", borderRadius: 6, display: "inline-block" }} alt="preview" />
-      <div style={{ fontSize: 7, color: "#ccc", marginTop: 1 }}>D ← | → I (portador)</div>
-    </div>
-  );
-}
+const TECNICAS_DISENO = ["Sublimación", "DTF", "Bordado", "Serigrafía"];
 
 function EditorDisenos({ value = [], onChange }) {
   const add = () => onChange([...value, { ubicacion: "", tecnica: "Sublimación", ancho: "", alto: "", posicionCuello: "", notas: "" }]);
   const remove = i => onChange(value.filter((_, idx) => idx !== i));
   const upd = (i, k, v) => onChange(value.map((row, idx) => idx === i ? { ...row, [k]: v } : row));
   const S = { ...INP, fontSize: 12, padding: "6px 8px" };
-
-  // Diseños de ejemplo para mostrar la guía cuando no hay datos
-  const EJEMPLO = useMemo(() => [
-    { ubicacion: "Pecho izquierdo", tecnica: "Sublimación", ancho: "10", alto: "8", posicionCuello: "16", notas: "" },
-    { ubicacion: "Espalda",         tecnica: "DTF",          ancho: "28", alto: "20", posicionCuello: "25", notas: "" },
-    { ubicacion: "Manga derecha",   tecnica: "Bordado",      ancho: "4",  alto: "3",  posicionCuello: "",   notas: "" },
-  ], []);
-  const preview = value.some(r => r.ubicacion) ? value : EJEMPLO;
-
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ fontSize: 10, fontWeight: 800, color: "#9B59B6", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
         🎨 Especificaciones de diseño
       </div>
-
-      {/* Preview / guía visual */}
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
-        <PreviewCamiseta value={preview} />
-        <div style={{ flex: 1, fontSize: 10, color: "#9B59B6" }}>
-          {value.some(r => r.ubicacion) ? (
-            value.filter(r => r.ubicacion).map((r, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, borderRadius: 2, background: techColor(r.tecnica), color: "#fff", fontSize: 8, fontWeight: 900, flexShrink: 0 }}>{i + 1}</span>
-                <span style={{ fontWeight: 700, color: "#2C1654" }}>{r.ubicacion}</span>
-                {r.ancho && r.alto && <span style={{ color: "#E67E22" }}>{r.ancho}×{r.alto}cm</span>}
-              </div>
-            ))
-          ) : (
-            <div>
-              <div style={{ fontWeight: 800, color: "#9B59B6", marginBottom: 3 }}>Ejemplo de posiciones:</div>
-              {EJEMPLO.map((e, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, borderRadius: 2, background: techColor(e.tecnica), color: "#fff", fontSize: 8, fontWeight: 900, flexShrink: 0 }}>{i + 1}</span>
-                  <span style={{ color: "#888" }}>{e.ubicacion}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
       {value.map((row, i) => (
         <div key={i} style={{ background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 8, padding: 8, marginBottom: 6 }}>
           <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
@@ -154,10 +110,6 @@ function EditorDisenos({ value = [], onChange }) {
     </div>
   );
 }
-
-// Opciones rápidas locales al formulario
-const TELAS_RAPIDAS = ["Dacrón", "Satín", "Lino", "Gabardina", "Tafeta", "Lycra", "Algodón", "Dril", "Otro"];
-const COLORES_RAPIDOS = ["Blanco", "Negro", "Azul", "Rojo", "Verde", "Café", "Gris", "Morado", "Rosado", "Beige"];
 
 const TIPOS_CLIENTE = [
   ["persona", "👤 Persona"],
@@ -323,21 +275,6 @@ export default function FormPedido({
         medidas: { ...p.medidas, ...sg.medidas },
         _medCliente: sg.medidas,
       }));
-    }
-    // Avisa si el cliente tiene pedidos activos sin entregar
-    const ACTIVOS = ["Tomado", "Corte", "Confección", "Terminado"];
-    const pendientes = (pedidosExistentes || []).filter(
-      p => p.cliente?.trim().toLowerCase() === sg.nombre.trim().toLowerCase()
-        && ACTIVOS.includes(p.estatus)
-        && (!initial || p.id !== initial.id)
-    );
-    if (pendientes.length > 0) {
-      const tipos = [...new Set(pendientes.map(p => p.tipoPrenda).filter(Boolean))];
-      pushToast(
-        `⚠️ ${sg.nombre} tiene ${pendientes.length} pedido${pendientes.length > 1 ? "s" : ""} activo${pendientes.length > 1 ? "s" : ""}${tipos.length ? ` (${tipos.slice(0,2).join(", ")})` : ""}`,
-        "warn",
-        5000
-      );
     }
     setShowSugs(false);
   };
@@ -536,14 +473,7 @@ export default function FormPedido({
 
   return (
     <div>
-      <FormNav
-        erroresIds={erroresIds}
-        completado={{
-          "sec-cliente":  validez.cliente,
-          "sec-producto": validez.tipoPrenda && validez.cantidad,
-          "sec-fecha":    validez.fechaEntrega,
-        }}
-      />
+      <FormNav erroresIds={erroresIds} />
       {/* ── Cliente ─────────────────────────────────── */}
       <SeccionOpcional id="sec-cliente" titulo="Cliente" icon="👤" color="#2C1654" defaultOpen={llenoCliente} textoCerrado={validez.cliente ? "▼" : "▼ Llenar"}>
       <div style={{ position: "relative", marginBottom: 10 }}>
@@ -1062,19 +992,23 @@ export default function FormPedido({
           onChange={e => s("descripcion", e.target.value)}
         />
         <Check label="Lleva bordado" value={f.tieneBordado} onChange={v => s("tieneBordado", v)} />
-        <Check
-          label="Tela comprada ✅"
-          value={f.telaComprada}
-          onChange={v => s("telaComprada", v)}
-        />
+        {!(f.esCotizacion || f.estatus === "Cotización") && (
+          <Check
+            label="Tela comprada ✅"
+            value={f.telaComprada}
+            onChange={v => s("telaComprada", v)}
+          />
+        )}
         {f.tieneBordado && (
           <>
-            <input
-              style={{ ...INP, marginTop: 8 }}
-              value={f.estatusDiseno}
-              placeholder="Estado del diseño en Wilcom..."
-              onChange={e => s("estatusDiseno", e.target.value)}
-            />
+            {!(f.esCotizacion || f.estatus === "Cotización") && (
+              <input
+                style={{ ...INP, marginTop: 8 }}
+                value={f.estatusDiseno}
+                placeholder="Estado del diseño en Wilcom..."
+                onChange={e => s("estatusDiseno", e.target.value)}
+              />
+            )}
             <EditorDisenos value={f.disenos || []} onChange={v => s("disenos", v)} />
           </>
         )}
@@ -1410,7 +1344,7 @@ export default function FormPedido({
           Cancelar
         </button>
         <button onClick={handleGuardar} style={BTN("#9B59B6")}>
-          {initial ? "💾 Guardar cambios" : "💾 Crear pedido"}
+          {initial ? "💾 Guardar cambios" : (f.esCotizacion || f.estatus === "Cotización") ? "💾 Crear cotización" : "💾 Crear pedido"}
         </button>
       </div>
     </div>

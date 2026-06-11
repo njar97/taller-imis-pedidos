@@ -1,9 +1,6 @@
 // Componente compartido: muestra el desglose del estimador de precio
 // guardado en el campo desglose_estimador de un pedido/cotización.
 // Soporta el formato nuevo (bordados: []) y el antiguo (bordActivo/bordPunt).
-// onEdit (opcional): se llama al hacer clic en el texto del resumen (no en la flecha).
-
-import { useState } from "react";
 
 const numb = v => parseFloat(v) || 0;
 const fmt = v => "$" + numb(v).toFixed(2);
@@ -28,43 +25,22 @@ function costoItem(it) {
   return { tela, mo, bord, otros, total: tela + mo + bord + otros, bordados };
 }
 
-export default function DesgloseEstimador({ desglose, onEdit }) {
-  const [open, setOpen] = useState(false);
+export default function DesgloseEstimador({ desglose }) {
   if (!desglose?.modo) return null;
 
   return (
-    <div style={{
+    <details style={{
       marginTop: 10, marginBottom: 8,
       background: "#FFFBF6", border: "1.5px dashed #E67E22",
       borderRadius: 10, padding: "10px 14px",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button
-          onClick={() => setOpen(o => !o)}
-          title={open ? "Colapsar" : "Expandir"}
-          style={{
-            background: "none", border: "none", padding: "0 2px",
-            cursor: "pointer", fontSize: 12, color: "#E67E22", flexShrink: 0,
-            lineHeight: 1,
-          }}
-        >
-          {open ? "▼" : "▶"}
-        </button>
-        <span
-          onClick={onEdit}
-          style={{
-            cursor: onEdit ? "pointer" : "default",
-            fontSize: 11, fontWeight: 800, color: "#E67E22",
-            textTransform: "uppercase", letterSpacing: .5,
-            flex: 1,
-          }}
-          title={onEdit ? "Abrir en el estimador para editar" : undefined}
-        >
-          🔍 Desglose del estimador (cómo se calculó el precio)
-          {onEdit && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6, opacity: .7 }}>— toca para editar</span>}
-        </span>
-      </div>
-      {open && <div style={{ marginTop: 10, fontSize: 11, color: "#555" }}>
+      <summary style={{
+        cursor: "pointer", fontSize: 11, fontWeight: 800,
+        color: "#E67E22", textTransform: "uppercase", letterSpacing: .5,
+      }}>
+        🔍 Desglose del estimador (cómo se calculó el precio)
+      </summary>
+      <div style={{ marginTop: 10, fontSize: 11, color: "#555" }}>
         <div style={{ marginBottom: 6 }}>
           <strong>Modo:</strong> {desglose.modo} · <strong>Margen aplicado:</strong> {desglose.margen}%
         </div>
@@ -116,7 +92,7 @@ export default function DesgloseEstimador({ desglose, onEdit }) {
 {JSON.stringify(desglose.datos, null, 2)}
           </pre>
         )}
-      </div>}
-    </div>
+      </div>
+    </details>
   );
 }

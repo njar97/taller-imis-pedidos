@@ -5,24 +5,10 @@ import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
-import { mensajeCotizacionWA, mensajeWA } from "./whatsapp.js";
-import { pushToastAccion } from "./feedback.js";
+import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
-import { MEDIDAS_DEF, TALLER, EC, TALLAS_A, TALLAS_N, TALLAS_NUM } from "./constants.js";
+import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
 import { diagramaCamisaPNG, techColor } from "./diagrama.js";
-
-// Orden canónico de tallas para sortear filas en la tabla de producción
-const ORDEN_TALLAS = [...TALLAS_A, ...TALLAS_N, ...TALLAS_NUM];
-function sortTallas(items) {
-  return [...items].sort((a, b) => {
-    const ia = ORDEN_TALLAS.indexOf(a.talla || "");
-    const ib = ORDEN_TALLAS.indexOf(b.talla || "");
-    if (ia === -1 && ib === -1) return (a.talla || "").localeCompare(b.talla || "");
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
-    return ia - ib;
-  });
-}
 import QRCode from "qrcode";
 
 // Genera el HTML de "Detalle por persona" — tabla donde cada fila es una
@@ -102,129 +88,102 @@ export async function imprimirPedido(p, esAdmin, todosPedidos = []) {
   else await imprimirProduccion(p, todosPedidos);
 }
 
-// Reemplazo de window.open para imprimir / guardar PDF. El PWA de Android
-// (y muchos navegadores móviles) bloquean o se portan raro con las ventanas
-// nuevas, así que en vez de eso montamos un IFRAME oculto y exponemos la
-// misma interfaz mínima (document.write/close) que usaba el código con
-// window.open — así cada sitio cambia solo la línea del open. Al cerrar el
-// documento dispara print() nativo, que en móvil abre el diálogo de
-// imprimir / guardar como PDF del sistema.
-// titulo (opcional): Chrome Android usa el document.title del padre para el
-// nombre de archivo al guardar PDF — lo cambiamos temporalmente y lo restauramos.
-// Muestra el documento de impresión como overlay fullscreen. El usuario
-// ve los botones in-page (Guardar PDF, Compartir WA, Cerrar) y elige
-// qué hacer. El _print() embebido en cada página HTML maneja el swap
-// de document.title → nombre inteligente en el diálogo de guardado.
-export function nuevaVentanaImpresion(titulo = null, _unused = null) {
-  document.getElementById("__print_overlay__")?.remove();
+// Reemplazo de window.open para imprimir / guardar PDF. Monta un overlay
+// full-screen con un iframe visible — necesario para que html2canvas pueda
+// capturar el contenido y generar un PDF compartible por WhatsApp.
+// Expone window.__shareWithPDF__(tituloArch, waText) en el padre, que el
+// iframe llama al pulsar el botón "Compartir WA".
+export function nuevaVentanaImpresion(titulo = null) {
+  const prev = document.getElementById("__print_overlay__");
+  if (prev) {
+    prev.remove();
+    document.body.style.overflow = "";
+    delete window.__shareWithPDF__;
+    delete window.__closeFrame__;
+  }
 
-  // Overlay fullscreen
   const overlay = document.createElement("div");
   overlay.id = "__print_overlay__";
   overlay.style.cssText =
-    "position:fixed;inset:0;z-index:9999;background:#1a1a2e;display:flex;flex-direction:column;";
-
-  // Barra superior con título y botón cerrar
-  const bar = document.createElement("div");
-  bar.style.cssText =
-    "display:flex;align-items:center;justify-content:space-between;" +
-    "padding:8px 12px;background:#2C1654;flex-shrink:0;gap:8px;min-height:44px;";
-  const lbl = document.createElement("span");
-  lbl.style.cssText = "color:#e8d5ff;font-size:11px;font-weight:600;font-family:system-ui;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;";
-  lbl.textContent = titulo || "Vista previa";
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "✕";
-  closeBtn.style.cssText =
-    "background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;" +
-    "font-weight:700;cursor:pointer;border-radius:8px;padding:4px 12px;" +
-    "font-family:system-ui;flex-shrink:0;line-height:1.4;";
-  closeBtn.onclick = () => overlay.remove();
-  bar.appendChild(lbl);
-  bar.appendChild(closeBtn);
+    "position:fixed;inset:0;z-index:99999;background:#f5f5f5;overflow:hidden;";
 
   const iframe = document.createElement("iframe");
   iframe.id = "__print_frame__";
-  iframe.style.cssText = "flex:1;border:0;background:#fff;width:100%;";
-
-  overlay.appendChild(bar);
+  iframe.style.cssText = "display:block;width:100%;height:100%;border:0;background:#fff;";
   overlay.appendChild(iframe);
   document.body.appendChild(overlay);
+  document.body.style.overflow = "hidden";
 
-  const closeOverlay = () => { overlay.remove(); delete window.__shareWithPDF__; };
-  closeBtn.onclick = closeOverlay;
-
-  // Parchear window.close() del iframe para cerrar el overlay
-  const patch = () => {
-    try { iframe.contentWindow.close = closeOverlay; } catch (_) {}
+  const closeOverlay = () => {
+    overlay.remove();
+    document.body.style.overflow = "";
+    delete window.__shareWithPDF__;
+    delete window.__closeFrame__;
   };
+  window.__closeFrame__ = closeOverlay;
 
-  // Genera PDF con jsPDF+html2canvas y lo comparte via Web Share API Level 2.
-  // Llamado desde el iframe como: window.parent.__shareWithPDF__(document.title, _waMsg)
   window.__shareWithPDF__ = async (tituloArch, waText) => {
-    const idocEl = iframe.contentWindow.document;
-    const btn = idocEl.getElementById("wa-pdf-btn") || idocEl.getElementById("wa-btn");
-    const origText = btn?.textContent || "💬 Compartir WA";
+    const idoc = iframe.contentWindow.document;
+    const btn = idoc.getElementById("wa-pdf-btn");
     const setBtn = (text, disabled = false) => {
       if (btn) { btn.textContent = text; btn.disabled = disabled; }
     };
+
     try {
       setBtn("⏳ Generando PDF...", true);
-      const noPrints = Array.from(idocEl.querySelectorAll(".no-print"));
+
+      // Ocultar elementos no-print para captura limpia
+      const noPrints = Array.from(idoc.querySelectorAll(".no-print"));
       noPrints.forEach(el => { el._pd = el.style.display; el.style.display = "none"; });
+
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
-      const body = idocEl.body;
-      // Forzar ancho A4 (794px a 96dpi) para que el layout del iframe coincida
-      // con el diseño de impresión, no con el ancho de pantalla del celular.
-      const origW = iframe.style.width;
-      const origH = iframe.style.height;
-      iframe.style.width = "816px";
-      await new Promise(r => setTimeout(r, 80)); // esperar reflow
+
+      const body = idoc.body;
       const fullH = body.scrollHeight;
+      const origH = iframe.style.height;
+      // Expandir iframe para que html2canvas vea el contenido completo
       iframe.style.height = fullH + "px";
-      await new Promise(r => setTimeout(r, 60));
+      await new Promise(r => setTimeout(r, 80));
+
       const canvas = await html2canvas(body, {
-        scale: 1.5, useCORS: true, allowTaint: false,
-        scrollX: 0, scrollY: 0,
-        windowWidth: 816, windowHeight: fullH,
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: false,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: body.scrollWidth || 800,
+        windowHeight: fullH,
       });
-      iframe.style.width = origW;
+
       iframe.style.height = origH;
       noPrints.forEach(el => { el.style.display = el._pd || ""; delete el._pd; });
-      const A4W = 612, A4H = 792; // Carta (Letter)
+
+      // Construir PDF A4 multi-página
+      const A4W = 595.28; // pt
+      const A4H = 841.89; // pt
       const imgW = A4W;
       const imgH = (canvas.height / canvas.width) * imgW;
-      // Compactar: si la última página tiene < 20% de contenido, escalar para
-      // que quepa en una página menos (el texto queda ~95% del tamaño original).
-      const naturalPages = Math.ceil(imgH / A4H);
-      const lastFraction = (imgH / A4H) - Math.floor(imgH / A4H);
-      let finalW = imgW, finalH = imgH;
-      if (naturalPages > 1 && lastFraction > 0 && lastFraction < 0.30) {
-        const scale = ((naturalPages - 1) * A4H) / imgH;
-        finalH = (naturalPages - 1) * A4H;
-        finalW = imgW * scale;
-      }
-      const xOff = (A4W - finalW) / 2;
-      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "letter" });
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
       const imgData = canvas.toDataURL("image/jpeg", 0.88);
-      let y = 0, pg = 0;
-      while (y < finalH) {
+      let y = 0; let pg = 0;
+      while (y < imgH) {
         if (pg > 0) pdf.addPage();
-        pdf.addImage(imgData, "JPEG", xOff, -y, finalW, finalH);
+        pdf.addImage(imgData, "JPEG", 0, -y, imgW, imgH);
         y += A4H; pg++;
       }
+
       const blob = pdf.output("blob");
       const fileName = (tituloArch || "documento") + ".pdf";
       const file = new File([blob], fileName, { type: "application/pdf" });
+
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], text: waText || "" });
-        // WA ignora el campo text cuando hay archivo adjunto — copiamos al portapapeles
-        // para que el usuario lo pegue en el chat después de enviar el PDF.
-        if (waText) { try { await navigator.clipboard.writeText(waText); } catch {} }
-        setBtn("✅ PDF · 📋 Texto copiado");
+        setBtn("✅ Compartido");
       } else {
+        // Fallback: descarga el PDF + copia el texto
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url; a.download = fileName;
@@ -232,9 +191,9 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 5000);
         if (waText) { try { await navigator.clipboard.writeText(waText); } catch {} }
-        setBtn("⬇️ PDF descargado · 📋 Texto copiado");
+        setBtn("⬇️ PDF descargado");
       }
-      setTimeout(() => setBtn(origText, false), 4000);
+      setTimeout(() => setBtn("💬 Compartir WA", false), 3500);
     } catch (err) {
       if (err?.name !== "AbortError") {
         console.error("shareWithPDF:", err);
@@ -245,7 +204,7 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
           } catch {}
         }
       }
-      setBtn(origText, false);
+      setBtn("💬 Compartir WA", false);
     }
   };
 
@@ -255,8 +214,23 @@ export function nuevaVentanaImpresion(titulo = null, _unused = null) {
       write: html => idoc.write(html),
       close: () => {
         idoc.close();
-        if (idoc.readyState === "complete") patch();
-        else iframe.contentWindow.addEventListener("load", patch, { once: true });
+        const doImprimir = () => {
+          // Monkey-patch close del iframe para que onclick="window.close()" cierre el overlay
+          try { iframe.contentWindow.close = closeOverlay; } catch {}
+          try {
+            const prevTitle = document.title;
+            if (titulo) document.title = titulo;
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            const restore = () => { document.title = prevTitle; };
+            iframe.contentWindow.addEventListener("afterprint", restore, { once: true });
+            setTimeout(restore, 15000);
+          } catch (e) {
+            console.warn("print():", e);
+          }
+        };
+        if (idoc.readyState === "complete") setTimeout(doImprimir, 300);
+        else iframe.contentWindow.onload = () => setTimeout(doImprimir, 300);
       },
     },
   };
@@ -299,37 +273,35 @@ export async function imprimirCotizacion(p) {
   const iva = precioFinal - subtotal;
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
-  const waText = mensajeCotizacionWA(p);
+  const waMsg = mensajeCotizacionWA(p);
   const w = nuevaVentanaImpresion(titulo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${titulo}</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:12px;line-height:1.4;}
-  @media print{body{padding:16px 24px;}.no-print{display:none!important;}@page{margin:14mm;size:letter;}}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#111;padding:28px 36px;font-size:13px;line-height:1.5;}
+  @media print{body{padding:12px 18px;}.no-print{display:none!important;}@page{margin:12mm 14mm;size:A4;}}
   table{border-collapse:collapse;width:100%;}
-  .lbl{font-size:9px;font-weight:800;color:#666;text-transform:uppercase;letter-spacing:.6px;}
+  .lbl{font-size:9px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:.8px;}
+  .sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#333;border-bottom:1.5px solid #333;padding-bottom:3px;margin-bottom:8px;}
 </style></head><body>
 
 <div class="no-print" style="margin-bottom:14px;">
-  <div style="display:flex;gap:8px;">
-    <button id="wa-btn" onclick="compartirWA()" style="flex:2;padding:11px 6px;border-radius:9px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">📤 Enviar por WA</button>
-    <button onclick="_print()" style="flex:1;padding:11px 6px;border-radius:9px;border:none;background:#9B59B6;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ PDF</button>
+  <div style="background:#f5f5f5;border:1px solid #ccc;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#333;">
+    Tip: al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
   </div>
-  <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">El texto se copia al portapapeles al enviar — pegalo en el chat de WA.</div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+    <button id="wa-pdf-btn" onclick="window.parent.__shareWithPDF__(document.title,_waMsg)" style="padding:11px 20px;border-radius:6px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">Compartir WA</button>
+    <button onclick="_print()" style="padding:11px 24px;border-radius:6px;border:none;background:#111;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">Guardar PDF</button>
+    <button onclick="window.close()" style="padding:11px 16px;border-radius:6px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">Cerrar</button>
+  </div>
 </div>
-<script>
-const _waMsg = ${JSON.stringify(waText)};
-async function compartirWA() {
-  await window.parent.__shareWithPDF__(document.title, _waMsg);
-}
-</script>
 
-<!-- ENCABEZADO con datos fiscales del emisor -->
-<div style="border-bottom:3px solid #2C1654;padding-bottom:12px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
+<!-- ENCABEZADO -->
+<div style="border-bottom:2.5px solid #111;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
   <div style="flex:1;">
-    <div style="font-size:22px;font-weight:900;color:#2C1654;font-family:Georgia,serif;line-height:1.1;">${EMPRESA.razonSocial}</div>
-    <div style="font-size:10px;color:#666;margin-top:5px;line-height:1.5;">
+    <div style="font-size:20px;font-weight:900;color:#111;font-family:Georgia,serif;line-height:1.15;">${EMPRESA.razonSocial}</div>
+    <div style="font-size:10.5px;color:#555;margin-top:5px;line-height:1.6;">
       ${EMPRESA.actividadEconomica}<br>
       ${EMPRESA.direccion}<br>
       Tel: ${EMPRESA.telefonos.join(" · ")}<br>
@@ -337,109 +309,110 @@ async function compartirWA() {
       <strong>NIT:</strong> ${EMPRESA.nit} &nbsp; <strong>NRC:</strong> ${EMPRESA.nrc}
     </div>
   </div>
-  <div style="text-align:right;border-left:3px solid #9B59B6;padding-left:14px;">
-    <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Cotización</div>
-    <div style="font-size:30px;font-weight:900;color:#9B59B6;line-height:1;">N° ${num}</div>
-    <div style="font-size:10px;color:#666;margin-top:6px;">Fecha: <strong>${fecha}</strong></div>
+  <div style="text-align:right;border-left:2px solid #888;padding-left:16px;min-width:130px;">
+    <div style="font-size:9.5px;color:#777;text-transform:uppercase;letter-spacing:2px;font-weight:700;">Cotización</div>
+    <div style="font-size:32px;font-weight:900;color:#111;line-height:1.1;letter-spacing:-1px;">N° ${num}</div>
+    <div style="font-size:11px;color:#555;margin-top:5px;">Fecha: <strong>${fecha}</strong></div>
   </div>
 </div>
 
 <!-- DIRIGIDA A -->
-<div style="background:#f8f4ff;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
-  <div class="lbl">Cotización dirigida a</div>
-  <div style="font-size:15px;font-weight:800;color:#2C1654;margin-top:3px;">${p.cliente || "Cliente"}</div>
-  ${p.nombreContacto ? `<div style="font-size:11px;color:#555;margin-top:2px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
-  ${p.telefono ? `<div style="font-size:11px;color:#555;">📱 ${p.telefono}</div>` : ""}
-  ${p.procesoRef ? `<div style="font-size:11px;color:#9B59B6;margin-top:4px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
+<div style="border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;margin-bottom:14px;">
+  <div class="lbl" style="margin-bottom:4px;">Cotización dirigida a</div>
+  <div style="font-size:16px;font-weight:800;color:#111;">${p.cliente || "Cliente"}</div>
+  ${p.nombreContacto ? `<div style="font-size:12px;color:#444;margin-top:3px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
+  ${p.telefono ? `<div style="font-size:12px;color:#444;">Tel: ${p.telefono}</div>` : ""}
+  ${p.procesoRef ? `<div style="font-size:12px;color:#333;margin-top:4px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
 </div>
 
-<p style="font-size:11px;color:#555;margin-bottom:10px;">
+<p style="font-size:12px;color:#444;margin-bottom:12px;">
   Por medio de la presente nos permitimos presentar la cotización de los productos solicitados con los siguientes detalles:
 </p>
 
 <!-- TABLA DETALLE -->
 ${items.length ? `
-<table style="border:1.5px solid #2C1654;font-size:11px;margin-bottom:14px;">
-  <thead><tr style="background:#2C1654;color:#fff;">
-    <th style="padding:7px 8px;text-align:center;width:36px;">N°</th>
-    <th style="padding:7px 10px;text-align:left;">Descripción</th>
-    <th style="padding:7px 8px;text-align:center;width:90px;">Medida</th>
-    <th style="padding:7px 8px;text-align:center;width:60px;">Cant.</th>
-    <th style="padding:7px 10px;text-align:right;width:90px;">Precio U.</th>
-    <th style="padding:7px 10px;text-align:right;width:100px;">Subtotal</th>
+<table style="border:1.5px solid #333;font-size:12px;margin-bottom:4px;">
+  <thead><tr style="background:#111;color:#fff;">
+    <th style="padding:8px 8px;text-align:center;width:36px;">N°</th>
+    <th style="padding:8px 10px;text-align:left;">Descripción</th>
+    <th style="padding:8px 8px;text-align:center;width:80px;">Talla</th>
+    <th style="padding:8px 8px;text-align:center;width:60px;">Cant.</th>
+    <th style="padding:8px 10px;text-align:right;width:95px;">Precio U.</th>
+    <th style="padding:8px 10px;text-align:right;width:100px;">Subtotal</th>
   </tr></thead>
   <tbody>
     ${items.map((it, i) => {
       const pr = parseFloat(it.precio) || 0;
       const sub = pr * it.qty;
-      // "Medida" intenta sacarse de talla (lo más común); si está vacía
-      // y spec parece una medida (contiene 'x' o 'm'), la usamos.
       const medida = it.talla || (it.spec && /[\dxm,.]/i.test(it.spec) ? it.spec : "") || "—";
-      const descripcion = it.tipo || "—";
-      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f0fa"};border-bottom:1px solid #eee;">
-        <td style="padding:8px;text-align:center;font-weight:700;color:#666;">${i + 1}</td>
-        <td style="padding:8px 10px;color:#222;">${descripcion}</td>
-        <td style="padding:8px;text-align:center;font-weight:700;color:#2C1654;">${medida}</td>
-        <td style="padding:8px;text-align:center;font-weight:800;">${it.qty}</td>
-        <td style="padding:8px 10px;text-align:right;color:#27AE60;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#2C1654;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
+      const descripcion = it.tipo || p.tipoPrenda || "—";
+      return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f5f5"};border-bottom:1px solid #ddd;">
+        <td style="padding:9px 8px;text-align:center;font-weight:700;color:#777;">${i + 1}</td>
+        <td style="padding:9px 10px;color:#111;">${descripcion}</td>
+        <td style="padding:9px 8px;text-align:center;font-weight:800;color:#111;">${medida}</td>
+        <td style="padding:9px 8px;text-align:center;font-weight:800;">${it.qty}</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:700;">${pr > 0 ? "$" + pr.toFixed(2) : "—"}</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:900;">${pr > 0 ? "$" + sub.toFixed(2) : "—"}</td>
       </tr>`;
     }).join("")}
   </tbody>
-</table>` : ""}
+</table>
+<div style="font-size:10.5px;color:#777;text-align:right;margin-bottom:14px;">
+  Total piezas: <strong>${totPzas}</strong>
+</div>` : ""}
 
 <!-- TOTALES -->
-<div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-  <table style="width:auto;min-width:280px;font-size:12px;border-collapse:collapse;">
-    <tr>
-      <td style="padding:5px 12px;text-align:right;color:#666;">SUBTOTAL:</td>
-      <td style="padding:5px 12px;text-align:right;font-weight:700;color:#2C1654;width:110px;">$${subtotal.toFixed(2)}</td>
+<div style="display:flex;justify-content:flex-end;margin-bottom:18px;">
+  <table style="width:auto;min-width:260px;font-size:13px;border-collapse:collapse;border:1.5px solid #333;">
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:7px 16px;text-align:right;color:#555;">Subtotal:</td>
+      <td style="padding:7px 16px;text-align:right;font-weight:700;width:110px;">$${subtotal.toFixed(2)}</td>
     </tr>
-    <tr>
-      <td style="padding:5px 12px;text-align:right;color:#666;">IVA (13%):</td>
-      <td style="padding:5px 12px;text-align:right;font-weight:700;color:#2C1654;">$${iva.toFixed(2)}</td>
+    <tr style="border-bottom:1.5px solid #333;">
+      <td style="padding:7px 16px;text-align:right;color:#555;">IVA (13%):</td>
+      <td style="padding:7px 16px;text-align:right;font-weight:700;">$${iva.toFixed(2)}</td>
     </tr>
-    <tr style="border-top:2px solid #2C1654;">
-      <td style="padding:7px 12px;text-align:right;font-weight:900;font-size:13px;color:#2C1654;">TOTAL:</td>
-      <td style="padding:7px 12px;text-align:right;font-weight:900;font-size:16px;color:#27AE60;">$${precioFinal.toFixed(2)}</td>
-    </tr>
-  </table>
-</div>
-
-<!-- CONDICIONES DE PAGO -->
-<div style="background:#E8F5E9;border:2px solid #27AE60;border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:12px;">
-  <div style="font-weight:900;color:#1A5F33;margin-bottom:7px;">💵 Condiciones de pago</div>
-  <table style="width:100%;border-collapse:collapse;color:#1A5F33;font-size:12px;">
-    <tr>
-      <td style="padding:3px 0;">Anticipo al confirmar el pedido <strong>(50%)</strong>:</td>
-      <td style="text-align:right;font-weight:900;font-size:14px;">$${(precioFinal * 0.5).toFixed(2)}</td>
-    </tr>
-    <tr style="border-top:1px dashed #a8d5b5;">
-      <td style="padding:4px 0 0;">Saldo contra entrega <strong>(50%)</strong>:</td>
-      <td style="text-align:right;font-weight:800;padding-top:4px;">$${(precioFinal * 0.5).toFixed(2)}</td>
+    <tr style="background:#111;color:#fff;">
+      <td style="padding:9px 16px;text-align:right;font-weight:800;font-size:13px;">TOTAL:</td>
+      <td style="padding:9px 16px;text-align:right;font-weight:900;font-size:17px;">$${precioFinal.toFixed(2)}</td>
     </tr>
   </table>
 </div>
 
-${p.descripcion ? `
-<div style="background:#F9F0FF;border-left:3px solid #9B59B6;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#4A235A;line-height:1.5;">
-  <strong>Observaciones:</strong><br>${p.descripcion}
-</div>` : ""}
+<!-- DOS COLUMNAS: CONDICIONES DE PAGO + OBSERVACIONES -->
+<div style="display:flex;gap:14px;margin-bottom:14px;">
+  <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;font-size:12px;">
+    <div class="sec-title">Condiciones de pago</div>
+    <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ccc;">
+      <span>Anticipo al confirmar <strong>(50%)</strong></span>
+      <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:4px 0;">
+      <span>Saldo contra entrega <strong>(50%)</strong></span>
+      <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
+    </div>
+  </div>
+  ${p.descripcion ? `
+  <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;font-size:12px;">
+    <div class="sec-title">Descripción del producto</div>
+    <div style="color:#222;line-height:1.6;">${p.descripcion}</div>
+  </div>` : ""}
+</div>
 
-<!-- CONDICIONES FORMALES (opcionales — solo si tienen contenido) -->
+<!-- CONDICIONES FORMALES -->
 ${(p.plazoEntrega || p.lugarEntrega || p.formaPago) ? `
-<div style="background:#FAFAFA;border:1px solid #ddd;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:11px;color:#333;line-height:1.5;">
-  ${p.plazoEntrega ? `<div style="margin-bottom:6px;"><strong style="color:#2C1654;">📅 Plazo de entrega:</strong> ${p.plazoEntrega}</div>` : ""}
-  ${p.lugarEntrega ? `<div style="margin-bottom:6px;"><strong style="color:#2C1654;">📍 Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
-  ${p.formaPago ? `<div><strong style="color:#2C1654;">💳 Forma de pago:</strong> ${p.formaPago}</div>` : ""}
+<div style="border:1.5px solid #bbb;border-radius:6px;padding:11px 14px;margin-bottom:14px;font-size:12px;color:#333;line-height:1.6;">
+  ${p.plazoEntrega ? `<div style="margin-bottom:4px;"><strong>Plazo de entrega:</strong> ${p.plazoEntrega}</div>` : ""}
+  ${p.lugarEntrega ? `<div style="margin-bottom:4px;"><strong>Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
+  ${p.formaPago ? `<div><strong>Forma de pago:</strong> ${p.formaPago}</div>` : ""}
 </div>` : ""}
 
-<!-- VALIDEZ + CONDICIONES -->
-<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#856404;line-height:1.5;">
-  <strong>⏱️ Validez:</strong> ${validez} días a partir de la fecha de emisión (vence el ${venceStr}).
+<!-- VALIDEZ -->
+<div style="border:1.5px dashed #999;border-radius:6px;padding:9px 14px;margin-bottom:14px;font-size:12px;color:#333;">
+  <strong>Validez:</strong> ${validez} días a partir de la fecha de emisión — vence el <strong>${venceStr}</strong>.
 </div>
 
-<div style="font-size:10px;color:#666;line-height:1.6;margin-bottom:24px;border-top:1px dashed #ddd;padding-top:10px;">
+<div style="font-size:11px;color:#555;line-height:1.7;margin-bottom:24px;border-top:1px solid #ddd;padding-top:10px;">
   <strong>Condiciones generales:</strong><br>
   • Los precios incluyen IVA, mano de obra y materiales según especificación.<br>
   • Fecha de entrega a coordinar al momento de la confirmación.<br>
@@ -567,6 +540,7 @@ ${(() => {
 `;
 })() : ""}
 <script>
+const _waMsg=${JSON.stringify(waMsg)};
 const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
 function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
 </script>
@@ -574,7 +548,6 @@ function _print(){try{window.parent.document.title=document.title;}catch(e){}win
   w.document.close();
 }
 export function imprimirRecibo(p) {
-  const waText = mensajeWA(p, true);
   const abonado = sumarAbonos(p);
   const saldo = parseFloat(p.precio || 0) - abonado;
   const tallas = resumenTallas(p);
@@ -618,26 +591,29 @@ export function imprimirRecibo(p) {
   })()}
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
+  const waText = mensajeWA(p, true);
   const tituloRecibo = nombrePDF("Recibo", p.id, p.cliente);
   const w = nuevaVentanaImpresion(tituloRecibo);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloRecibo}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:13px;}
-    @media print{body{padding:16px 24px;}.no-print{display:none!important;}@page{margin:14mm;size:letter;}}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
+    @media print{body{padding:14px 20px;}.no-print{display:none!important;}@page{margin:10mm;size:A4;}}
     table{border-collapse:collapse;width:100%;}
     .sec{font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #9B59B6;padding-bottom:4px;margin:16px 0 10px;}
   </style></head><body>
 
   <!-- Botones no-print -->
-  <div class="no-print" style="margin-bottom:16px;">
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
-      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 6px;border-radius:9px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">📤 Enviar por WA</button>
-      <button onclick="_print()" style="padding:11px 6px;border-radius:9px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ PDF</button>
-      <button onclick="window.close()" style="padding:11px 6px;border-radius:9px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:13px;cursor:pointer;">✕ Cerrar</button>
+  <div class="no-print" style="margin-bottom:20px;">
+    <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
+      💾 <strong>Tip:</strong> tocá <strong>"📤 Enviar PDF por WA"</strong> → guardá el PDF cuando aparezca el diálogo → se abre WA automáticamente → adjuntá el PDF desde Descargas.
     </div>
-    <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">El texto se copia al portapapeles al enviar — pegalo en el chat de WA.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
+      <button onclick="_print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="window.close()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
   </div>
 
   <!-- ENCABEZADO -->
@@ -732,16 +708,16 @@ export function imprimirRecibo(p) {
     ${TALLER} · Recibo N°${num} · Generado el ${fecha}
   </div>
   <script>
-  const _waMsg = ${JSON.stringify(waText)};
-  const _pt = (function(){ try{ return window.parent.document.title; }catch(e){ return ''; } })();
-  function _print() {
-    try{ window.parent.document.title = document.title; }catch(e){}
+  const _waMsg=${JSON.stringify(waText)};
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){
+    try{window.parent.document.title=document.title;}catch(e){}
     window.print();
-    window.addEventListener('afterprint', function(){ try{ window.parent.document.title = _pt; }catch(e){} }, { once: true });
-    setTimeout(function(){ try{ window.parent.document.title = _pt; }catch(e){} }, 15000);
+    window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});
+    setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);
   }
-  async function enviarPorWA() {
-    await window.parent.__shareWithPDF__(document.title, _waMsg);
+  async function enviarPorWA(){
+    await window.parent.__shareWithPDF__(document.title,_waMsg);
   }
   </script>
   </body></html>`);
@@ -765,7 +741,6 @@ export async function imprimirProduccion(p, todosPedidos = []) {
     .filter(x =>
       x.id !== p.id &&
       !x.deletedAt &&
-      !x.esCotizacion &&
       x.cliente &&
       x.cliente.trim().toLowerCase() === (p.cliente || "").trim().toLowerCase()
     )
@@ -801,26 +776,25 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   // Tabla principal: TIPO + TALLA + CANT + SPEC. La columna TIPO solo
   // aparece si al menos un item tiene tipo (modo lista o modo tallas
   // post-PR91). Para legacy sin tipo, fallback al layout anterior.
-  const sortedItems = sortTallas(items);
-  const tablaPrendasHTML = sortedItems.length ? `
-    <table style="width:100%;border-collapse:collapse;font-size:12px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
+  const tablaPrendasHTML = items.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
-        ${algunoTieneTipo ? `<th style="padding:6px 10px;text-align:left;">Tipo de prenda</th>` : ""}
-        <th style="padding:6px 10px;text-align:center;width:70px;">Talla</th>
-        <th style="padding:6px 10px;text-align:center;width:60px;">Cant.</th>
-        <th style="padding:6px 10px;text-align:left;">Especificación / instrucción</th>
+        ${algunoTieneTipo ? `<th style="padding:9px 12px;text-align:left;">Tipo de prenda</th>` : ""}
+        <th style="padding:9px 12px;text-align:center;width:80px;">Talla</th>
+        <th style="padding:9px 12px;text-align:center;width:80px;">Cant.</th>
+        <th style="padding:9px 12px;text-align:left;">Especificación / instrucción</th>
       </tr></thead>
       <tbody>
-        ${sortedItems.map((it, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
-          ${algunoTieneTipo ? `<td style="padding:5px 10px;font-weight:800;font-size:13px;color:#2C1654;">${it.tipo || "—"}</td>` : ""}
-          <td style="padding:5px 10px;text-align:center;font-weight:900;font-size:14px;color:#E67E22;">${it.talla || "S/T"}</td>
-          <td style="padding:5px 10px;text-align:center;font-weight:900;font-size:15px;color:#1A5276;">${it.qty}</td>
-          <td style="padding:5px 10px;color:#444;font-size:12px;">${it.spec || ""}</td>
+        ${items.map((it, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
+          ${algunoTieneTipo ? `<td style="padding:9px 12px;font-weight:800;font-size:14px;color:#2C1654;">${it.tipo || "—"}</td>` : ""}
+          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:16px;color:#E67E22;">${it.talla || "S/T"}</td>
+          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:18px;color:#1A5276;">${it.qty}</td>
+          <td style="padding:9px 12px;color:#444;font-size:12px;">${it.spec || ""}</td>
         </tr>`).join("")}
         <tr style="background:#1A5276;color:#fff;font-weight:800;">
-          <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:6px 10px;text-align:right;font-size:11px;">TOTAL A CONFECCIONAR</td>
-          <td style="padding:6px 10px;text-align:center;font-size:15px;">${totalPzas}</td>
-          <td style="padding:6px 10px;font-size:11px;opacity:.85;">piezas</td>
+          <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:9px 12px;text-align:right;">TOTAL A CONFECCIONAR</td>
+          <td style="padding:9px 12px;text-align:center;font-size:18px;">${totalPzas}</td>
+          <td style="padding:9px 12px;font-size:11px;opacity:.85;">piezas</td>
         </tr>
       </tbody>
     </table>` : tallasTxt ? `<div style="font-size:14px;color:#E67E22;font-weight:700;margin-top:6px;">📦 ${tallasTxt}</div>` : `<div style="color:#aaa;font-style:italic;">(sin prendas especificadas)</div>`;
@@ -833,14 +807,13 @@ export async function imprimirProduccion(p, todosPedidos = []) {
     </div>` : "";
   const diagramaURL = diagramaCamisaPNG(p.disenos, { ancho: 280, alto: 320 });
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
-  const waTextProd = mensajeWA(p, false);
   const w = nuevaVentanaImpresion(tituloProd);
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${tituloProd}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:13px;}
-    @media print{body{padding:16px 24px;}.no-print{display:none!important;}@page{margin:14mm;size:letter;}}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:24px 30px;font-size:13px;}
+    @media print{body{padding:12px 16px;}.no-print{display:none!important;}@page{margin:8mm;size:A4;}}
     table{border-collapse:collapse;width:100%;}
     .sec{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid currentColor;padding-bottom:3px;margin:14px 0 9px;}
     .ficha{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;}
@@ -854,19 +827,14 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   </style></head><body>
 
   <div class="no-print" style="margin-bottom:16px;">
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;">
-      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 6px;border-radius:9px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">📤 Enviar por WA</button>
-      <button onclick="_print()" style="padding:11px 6px;border-radius:9px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">🖨️ PDF</button>
-      <button onclick="window.close()" style="padding:11px 6px;border-radius:9px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:13px;cursor:pointer;">✕ Cerrar</button>
+    <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
+      💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloProd}.pdf</strong>
     </div>
-    <div style="font-size:11px;color:#999;text-align:center;margin-top:7px;">El texto se copia al portapapeles al enviar — pegalo en el chat de WA.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
   </div>
-  <script>
-  const _waMsg = ${JSON.stringify(waTextProd)};
-  async function enviarPorWA() {
-    await window.parent.__shareWithPDF__(document.title, _waMsg);
-  }
-  </script>
 
   <!-- ENCABEZADO: taller + N° + entrega + QR -->
   <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1A5276;padding-bottom:10px;margin-bottom:14px;gap:14px;">
@@ -1161,8 +1129,8 @@ export function exportarPedidoPDF(pedido, tipo) {
   if (tipo === "confeccion") {
     imprimirRecibo(pedido, true);
   } else {
-    const idStrTmp = tipo === "bordado" ? "BORD-" + String(pedido.id).padStart(3, "0") : "CUEL-" + String(pedido.id).padStart(3, "0");
-    const w = nuevaVentanaImpresion(idStrTmp + "_" + (pedido.cliente || "").replace(/\s+/g, "-").slice(0, 30));
+    const tituloExport = nombrePDF(tipo === "bordado" ? "Bordado" : "Cuello", pedido.id, pedido.cliente || "");
+    const w = nuevaVentanaImpresion(tituloExport);
     const pM = v => {
       const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
       return isNaN(n) ? 0 : n;
@@ -1175,8 +1143,8 @@ export function exportarPedidoPDF(pedido, tipo) {
     <title>Pedido ${idStr}</title>
     <style>
       *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:32px 42px;font-size:13px}
-      @media print{body{padding:16px 24px}.no-print{display:none!important}@page{margin:14mm;size:letter}}
+      body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px}
+      @media print{body{padding:14px 20px}.no-print{display:none!important}@page{margin:10mm;size:A4}}
       .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid ${color}}
       .logo{font-size:22px;font-weight:900;color:${color};font-family:Georgia,serif}
       .id{font-size:28px;font-weight:900;color:${color};font-family:monospace}
