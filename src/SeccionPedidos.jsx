@@ -294,7 +294,7 @@ function FilaPedido({
   const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
   const dias = diasPara(p.fechaEntrega);
   const urgent =
-    dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(p.estatus);
+    dias !== null && dias <= 2 && !["Entregado", "Cancelado", "Cotización"].includes(p.estatus);
   const esCFp = p.tipoDocumento === "Crédito Fiscal (pendiente datos)";
   const tallasR = resumenTallas(p);
   const itemsP = itemsResumen(p);
@@ -440,7 +440,7 @@ function FilaPedido({
               {urgent ? "⚠️ " : ""}
               {p.fechaEntrega}
             </div>
-            {dias !== null && !["Entregado", "Cancelado"].includes(p.estatus) && (
+            {dias !== null && !["Entregado", "Cancelado", "Cotización"].includes(p.estatus) && (
               <div
                 style={{
                   fontSize: 10,

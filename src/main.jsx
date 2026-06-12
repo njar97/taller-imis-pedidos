@@ -651,7 +651,7 @@ function App() {
   const diasPara = f => f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null;
   const vencidosSinArchivar = useMemo(() => pedidos.filter(p => {
     if (p.esCotizacion) return false;
-    if (["Entregado", "Cancelado", "Listo", "Archivado"].includes(p.estatus)) return false;
+    if (["Entregado", "Cancelado", "Listo", "Archivado", "Cotización"].includes(p.estatus)) return false;
     const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
     if (saldo > 0) return false;
     const d = diasPara(p.fechaEntrega);
@@ -692,7 +692,7 @@ function App() {
   const conteos = useMemo(() => {
     const hoyStr = new Date().toISOString().split("T")[0];
     // Conteos excluyen cotizaciones (las cotizaciones tienen su propia sección)
-    const reales = pedidos.filter(p => !p.esCotizacion);
+    const reales = pedidos.filter(p => !p.esCotizacion && p.estatus !== "Cotización");
     const base = ESTATUS.reduce((a, e) => ({
       ...a,
       [e]: reales.filter(p => p.estatus === e).length,
@@ -708,7 +708,7 @@ function App() {
     const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
     return isNaN(n) ? 0 : n;
   };
-  const porCobrar = useMemo(() => [...pedidos.filter(p => p.estatus !== "Cancelado" && !p.esCotizacion), ...bordados.filter(b => b.estatus !== "Cancelado"), ...cuellos.filter(c => c.estatus !== "Cancelado")].reduce((s, p) => {
+  const porCobrar = useMemo(() => [...pedidos.filter(p => p.estatus !== "Cancelado" && p.estatus !== "Cotización" && !p.esCotizacion), ...bordados.filter(b => b.estatus !== "Cancelado"), ...cuellos.filter(c => c.estatus !== "Cancelado")].reduce((s, p) => {
     const precio = parseMonto(p.precio || p.precioT);
     const anticipo = parseMonto(p.anticipo);
     const saldo = precio - anticipo;
