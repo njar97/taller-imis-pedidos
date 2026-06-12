@@ -30,6 +30,35 @@ const MEDS_LISTA = [
   { k: "manga",   l: "Manga" },
 ];
 
+// Medidas específicas por subtipo de prenda (uniforme completo)
+const PANTALON_MEDS = [
+  { k: "cintura", l: "Cintura" }, { k: "base",    l: "Base" },
+  { k: "muslo",   l: "Muslo" },   { k: "largo",   l: "Largo" },
+  { k: "rodilla", l: "Rodilla" }, { k: "ruedo",   l: "Ruedo" },
+  { k: "tiroD",   l: "Tiro Del." },{ k: "tiroT",  l: "Tiro Tras." },
+];
+const CHAQUETA_MEDS = [
+  { k: "hombro",  l: "Hombro" },  { k: "pecho",   l: "Pecho" },
+  { k: "cintura", l: "Cintura" }, { k: "cadera",  l: "Cadera" },
+  { k: "largo",   l: "Largo" },   { k: "sisa",    l: "Sisa" },
+  { k: "manga",   l: "Manga" },   { k: "puno",    l: "Puño" },
+  { k: "cuello",  l: "Cuello" },  { k: "escote",  l: "Escote" },
+  { k: "costado", l: "Costado" }, { k: "alto",    l: "Alto" },
+  { k: "talle",   l: "Talle" },   { k: "sep",     l: "Sep." },
+  { k: "ctcodo",  l: "Ct.Codo" }, { k: "altcodo", l: "Alt.Codo" },
+];
+const QUEPI_MEDS = [
+  { k: "contornoCabeza", l: "Contorno cabeza" },
+];
+
+// ¿Algún valor real en medidas? Soporta estructura plana y anidada.
+const hasMeds = m => {
+  if (!m) return false;
+  return Object.values(m).some(v =>
+    v != null && (typeof v !== "object" ? !!v : Object.values(v).some(Boolean))
+  );
+};
+
 const MEDIDAS_PERS = ["Hombro", "Pecho", "Cintura", "Cadera", "Largo", "Manga"];
 
 // Estilos compartidos
@@ -165,6 +194,14 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
         p.id === id ? { ...p, medidas: { ...p.medidas, [k]: v } } : p
       )
     );
+  const editMedNested = (id, subtipo, k, v) =>
+    escribir(
+      lista.map(p =>
+        p.id === id
+          ? { ...p, medidas: { ...p.medidas, [subtipo]: { ...(p.medidas?.[subtipo] || {}), [k]: v } } }
+          : p
+      )
+    );
 
   // Operaciones sobre prendas individuales dentro de una persona
   const agregarPrenda = personaId =>
@@ -248,9 +285,9 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
     const idx = lista.findIndex(p => p.id === id);
     if (idx <= 0) return;
     const prev = lista[idx - 1].medidas || {};
-    if (!Object.values(prev).some(v => v)) return;
+    if (!hasMeds(prev)) return;
     escribir(
-      lista.map(p => (p.id === id ? { ...p, medidas: { ...prev } } : p))
+      lista.map(p => (p.id === id ? { ...p, medidas: JSON.parse(JSON.stringify(prev)) } : p))
     );
   };
 
@@ -268,9 +305,7 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
       if (!isNaN(px)) totalPrecio += px;
     });
   });
-  const conMedidas = lista.filter(p =>
-    Object.values(p.medidas || {}).some(v => v)
-  ).length;
+  const conMedidas = lista.filter(p => hasMeds(p.medidas)).length;
 
   // Aplica la primera talla con valor a todas las prendas sin talla.
   const igualarTalla = () => {
@@ -389,8 +424,8 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
         <div>
           {lista.map((p, i) => {
             const abierto = expandida === p.id;
-            const tieneMeds = Object.values(p.medidas || {}).some(v => v);
-            const hayPrev = i > 0 && Object.values(lista[i - 1].medidas || {}).some(v => v);
+            const tieneMeds = hasMeds(p.medidas);
+            const hayPrev = i > 0 && hasMeds(lista[i - 1].medidas);
             const totalPersona = (p.prendas || []).reduce(
               (s, pr) => s + (parseFloat(pr.precio || 0) || 0),
               0
@@ -692,56 +727,67 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
                       + Agregar prenda
                     </button>
 
-                    {/* Medidas */}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 6,
-                      }}
-                    >
+                    {/* Medidas — flat para prendas genéricas, nested para uniformes */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <label style={MLAB}>📐 Medidas (cm)</label>
                       {hayPrev && (
                         <button
                           onClick={() => copiarMedidas(p.id)}
-                          style={{
-                            fontSize: 10,
-                            color: "#1A5276",
-                            background: "#fff",
-                            border: "1px solid #1A5276",
-                            borderRadius: 6,
-                            padding: "3px 8px",
-                            cursor: "pointer",
-                            fontWeight: 700,
-                          }}
+                          style={{ fontSize: 10, color: "#1A5276", background: "#fff", border: "1px solid #1A5276", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontWeight: 700 }}
                         >
                           Copiar de persona anterior
                         </button>
                       )}
                     </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, 1fr)",
-                        gap: 8,
-                        marginBottom: 10,
-                      }}
-                    >
-                      {MEDS_LISTA.map(m => (
-                        <div key={m.k}>
-                          <label style={MLAB}>{m.l}</label>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            value={(p.medidas || {})[m.k] || ""}
-                            onChange={e => editMed(p.id, m.k, e.target.value)}
-                            placeholder="—"
-                            style={{ ...INP_LP, textAlign: "center", padding: "6px 4px" }}
-                          />
+                    {(() => {
+                      const ms = p.medidas || {};
+                      const tipos = (p.prendas || []).map(pr => (pr.tipo || "").toLowerCase());
+                      const showPant = tipos.some(t => /pantalon|pantalón/.test(t)) || !!ms.pantalon;
+                      const showChaq = tipos.some(t => /chaqueta|saco|blazer/.test(t)) || !!ms.chaqueta;
+                      const showQue  = tipos.some(t => /quepi|quepí/.test(t)) || !!ms.quepi;
+                      if (!showPant && !showChaq && !showQue) {
+                        return (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 10 }}>
+                            {MEDS_LISTA.map(m => (
+                              <div key={m.k}>
+                                <label style={MLAB}>{m.l}</label>
+                                <input type="number" inputMode="decimal"
+                                  value={ms[m.k] || ""}
+                                  onChange={e => editMed(p.id, m.k, e.target.value)}
+                                  placeholder="—"
+                                  style={{ ...INP_LP, textAlign: "center", padding: "6px 4px" }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+                      const seccion = (titulo, color, fields, subtipo) => (
+                        <div key={subtipo} style={{ marginBottom: 8 }}>
+                          <div style={{ ...MLAB, color, marginBottom: 3 }}>{titulo}</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "4px 6px" }}>
+                            {fields.map(m => (
+                              <div key={m.k}>
+                                <label style={{ ...MLAB, fontSize: 8 }}>{m.l}</label>
+                                <input type="number" inputMode="decimal"
+                                  value={(ms[subtipo] || {})[m.k] || ""}
+                                  onChange={e => editMedNested(p.id, subtipo, m.k, e.target.value)}
+                                  placeholder="—"
+                                  style={{ ...INP_LP, textAlign: "center", padding: "5px 2px", fontSize: 11 }}
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                      return (
+                        <div style={{ marginBottom: 10 }}>
+                          {showPant && seccion("Pantalón", "#7D6608", PANTALON_MEDS, "pantalon")}
+                          {showChaq && seccion("Chaqueta", "#6C3483", CHAQUETA_MEDS, "chaqueta")}
+                          {showQue  && seccion("Quepi",    "#1A5276", QUEPI_MEDS,    "quepi")}
+                        </div>
+                      );
+                    })()}
 
                     {/* Cargo + gafete */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
