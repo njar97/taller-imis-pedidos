@@ -836,6 +836,59 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   });
   const imagenes = (p.imagenes || []).filter(img => imgSrc(img));
   const meds = MEDIDAS_DEF.filter(m => (p.medidas || {})[m.k]);
+  // Medidas anidadas por persona (ej. uniforme: pantalon + chaqueta + quepi)
+  const PANT_MEDS = [
+    ["cintura","Cintura"],["base","Base"],["muslo","Muslo"],["largo","Largo"],
+    ["rodilla","Rodilla"],["ruedo","Ruedo"],["tiroD","Tiro D."],["tiroT","Tiro T."],
+  ];
+  const CHAQ_MEDS = [
+    ["hombro","Hombro"],["pecho","Pecho"],["cintura","Cintura"],["cadera","Cadera"],
+    ["largo","Largo"],["sisa","Sisa"],["manga","Manga"],["puno","Puño"],
+    ["cuello","Cuello"],["escote","Escote"],["costado","Costado"],["alto","Alto"],
+    ["talle","Talle"],["sep","Sep."],["ctcodo","Ct.Codo"],["altcodo","Alt.Codo"],
+  ];
+  const medsNestedHTML = (() => {
+    const pers = (p.personas || []).filter(per =>
+      per.medidas && (per.medidas.pantalon || per.medidas.chaqueta || per.medidas.quepi)
+    );
+    if (!pers.length) return "";
+    const renderGrid = (obj, fields) => {
+      if (!obj) return "";
+      const vals = fields.filter(([k]) => obj[k] != null && obj[k] !== "");
+      if (!vals.length) return "";
+      return `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px 8px;">${vals.map(([k, l]) =>
+        `<div style="display:flex;gap:3px;align-items:baseline;white-space:nowrap;">
+          <span style="font-size:8.5px;color:#999;">${l}:</span>
+          <span style="font-size:12px;font-weight:800;color:#1A5276;">${obj[k]}</span>
+        </div>`).join("")}</div>`;
+    };
+    const cards = pers.map((per, i) => {
+      const pant = renderGrid(per.medidas.pantalon, PANT_MEDS);
+      const chaq = renderGrid(per.medidas.chaqueta, CHAQ_MEDS);
+      const quep = per.medidas.quepi?.contornoCabeza != null
+        ? `<span style="font-size:12px;font-weight:800;color:#1A5276;">Contorno: ${per.medidas.quepi.contornoCabeza} cm</span>` : "";
+      const abonoBadge = per.medidas.abono != null
+        ? `<span style="font-size:9px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;padding:1px 5px;color:#2e7d32;font-weight:700;">Abono $${per.medidas.abono}</span>` : "";
+      return `<div style="border:1px solid #d0d8e4;border-radius:8px;padding:9px 11px;margin-bottom:8px;page-break-inside:avoid;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid #eee;">
+          <div>
+            <span style="font-size:12px;font-weight:900;color:#2C1654;">${i + 1}. ${per.nombre || "Sin nombre"}</span>
+            ${per.cargo ? `<span style="font-size:10px;color:#888;margin-left:6px;">${per.cargo}</span>` : ""}
+            ${per.gafete ? `<span style="font-size:9px;background:#eef;border-radius:4px;padding:1px 5px;margin-left:4px;color:#555;font-weight:700;">Gafete ${per.gafete}</span>` : ""}
+          </div>
+          ${abonoBadge}
+        </div>
+        ${pant ? `<div style="margin-bottom:5px;"><span style="font-size:9px;font-weight:800;color:#7D6608;text-transform:uppercase;letter-spacing:.5px;margin-right:6px;">Pantalón</span>${pant}</div>` : ""}
+        ${chaq ? `<div style="margin-bottom:5px;"><span style="font-size:9px;font-weight:800;color:#6C3483;text-transform:uppercase;letter-spacing:.5px;margin-right:6px;">Chaqueta</span>${chaq}</div>` : ""}
+        ${quep ? `<div><span style="font-size:9px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:.5px;margin-right:6px;">Quepi</span>${quep}</div>` : ""}
+      </div>`;
+    }).join("");
+    return `
+      <div style="font-size:11px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;margin-top:14px;margin-bottom:6px;">
+        📐 Medidas individuales
+      </div>
+      ${cards}`;
+  })();
   // itemsResumen agrupa por tipo+talla+precio+spec — soporta los 2 modos
   // (lista y tallas) y devuelve items con tipo, lo que necesitamos para
   // la tabla de producción.
@@ -993,6 +1046,9 @@ export async function imprimirProduccion(p, todosPedidos = []) {
     </div>
     ${tablaPorPersonaHTML(p, "#1A5276", false, true)}
   ` : ""}
+
+  <!-- MEDIDAS INDIVIDUALES POR PERSONA (uniforme multi-prenda) -->
+  ${medsNestedHTML}
 
   <!-- DESCRIPCIÓN E INSTRUCCIONES (fusionada con notas) -->
   ${p.descripcion || p.notas ? `
