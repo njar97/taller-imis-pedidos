@@ -534,6 +534,79 @@ function Personas({ personas }) {
           </tbody>
         </table>
       </div>
+      <MedidasPersonas personas={norm} />
+    </div>
+  );
+}
+
+const PANT_LABELS = [["cintura","Cintura"],["base","Base"],["muslo","Muslo"],["largo","Largo"],["rodilla","Rodilla"],["ruedo","Ruedo"],["tiroD","Tiro D."],["tiroT","Tiro T."]];
+const CHAQ_LABELS = [["hombro","Hombro"],["pecho","Pecho"],["cintura","Cintura"],["cadera","Cadera"],["largo","Largo"],["sisa","Sisa"],["manga","Manga"],["puno","Puño"],["cuello","Cuello"],["escote","Escote"],["costado","Costado"],["alto","Alto"],["talle","Talle"],["sep","Sep."],["ctcodo","Ct.Codo"],["altcodo","Alt.Codo"]];
+
+function MedidasPersonas({ personas }) {
+  const [abierto, setAbierto] = useState(null);
+  const conMeds = personas.filter(p => p.medidas && (p.medidas.pantalon || p.medidas.chaqueta || p.medidas.quepi));
+  if (!conMeds.length) return null;
+
+  const chipMed = (label, val) => (
+    <span key={label} style={{ display: "inline-flex", gap: 2, alignItems: "baseline", background: "#f0f4f8", borderRadius: 4, padding: "1px 5px", marginRight: 3, marginBottom: 3 }}>
+      <span style={{ fontSize: 8, color: "#999", fontWeight: 700 }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 800, color: "#1A5276" }}>{val}</span>
+    </span>
+  );
+
+  const renderSec = (titulo, color, labels, obj) => {
+    if (!obj) return null;
+    const vals = labels.filter(([k]) => obj[k] != null && obj[k] !== "");
+    if (!vals.length) return null;
+    return (
+      <div style={{ marginBottom: 6 }}>
+        <div style={{ fontSize: 9, fontWeight: 800, color, textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 3 }}>{titulo}</div>
+        <div style={{ display: "flex", flexWrap: "wrap" }}>
+          {vals.map(([k, l]) => chipMed(l, `${obj[k]} cm`))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 10, color: "#1A5276", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+        📐 Medidas por persona
+      </div>
+      {conMeds.map((p, i) => {
+        const open = abierto === p.id;
+        return (
+          <div key={p.id || i} style={{ border: "1px solid #e4ecf4", borderRadius: 8, marginBottom: 6, overflow: "hidden" }}>
+            <button
+              onClick={() => setAbierto(open ? null : p.id)}
+              style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: open ? "#EBF5FB" : "#f8fbff", border: "none", cursor: "pointer", textAlign: "left" }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 800, color: "#2C1654" }}>
+                {p.nombre || `Persona ${i + 1}`}
+                {p.cargo ? <span style={{ fontSize: 10, color: "#888", fontWeight: 400, marginLeft: 6 }}>{p.cargo}</span> : null}
+              </span>
+              <span style={{ fontSize: 10, color: "#1A5276" }}>{open ? "▲" : "▼"}</span>
+            </button>
+            {open && (
+              <div style={{ padding: "8px 10px", background: "#fff" }}>
+                {renderSec("Pantalón", "#7D6608", PANT_LABELS, p.medidas?.pantalon)}
+                {renderSec("Chaqueta", "#6C3483", CHAQ_LABELS, p.medidas?.chaqueta)}
+                {p.medidas?.quepi?.contornoCabeza != null && (
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#1A5276", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 3 }}>Quepi</div>
+                    {chipMed("Contorno", `${p.medidas.quepi.contornoCabeza} cm`)}
+                  </div>
+                )}
+                {p.medidas?.abono != null && (
+                  <div style={{ marginTop: 4, fontSize: 11, color: "#2e7d32", fontWeight: 700 }}>
+                    💵 Abono recibido: ${p.medidas.abono}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

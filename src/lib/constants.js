@@ -16,9 +16,10 @@ export const ANTHROPIC_KEY = "";
 // implementa como soft-delete (papelera), no como estatus. Los estados
 // viejos siguen mapeados en EC por si quedan pedidos legacy sin migrar.
 export const ESTATUS = [
-  "Corte", "Producción", "Listo", "Entregado",
+  "Cotización", "Corte", "Producción", "Listo", "Entregado",
 ];
 export const EC = {
+  "Cotización":     { bg: "#EDE7F6", fg: "#4527A0" },
   "Corte":          { bg: "#FFF9C4", fg: "#795548" },
   "Producción":     { bg: "#CCE5FF", fg: "#004085" },
   "Listo":          { bg: "#D4EDDA", fg: "#155724" },

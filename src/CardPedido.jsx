@@ -25,7 +25,7 @@ export default function CardPedido({
     ? Math.ceil((new Date(p.fechaEntrega + "T12:00:00") - new Date()) / 86400000)
     : null;
   const urgent =
-    dias !== null && dias <= 2 && !["Entregado", "Cancelado"].includes(p.estatus);
+    dias !== null && dias <= 2 && !["Entregado", "Cancelado", "Cotización"].includes(p.estatus);
 
   const [copiado, setCopiado] = useState(false);
   const handleWA = () => {
@@ -199,7 +199,7 @@ export default function CardPedido({
             {urgent ? "⚠️ " : "📌 "}
             {p.fechaEntrega}
           </span>
-          {dias !== null && !["Entregado", "Cancelado"].includes(p.estatus) && (
+          {dias !== null && !["Entregado", "Cancelado", "Cotización"].includes(p.estatus) && (
             <span
               className="num"
               style={{
