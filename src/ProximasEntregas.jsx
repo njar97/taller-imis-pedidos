@@ -30,7 +30,7 @@ export default function ProximasEntregas({ pedidos, diasPara, esAdmin, onVer, on
   };
 
   const proximos = pedidos
-    .filter(p => p.fechaEntrega && !["Entregado", "Cancelado"].includes(p.estatus))
+    .filter(p => p.fechaEntrega && !["Entregado", "Cancelado", "Cotización"].includes(p.estatus))
     .map(p => ({ ...p, dias: diasPara(p.fechaEntrega) }))
     .sort((a, b) => a.dias - b.dias)
     .slice(0, 6);
