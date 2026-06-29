@@ -106,9 +106,11 @@ export default function SidebarDesktop({
       className="sidebar-desktop"
       style={{
         width: 196,
+        height: "100vh",
         background: "#2C1654",
         flexDirection: "column",
         flexShrink: 0,
+        overflow: "hidden",
       }}
     >
       <div style={{ padding: "20px 16px 12px" }}>
@@ -163,7 +165,7 @@ export default function SidebarDesktop({
         )}
       </div>
 
-      <div style={{ flex: 1, padding: "4px 8px" }}>
+      <div style={{ flex: 1, padding: "4px 8px", overflowY: "auto", minHeight: 0 }}>
         {nav.map(item => {
           const bloqueado = item.pronto || (item.soloAdmin && !esAdmin);
           const activo = seccion === item.id;
@@ -181,7 +183,7 @@ export default function SidebarDesktop({
         })}
       </div>
 
-      <div style={{ padding: "12px 16px", borderTop: "1px solid #3a1f6b" }}>
+      <div style={{ padding: "12px 16px", borderTop: "1px solid #3a1f6b", overflowY: "auto", flexShrink: 0, maxHeight: "55vh" }}>
         <div style={{ fontSize: 10, color: "#666", marginBottom: 2 }}>
           Pedidos activos
         </div>
