@@ -143,8 +143,34 @@ export function construirPayloadPedido({ pedido, empresa, modo = "total", monto,
     tipoDte,
     correlativo: correlativo ?? null,
     referencia: `pedido-${pedido?.id ?? "x"}-${modo}`,
+    emisor: construirEmisor(empresa),
     receptor: construirReceptor(pedido),
     items,
+  };
+}
+
+// Bloque emisor (perfil fiscal público) que el bridge usa con make_emisor.
+// Es data pública; nada secreto. El certificado y las claves viven en el bridge.
+export function construirEmisor(empresa) {
+  return {
+    nit: (empresa.nit || "").replace(/-/g, ""),
+    nrc: (empresa.nrc || "").replace(/-/g, ""),
+    nombre: empresa.nombre || "",
+    nombreComercial: empresa.nombreComercial || null,
+    codActividad: empresa.codActividad || null,
+    descActividad: empresa.descActividad || null,
+    tipoEstablecimiento: empresa.tipoEstablecimiento || "02",
+    direccion: {
+      departamento: empresa.departamento || "06",
+      municipio: empresa.municipio || "14",
+      complemento: empresa.complementoDir || "",
+    },
+    telefono: empresa.telefono || null,
+    correo: empresa.correo || null,
+    codEstableMH: empresa.codEstableMH || "M001",
+    codEstable: empresa.codEstable || "0001",
+    codPuntoVentaMH: empresa.codPuntoVentaMH || "P001",
+    codPuntoVenta: empresa.codPuntoVenta || "0001",
   };
 }
 

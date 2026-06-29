@@ -161,6 +161,16 @@ describe("construirPayloadPedido", () => {
     expect(p.receptor.nit).toBe("06141101231024");
   });
 
+  it("incluye el bloque emisor (perfil fiscal) con NIT/NRC sin guiones y dirección", () => {
+    const emp = { ...empresa, nrc: "123456-7", nombre: "TALLER X", departamento: "06", municipio: "14", complementoDir: "Calle 1" };
+    const p = construirPayloadPedido({ pedido: pedidoFC, empresa: emp, modo: "total" });
+    expect(p.emisor.nit).toBe("06141119231024");
+    expect(p.emisor.nrc).toBe("1234567");
+    expect(p.emisor.nombre).toBe("TALLER X");
+    expect(p.emisor.direccion).toEqual({ departamento: "06", municipio: "14", complemento: "Calle 1" });
+    expect(p.emisor.tipoEstablecimiento).toBe("02");
+  });
+
   it("lanza si no hay empresa", () => {
     expect(() => construirPayloadPedido({ pedido: pedidoFC, empresa: null })).toThrow();
   });
