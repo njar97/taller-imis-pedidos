@@ -446,6 +446,41 @@ ${prodDesc ? `<div style="font-size:11.5px;font-weight:800;color:#111;margin-bot
 </div>
 
 <!-- TOTALES -->
+${p.cotizacionAbierta ? (() => {
+  const unitPrice = items.length > 0 && parseFloat(items[0].precio) > 0
+    ? parseFloat(items[0].precio)
+    : totPzas > 0 ? precioFinal / totPzas : precioFinal;
+  const unitSub = unitPrice / (1 + ivaRate);
+  const unitIva = unitPrice - unitSub;
+  return `
+<div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch;">
+  <div style="flex:1;border:2.5px solid #111;border-radius:6px;padding:12px 16px;background:#f9f9f9;">
+    <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px;">Precio por unidad</div>
+    <div style="font-size:32px;font-weight:900;color:#111;line-height:1;">$${unitPrice.toFixed(2)}</div>
+    <div style="font-size:10px;color:#666;margin-top:4px;">Subtotal: $${unitSub.toFixed(2)} + IVA: $${unitIva.toFixed(2)}</div>
+  </div>
+  <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:12px 16px;font-size:11.5px;">
+    <div class="sec-title" style="margin-bottom:6px;">Condiciones de pago</div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ccc;">
+      <span>Anticipo al confirmar <strong>(50%)</strong></span>
+      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0;">
+      <span>Saldo contra entrega <strong>(50%)</strong></span>
+      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u</span>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:6px;">
+      Total estimado (${totPzas} uds.): <strong>~$${precioFinal.toFixed(2)}</strong><br>
+      <em>Cantidad sujeta a confirmación de participantes</em>
+    </div>
+  </div>
+</div>
+${p.descripcion ? `
+<div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;margin-bottom:10px;">
+  <div class="sec-title">Observaciones</div>
+  <div style="color:#222;line-height:1.5;">${p.descripcion}</div>
+</div>` : ""}`;
+})() : `
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
   <table style="width:auto;min-width:240px;font-size:12px;border-collapse:collapse;border:1.5px solid #333;">
     <tr style="border-bottom:1px solid #ddd;">
@@ -463,7 +498,6 @@ ${prodDesc ? `<div style="font-size:11.5px;font-weight:800;color:#111;margin-bot
   </table>
 </div>
 
-<!-- DOS COLUMNAS: CONDICIONES DE PAGO + OBSERVACIONES -->
 <div style="display:flex;gap:12px;margin-bottom:10px;">
   <div style="flex:1;border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;">
     <div class="sec-title">Condiciones de pago</div>
@@ -481,7 +515,7 @@ ${prodDesc ? `<div style="font-size:11.5px;font-weight:800;color:#111;margin-bot
     <div class="sec-title">Observaciones</div>
     <div style="color:#222;line-height:1.5;">${p.descripcion}</div>
   </div>` : ""}
-</div>
+</div>`}
 
 <!-- CONDICIONES FORMALES (solo plazo/lugar, sin forma de pago — ya está arriba) -->
 ${(p.plazoEntrega || p.lugarEntrega) ? `

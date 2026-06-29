@@ -66,7 +66,14 @@ export default function ModalEnviarCotizacion({ cotizacion, onClose }) {
       <div>
         <div style={{ background: "#F3E5F5", padding: 10, borderRadius: 8, marginBottom: 12, fontSize: 12, color: "#6B2D8B" }}>
           <strong>Cotización:</strong> COT-{num} — {cotizacion.cliente}<br />
-          <strong>Total:</strong> ${parseFloat(cotizacion.precio || 0).toFixed(2)} (IVA incluido)
+          {cotizacion.cotizacionAbierta ? (() => {
+            const items = cotizacion.tallasItems || [];
+            const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+            const unit = items.length > 0 && parseFloat(items[0].precio) > 0
+              ? parseFloat(items[0].precio)
+              : qty > 0 ? parseFloat(cotizacion.precio || 0) / qty : parseFloat(cotizacion.precio || 0);
+            return <><strong>Precio por unidad:</strong> ${unit.toFixed(2)} · ~{qty} unidades estimadas</>;
+          })() : <><strong>Total:</strong> ${parseFloat(cotizacion.precio || 0).toFixed(2)} (IVA incluido)</>}
         </div>
 
         <label style={LBL}>Destinatarios (separados por coma)</label>

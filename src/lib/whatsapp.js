@@ -172,6 +172,23 @@ export function mensajeCotizacionWA(c) {
   if (c.nombreContacto) msg += ` · Attn. ${c.nombreContacto}`;
   msg += `\n\n`;
 
+  if (c.cotizacionAbierta) {
+    // Modo precio por unidad: la cantidad es estimada y el total puede cambiar.
+    const totQty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+    const unitPrice = items.length > 0 && parseFloat(items[0].precio) > 0
+      ? parseFloat(items[0].precio)
+      : totQty > 0 ? total / totQty : total;
+    const telaCorta = (c.tela || "").replace(/\s*\([^)]*\)/g, "").trim();
+    const prodDesc = [telaCorta, c.color].filter(Boolean).join(" · ");
+    if (c.tipoPrenda) msg += `*${c.tipoPrenda}*\n`;
+    if (prodDesc) msg += `_${prodDesc}_\n`;
+    msg += `\n💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
+    if (totQty > 0) msg += `_(~${totQty} uds. estimadas — el total depende de cuántos confirmen)_\n`;
+    if (c.notas) msg += `\n${c.notas}\n`;
+    msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
+    return msg;
+  }
+
   if (items.length) {
     msg += items.map(it => {
       const pr = parseFloat(it.precio) || 0;
@@ -183,7 +200,6 @@ export function mensajeCotizacionWA(c) {
         ? `*${it.qty}× ${tipo}* — $${pr.toFixed(2)} c/u${nota} = *$${sub.toFixed(2)}*`
         : `*${it.qty}× ${tipo}*`;
     }).join("\n");
-    // Si hay precios pieza suelta, los muestra en una sola línea
     const sueltos = items.filter(it => it.precioUnitario && parseFloat(it.precioUnitario) > parseFloat(it.precio || 0));
     if (sueltos.length) {
       msg += `\n_Menos de 12 uds: ${sueltos.map(it => `${it.tipo} $${parseFloat(it.precioUnitario).toFixed(2)}`).join(" · ")}_`;

@@ -183,6 +183,9 @@ export const PEDIDO_BASE = {
   //                    yardasPorPrenda, moModo, moCostoUnit, moHoras,
   //                    bordActivo, bordPunt, otros: [...] }] }
   desgloseEstimador: null,
+  // true → cotización de precio por unidad (cantidad abierta/estimada).
+  // Cambia el mensaje WA y el PDF para mostrar el precio/unidad en lugar del total fijo.
+  cotizacionAbierta: false,
 };
 
 // Agrupa los ítems del pedido por PRODUCTO + PRECIO UNITARIO para armar el
