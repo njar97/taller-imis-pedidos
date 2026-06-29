@@ -1035,7 +1035,7 @@ function App() {
             setConf={setConf}
             setVisor={setVisor}
             cambiarEstatus={cambiarEstatus}
-            onImprimir={(p) => imprimirPedido(p, esAdmin, pedidos)}
+            onImprimir={(p) => modoProduccion ? imprimirProduccion(p, pedidos) : imprimirPedido(p, esAdmin, pedidos)}
             onCopiarWA={(p) => copiarWA(p, esAdmin)}
             cotizaciones={pedidos.filter(p => p.esCotizacion)}
             onEditarCotizacion={(c) => setModal(c)}
