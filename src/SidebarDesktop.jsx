@@ -92,6 +92,8 @@ export default function SidebarDesktop({
   refrescar,
   refrescando,
   setRol,
+  modoProduccion,
+  setModoProduccion,
   onAbrirEstimador,
   sesionEmail,
   sesionUser,
@@ -225,7 +227,29 @@ export default function SidebarDesktop({
             )}
           </>
         )}
-        {onAbrirEstimador && (
+        {esAdmin && (
+          <button
+            onClick={() => setModoProduccion(v => !v)}
+            style={{
+              width: "100%",
+              padding: "8px",
+              borderRadius: 8,
+              border: `1px solid ${modoProduccion ? "#9B59B6" : "#1A5F5A"}`,
+              background: modoProduccion
+                ? "rgba(155,89,182,0.15)"
+                : "rgba(26,95,90,0.2)",
+              color: modoProduccion ? "#CE93D8" : "#4ecdc4",
+              cursor: "pointer",
+              fontSize: 11,
+              marginBottom: 6,
+              fontWeight: 700,
+              fontFamily: "inherit",
+            }}
+          >
+            {modoProduccion ? "🔐 Vista admin" : "✂️ Modo producción"}
+          </button>
+        )}
+        {onAbrirEstimador && !modoProduccion && (
           <button
             onClick={onAbrirEstimador}
             style={{

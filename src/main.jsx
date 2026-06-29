@@ -259,6 +259,7 @@ function App() {
   const [rol, setRol] = useState(null);
   const [sesionUser, setSesionUser] = useState(null); // { email, nombre, rol, modulos }
   const [seccion, setSec] = useState("pedidos");
+  const [modoProduccion, setModoProduccion] = useState(false);
 
   // Al cargar: recuperar sesion previa de localStorage. Si el rol es
   // admin, entra directo. Si es operario, mostramos PantallaLogin paso
@@ -750,7 +751,7 @@ function App() {
       <ConfirmDialog />
     </>
   );
-  const NAV = getNavItems(rol, esAdmin);
+  const NAV = (esAdmin && modoProduccion) ? getNavItems("operario", false) : getNavItems(rol, esAdmin);
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       {progreso && (
@@ -774,6 +775,8 @@ function App() {
         refrescar={refrescar}
         refrescando={refrescando}
         setRol={setRol}
+        modoProduccion={modoProduccion}
+        setModoProduccion={setModoProduccion}
         onAbrirEstimador={() => setModalEstimador(true)}
         sesionEmail={sesionUser?.email}
         sesionUser={sesionUser}
