@@ -14,6 +14,7 @@ import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { leerEquipos, guardarEquipo, borrarEquipo } from "./lib/capacidad.js";
 import { leerUsuarios, guardarUsuario, borrarUsuario } from "./lib/usuarios.js";
 import { leerInvitaciones, generarInvitacion, revocarInvitacion, estadoInvitacion, urlInvitacion } from "./lib/invitaciones.js";
+import ConfigFacturacion from "./ConfigFacturacion.jsx";
 
 const INP = {
   width: "100%", padding: "8px 10px", borderRadius: 8,
@@ -118,6 +119,9 @@ export default function SeccionConfig({ onConfigCambia, onVerComoOperario }) {
 
       {/* Capacidad instalada */}
       <CapacidadEditor />
+
+      {/* Facturación electrónica (integración con Tlacuilo) */}
+      <ConfigFacturacion />
 
       {/* Usuarios autorizados */}
       <UsuariosEditor />

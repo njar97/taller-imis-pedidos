@@ -18,8 +18,10 @@ import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
 import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
+import ModalFacturar from "./ModalFacturar.jsx";
+import { cargarFacturacion } from "./lib/dteContexto.js";
 import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
@@ -778,6 +780,16 @@ export default function DetallePedidoModal({
   const pCuel = cVinc ? parseFloat(cVinc.precioT || 0) : 0;
   const [verVersiones, setVerVersiones] = useState(false);
   const [edRec, setEdRec] = useState(() => leerSnapshotReciente(pedido.id));
+  // Facturación DTE (Tlacuilo). El contexto se carga perezoso; si no hay bridge
+  // o empresa emisora configurada, el botón "Facturar" simplemente no aparece.
+  const [ctxFact, setCtxFact] = useState(null);
+  const [facturando, setFacturando] = useState(false);
+  const [dtes, setDtes] = useState(pedido.dte_emitidos || pedido.dteEmitidos || []);
+  useEffect(() => {
+    if (!esAdmin) return;
+    cargarFacturacion().then(setCtxFact).catch(() => {});
+  }, [esAdmin]);
+  const puedeFacturar = !!(esAdmin && ctxFact?.bridgeUrl && ctxFact?.empresa);
 
   const deshacerEdicionReciente = async () => {
     if (!edRec || !edRec.snapshot) return;
@@ -861,6 +873,22 @@ export default function DetallePedidoModal({
       <InfoTabla pedido={pedido} esAdmin={esAdmin} />
       <EspecsDiseno disenos={pedido.disenos} />
       {esAdmin && <DetalleFactura pedido={pedido} />}
+      {esAdmin && dtes.length > 0 && (
+        <div style={{ marginTop: 8, border: "1px solid #E6F2EC", background: "#F5FAF7", borderRadius: 8, padding: 10 }}>
+          <div style={{ fontSize: 10, color: "#1B6B4A", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+            🧾 DTE emitidos
+          </div>
+          {dtes.map((d, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11, padding: "3px 0", borderTop: i ? "1px solid #eef5f1" : "none" }}>
+              <span style={{ color: "#333", fontWeight: 700 }}>
+                {d.tipo === "03" ? "CCF" : "FC"} · {d.modo}{d.prueba ? " (prueba)" : ""}
+              </span>
+              <span style={{ color: "#666", fontFamily: "monospace" }}>{d.numeroControl || d.sello || "—"}</span>
+              <span style={{ color: "#1B6B4A", fontWeight: 700 }}>{fmt$(d.monto)}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <Abonos abonos={pedido.abonos} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
       <Personas personas={pedido.personas} />
@@ -907,6 +935,14 @@ export default function DetallePedidoModal({
       {verVersiones && (
         <ModalVersionesPedido pedido={pedido} onClose={() => setVerVersiones(false)} />
       )}
+      {facturando && (
+        <ModalFacturar
+          pedido={{ ...pedido, dte_emitidos: dtes }}
+          contexto={ctxFact}
+          onClose={() => setFacturando(false)}
+          onFacturado={(info, lista) => setDtes(lista)}
+        />
+      )}
 
       <div
         style={{
@@ -923,6 +959,15 @@ export default function DetallePedidoModal({
         {/* Acciones secundarias: compartir / exportar (estilo outline para
             que no compitan con "Editar"). */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {puedeFacturar && (
+            <button
+              onClick={() => setFacturando(true)}
+              title="Emitir factura electrónica (DTE) por el emisor Tlacuilo"
+              style={btnExport("#1B6B4A")}
+            >
+              🧾 Facturar
+            </button>
+          )}
           {esAdmin && (
             <button
               onClick={onExportarPDF}
