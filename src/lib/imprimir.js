@@ -452,12 +452,18 @@ ${p.cotizacionAbierta ? (() => {
     : totPzas > 0 ? precioFinal / totPzas : precioFinal;
   const unitSub = unitPrice / (1 + ivaRate);
   const unitIva = unitPrice - unitSub;
+  const descPct = parseFloat(p.descuentoPct || 0);
+  const listPrice = descPct > 0 ? unitPrice / (1 - descPct / 100) : 0;
   return `
 <div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch;">
   <div style="flex:1;border:2.5px solid #111;border-radius:6px;padding:12px 16px;background:#f9f9f9;">
     <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px;">Precio por unidad</div>
+    ${descPct > 0 ? `
+    <div style="font-size:14px;color:#999;text-decoration:line-through;margin-bottom:2px;">$${listPrice.toFixed(2)}</div>
+    <div style="display:inline-block;background:#27AE60;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-bottom:4px;">${descPct}% DE DESCUENTO</div>` : ""}
     <div style="font-size:32px;font-weight:900;color:#111;line-height:1;">$${unitPrice.toFixed(2)}</div>
     <div style="font-size:10px;color:#666;margin-top:4px;">Subtotal: $${unitSub.toFixed(2)} + IVA: $${unitIva.toFixed(2)}</div>
+    ${descPct > 0 && p.descuentoMinUnidades ? `<div style="font-size:9.5px;color:#888;margin-top:4px;">Descuento aplica para pedidos de ${p.descuentoMinUnidades} o más unidades.</div>` : ""}
   </div>
   <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:12px 16px;font-size:11.5px;">
     <div class="sec-title" style="margin-bottom:6px;">Condiciones de pago</div>

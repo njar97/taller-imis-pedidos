@@ -182,7 +182,16 @@ export function mensajeCotizacionWA(c) {
     const prodDesc = [telaCorta, c.color].filter(Boolean).join(" · ");
     if (c.tipoPrenda) msg += `*${c.tipoPrenda}*\n`;
     if (prodDesc) msg += `_${prodDesc}_\n`;
-    msg += `\n💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
+    const descPct = parseFloat(c.descuentoPct || 0);
+    if (descPct > 0) {
+      const listPrice = unitPrice / (1 - descPct / 100);
+      msg += `\n~$${listPrice.toFixed(2)} por unidad~\n`;
+      msg += `🎉 *${descPct}% de descuento*\n`;
+      msg += `💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
+      if (c.descuentoMinUnidades) msg += `_(aplica para pedidos de ${c.descuentoMinUnidades} o más unidades)_\n`;
+    } else {
+      msg += `\n💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
+    }
     if (totQty > 0) msg += `_(~${totQty} uds. estimadas — el total depende de cuántos confirmen)_\n`;
     if (c.descripcion) msg += `\n${c.descripcion}\n`;
     msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;

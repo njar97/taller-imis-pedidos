@@ -186,6 +186,11 @@ export const PEDIDO_BASE = {
   // true → cotización de precio por unidad (cantidad abierta/estimada).
   // Cambia el mensaje WA y el PDF para mostrar el precio/unidad en lugar del total fijo.
   cotizacionAbierta: false,
+  // % de descuento a mostrar (precio de lista tachado + precio final ya descontado).
+  // El precio final NO cambia: el de lista se calcula como precio / (1 - pct/100).
+  descuentoPct: 0,
+  // Unidades mínimas para que aplique el descuento (solo texto informativo en WA/PDF).
+  descuentoMinUnidades: 0,
 };
 
 // Agrupa los ítems del pedido por PRODUCTO + PRECIO UNITARIO para armar el

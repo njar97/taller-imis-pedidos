@@ -1340,6 +1340,38 @@ export default function FormPedido({
             El WA y el PDF mostrarán el precio por unidad en vez del total estimado.
           </div>
         )}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={LBL}>% Descuento a mostrar</label>
+            <input
+              style={INP}
+              type="number"
+              min="0"
+              max="100"
+              value={f.descuentoPct || ""}
+              onChange={e => s("descuentoPct", e.target.value)}
+              placeholder="ej. 25"
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={LBL}>Mínimo de unidades</label>
+            <input
+              style={INP}
+              type="number"
+              min="0"
+              value={f.descuentoMinUnidades || ""}
+              onChange={e => s("descuentoMinUnidades", e.target.value)}
+              placeholder="ej. 12"
+            />
+          </div>
+        </div>
+        {parseFloat(f.descuentoPct || 0) > 0 && (
+          <div style={{ fontSize: 11, color: "#1A5276", marginTop: 4 }}>
+            El precio de lista se calcula automáticamente (precio final ÷ (1 − % descuento)) — el precio final del pedido NO cambia.
+            El WA y el PDF mostrarán el precio de lista tachado, el % de descuento y el precio final.
+          </div>
+        )}
       </SeccionOpcional>
 
       {/* ── Estatus ─────────────────────────────────── */}
