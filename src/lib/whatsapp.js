@@ -184,7 +184,7 @@ export function mensajeCotizacionWA(c) {
     if (prodDesc) msg += `_${prodDesc}_\n`;
     msg += `\n💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
     if (totQty > 0) msg += `_(~${totQty} uds. estimadas — el total depende de cuántos confirmen)_\n`;
-    if (c.notas) msg += `\n${c.notas}\n`;
+    if (c.descripcion) msg += `\n${c.descripcion}\n`;
     msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
     return msg;
   }
