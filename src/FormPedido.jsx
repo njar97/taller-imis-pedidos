@@ -1324,6 +1324,22 @@ export default function FormPedido({
             Editá los equipos desde <strong>⚙️ Configuración → Capacidad instalada</strong>.
           </div>
         )}
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: 10, background: "#EBF5FB", border: "1px solid #9EC7E8", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>
+          <input
+            type="checkbox"
+            checked={!!f.cotizacionAbierta}
+            onChange={e => s("cotizacionAbierta", e.target.checked)}
+            style={{ width: 18, height: 18, cursor: "pointer" }}
+          />
+          <span style={{ color: "#1A5276", fontWeight: 700 }}>📊 Cantidad abierta — mostrar precio por unidad</span>
+        </label>
+        {f.cotizacionAbierta && (
+          <div style={{ fontSize: 11, color: "#1A5276", marginTop: 4, paddingLeft: 26 }}>
+            Para uniformes grupales donde la cantidad exacta se define después (ej. COED, escuelas).
+            El WA y el PDF mostrarán el precio por unidad en vez del total estimado.
+          </div>
+        )}
       </SeccionOpcional>
 
       {/* ── Estatus ─────────────────────────────────── */}
