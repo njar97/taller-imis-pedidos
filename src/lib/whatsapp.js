@@ -184,7 +184,7 @@ export function mensajeCotizacionWA(c) {
     if (prodDesc) msg += `_${prodDesc}_\n`;
     const descPct = parseFloat(c.descuentoPct || 0);
     if (descPct > 0) {
-      const listPrice = unitPrice / (1 - descPct / 100);
+      const listPrice = Math.round(unitPrice / (1 - descPct / 100));
       msg += `\n~$${listPrice.toFixed(2)} por unidad~\n`;
       msg += `*$${unitPrice.toFixed(2)} por unidad* _(${descPct}% de descuento)_\n`;
       if (c.descuentoMinUnidades) msg += `_Aplica para pedidos de ${c.descuentoMinUnidades} o más unidades_\n`;

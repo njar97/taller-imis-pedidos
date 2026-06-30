@@ -453,7 +453,7 @@ ${p.cotizacionAbierta ? (() => {
   const unitSub = unitPrice / (1 + ivaRate);
   const unitIva = unitPrice - unitSub;
   const descPct = parseFloat(p.descuentoPct || 0);
-  const listPrice = descPct > 0 ? unitPrice / (1 - descPct / 100) : 0;
+  const listPrice = descPct > 0 ? Math.round(unitPrice / (1 - descPct / 100)) : 0;
   return `
 <div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch;">
   <div style="flex:1;border:2.5px solid #111;border-radius:6px;padding:12px 16px;background:#f9f9f9;">
