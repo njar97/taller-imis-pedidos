@@ -27,6 +27,7 @@ export default function SeccionCotizaciones({
   onImprimir,
   onComparar,
   onEditar,
+  onDuplicar,
   onReabrirEstimador,
   onVerVersiones,
   onEnviarEmail,
@@ -135,6 +136,7 @@ export default function SeccionCotizaciones({
               onEliminar={() => onEliminar(c)}
               onImprimir={() => onImprimir(c)}
               onEditar={() => onEditar(c)}
+              onDuplicar={() => onDuplicar && onDuplicar(c)}
               onReabrirEstimador={() => onReabrirEstimador && onReabrirEstimador(c)}
               onVerVersiones={() => onVerVersiones && onVerVersiones(c)}
               onEnviarEmail={() => onEnviarEmail && onEnviarEmail(c)}
@@ -147,7 +149,7 @@ export default function SeccionCotizaciones({
   );
 }
 
-function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
+function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onDuplicar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const menuRef = useRef(null);
   useEffect(() => {
@@ -288,6 +290,7 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
               border: "1.5px solid #e8e0f0", zIndex: 50, minWidth: 160, overflow: "hidden",
             }}>
               <MenuItem icon="✏️" label="Editar" onClick={() => { setMenuAbierto(false); onEditar(); }} />
+              <MenuItem icon="📋" label="Duplicar" onClick={() => { setMenuAbierto(false); onDuplicar(); }} color="#27AE60" />
               {tieneDesglose && <MenuItem icon="🔍" label="Estimador" onClick={() => { setMenuAbierto(false); onReabrirEstimador(); }} color="#E67E22" />}
               <MenuItem icon="🕗" label="Versiones" onClick={() => { setMenuAbierto(false); onVerVersiones(); }} color="#888" />
               <div style={{ height: 1, background: "#f0e8f8", margin: "2px 0" }} />

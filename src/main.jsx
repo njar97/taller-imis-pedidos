@@ -939,6 +939,25 @@ function App() {
               w.document.close();
             }}
             onEditar={(c) => setModal(c)}
+            onDuplicar={(c) => {
+              // Copia limpia para volver a cotizar lo mismo con otras
+              // cantidades/ajustes: sin id (FormPedido asigna uno nuevo),
+              // fecha y vencimiento renovados, sin cobros/avance heredados.
+              // Las imágenes de referencia SÍ se conservan — normalmente
+              // es la misma prenda, solo cambia la cantidad.
+              const { id: _x, dias: _y, ...resto } = c;
+              const copia = {
+                ...resto,
+                esCotizacion: true,
+                fecha: new Date().toISOString().split("T")[0],
+                fechaInicio: "",
+                fechaEntrega: "",
+                anticipo: "",
+                abonos: [],
+              };
+              setSeedDuplicar(copia);
+              setModal("nuevo");
+            }}
             onReabrirEstimador={(c) => {
               setCotizacionEnEstimador(c);
               setModalEstimador(true);
