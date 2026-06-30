@@ -186,11 +186,10 @@ export function mensajeCotizacionWA(c) {
     if (descPct > 0) {
       const listPrice = unitPrice / (1 - descPct / 100);
       msg += `\n~$${listPrice.toFixed(2)} por unidad~\n`;
-      msg += `🎉 *${descPct}% de descuento*\n`;
-      msg += `💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
-      if (c.descuentoMinUnidades) msg += `_(aplica para pedidos de ${c.descuentoMinUnidades} o más unidades)_\n`;
+      msg += `*$${unitPrice.toFixed(2)} por unidad* _(${descPct}% de descuento)_\n`;
+      if (c.descuentoMinUnidades) msg += `_Aplica para pedidos de ${c.descuentoMinUnidades} o más unidades_\n`;
     } else {
-      msg += `\n💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
+      msg += `\n*$${unitPrice.toFixed(2)} por unidad*\n`;
     }
     if (totQty > 0) msg += `_(~${totQty} uds. estimadas — el total depende de cuántos confirmen)_\n`;
     if (c.descripcion) msg += `\n${c.descripcion}\n`;
