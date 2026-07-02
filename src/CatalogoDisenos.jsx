@@ -7,7 +7,8 @@
 //  - Picker (modal desde BordadoModal, prop onPick) — al elegir un diseño
 //    autollena puntadas/colores/mm y enlaza los archivos.
 
-import { dbDisenosLeer } from "./lib/db.js";
+import { dbDisenosLeer, dbDisenoGuardar, dbDisenoBorrar } from "./lib/db.js";
+import { pushToast } from "./lib/feedback.js";
 import { Modal } from "./lib/Modal.jsx";
 import { useEffect, useMemo, useState } from "react";
 
@@ -21,12 +22,13 @@ export function limpiarNombreDiseno(nombre) {
   return s.replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export default function CatalogoDisenos({ onPick, onClose }) {
+export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
   const [disenos, setDisenos] = useState(cacheDisenos || []);
   const [cargando, setCargando] = useState(!cacheDisenos);
   const [busq, setBusq] = useState("");
   const [cat, setCat] = useState("Todos");
   const [zoom, setZoom] = useState(null); // diseño en vista ampliada
+  const [verBorradores, setVerBorradores] = useState(false);
 
   useEffect(() => {
     if (cacheDisenos) return;
@@ -37,6 +39,31 @@ export default function CatalogoDisenos({ onPick, onClose }) {
     });
   }, []);
 
+  // Curación (admin): persiste el cambio y actualiza estado + cache
+  function actualizarDiseno(d, patch) {
+    const nuevo = { ...d, ...patch };
+    setDisenos(prev => {
+      const rows = prev.map(x => (x.id === d.id ? nuevo : x));
+      cacheDisenos = rows;
+      return rows;
+    });
+    if (zoom && zoom.id === d.id) setZoom(nuevo);
+    dbDisenoGuardar(nuevo);
+  }
+
+  function quitarDiseno(d) {
+    setDisenos(prev => {
+      const rows = prev.filter(x => x.id !== d.id);
+      cacheDisenos = rows;
+      return rows;
+    });
+    setZoom(null);
+    dbDisenoBorrar(d.id);
+    pushToast("Diseño quitado del catálogo (recuperable en BD)", "info");
+  }
+
+  const nBorradores = disenos.filter(d => d.esBorrador).length;
+
   const categorias = useMemo(() => {
     const set = new Set(disenos.map(d => d.categoria).filter(Boolean));
     return ["Todos", ...[...set].sort()];
@@ -45,6 +72,7 @@ export default function CatalogoDisenos({ onPick, onClose }) {
   const lista = useMemo(() => {
     const q = busq.toLowerCase();
     return disenos
+      .filter(d => (verBorradores ? d.esBorrador : !d.esBorrador))
       .filter(d => cat === "Todos" || d.categoria === cat)
       .filter(d => !q || d.nombre.toLowerCase().includes(q))
       .sort((a, b) => {
@@ -52,7 +80,7 @@ export default function CatalogoDisenos({ onPick, onClose }) {
         if (!!a.previewUrl !== !!b.previewUrl) return a.previewUrl ? -1 : 1;
         return a.nombre.localeCompare(b.nombre);
       });
-  }, [disenos, busq, cat]);
+  }, [disenos, busq, cat, verBorradores]);
 
   const esPicker = typeof onPick === "function";
 
@@ -86,6 +114,20 @@ export default function CatalogoDisenos({ onPick, onClose }) {
               </button>
             );
           })}
+          {nBorradores > 0 && (
+            <button
+              onClick={() => setVerBorradores(v => !v)}
+              style={{
+                padding: "5px 10px", borderRadius: 20, whiteSpace: "nowrap", cursor: "pointer",
+                border: verBorradores ? "1.5px solid #B8860B" : "1.5px dashed #ccc",
+                background: verBorradores ? "#B8860B" : "#fff",
+                color: verBorradores ? "#fff" : "#999",
+                fontWeight: verBorradores ? 700 : 500, fontSize: 11, fontFamily: "inherit",
+              }}
+            >
+              📝 Borradores <span style={{ opacity: 0.7 }}>{nBorradores}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -115,6 +157,8 @@ export default function CatalogoDisenos({ onPick, onClose }) {
                 onZoom={() => setZoom(d)}
               />
             ))}
+            {/* nota: la rotación se aplica con CSS — los PNG son cuadrados,
+                girar 90° no recorta nada */}
           </div>
         )}
       </div>
@@ -126,10 +170,17 @@ export default function CatalogoDisenos({ onPick, onClose }) {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20, cursor: "zoom-out" }}
         >
           {zoom.previewUrl && (
-            <img src={zoom.previewUrl} alt={zoom.nombre} style={{ maxWidth: "90vw", maxHeight: "65vh", background: "#fff", borderRadius: 12 }} />
+            <img
+              src={zoom.previewUrl}
+              alt={zoom.nombre}
+              style={{ maxWidth: "90vw", maxHeight: "60vh", background: "#fff", borderRadius: 12, transform: zoom.rotacion ? `rotate(${zoom.rotacion}deg)` : "none" }}
+            />
           )}
           <div style={{ background: "#fff", borderRadius: 12, padding: "12px 18px", marginTop: 12, maxWidth: 420, textAlign: "center" }}>
-            <div style={{ fontWeight: 800, color: "#1A5F5A", fontSize: 14 }}>{limpiarNombreDiseno(zoom.nombre)}</div>
+            <div style={{ fontWeight: 800, color: "#1A5F5A", fontSize: 14 }}>
+              {limpiarNombreDiseno(zoom.nombre)}
+              {zoom.esBorrador && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, color: "#B8860B", background: "#FFF8E1", borderRadius: 5, padding: "2px 6px", verticalAlign: "middle" }}>BORRADOR</span>}
+            </div>
             <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
               {zoom.puntadas ? zoom.puntadas.toLocaleString() + " puntadas" : "Sin datos de puntadas"}
               {zoom.anchoMm ? ` · ${zoom.anchoMm}×${zoom.altoMm} mm` : ""}
@@ -148,6 +199,31 @@ export default function CatalogoDisenos({ onPick, onClose }) {
                 </button>
               )}
             </div>
+            {/* ── Curación (solo admin) ── */}
+            {esAdmin && !esPicker && (
+              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, flexWrap: "wrap", borderTop: "1px solid #f0f0f0", paddingTop: 10 }} onClick={e => e.stopPropagation()}>
+                {zoom.previewUrl && (
+                  <button
+                    onClick={() => actualizarDiseno(zoom, { rotacion: ((zoom.rotacion || 0) + 90) % 360 })}
+                    style={{ padding: "6px 12px", borderRadius: 7, border: "1.5px solid #e0e0e0", background: "#fff", color: "#555", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit" }}
+                  >
+                    ↻ Girar 90°
+                  </button>
+                )}
+                <button
+                  onClick={() => actualizarDiseno(zoom, { esBorrador: !zoom.esBorrador })}
+                  style={{ padding: "6px 12px", borderRadius: 7, border: "1.5px solid " + (zoom.esBorrador ? "#28A745" : "#B8860B66"), background: zoom.esBorrador ? "#F1FFF4" : "#FFF8E1", color: zoom.esBorrador ? "#155724" : "#B8860B", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit" }}
+                >
+                  {zoom.esBorrador ? "✓ Marcar oficial" : "📝 Marcar borrador"}
+                </button>
+                <button
+                  onClick={() => quitarDiseno(zoom)}
+                  style={{ padding: "6px 12px", borderRadius: 7, border: "1.5px solid #fdd", background: "#fff", color: "#E63946", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "inherit" }}
+                >
+                  🗑 Quitar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -170,10 +246,15 @@ function CardDiseno({ d, esPicker, onPick, onZoom }) {
     <div style={{ background: "#fff", border: "1.5px solid #eee", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div
         onClick={onZoom}
-        style={{ height: 120, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-in", borderBottom: "1px solid #f2f2f2" }}
+        style={{ height: 120, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-in", borderBottom: "1px solid #f2f2f2", position: "relative" }}
       >
+        {d.esBorrador && (
+          <span style={{ position: "absolute", top: 5, left: 5, fontSize: 8, fontWeight: 800, color: "#B8860B", background: "#FFF8E1", border: "1px solid #B8860B44", borderRadius: 5, padding: "2px 5px", zIndex: 1 }}>
+            BORRADOR
+          </span>
+        )}
         {d.previewUrl ? (
-          <img src={d.previewUrl} alt={d.nombre} loading="lazy" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+          <img src={d.previewUrl} alt={d.nombre} loading="lazy" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", transform: d.rotacion ? `rotate(${d.rotacion}deg)` : "none" }} />
         ) : (
           <div style={{ textAlign: "center", color: "#ccc" }}>
             <div style={{ fontSize: 30 }}>🧵</div>

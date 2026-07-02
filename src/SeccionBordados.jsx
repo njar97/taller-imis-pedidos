@@ -960,7 +960,7 @@ export default function SeccionBordados({
       {/* ── Catálogo de diseños (vista alterna) ── */}
       {verCatalogo && (
         <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "#ccc" }}>Cargando catálogo…</div>}>
-          <CatalogoDisenos />
+          <CatalogoDisenos esAdmin={esAdmin} />
         </Suspense>
       )}
 
