@@ -186,6 +186,13 @@ export const dbBordPapelera  = () => leerPapelera("taller_bordados");
 export const dbBordRestaurar = id => restaurarPorId("taller_bordados", id);
 export const dbBordPurgar    = id => purgarPorId("taller_bordados", id);
 
+// ── Catálogo de diseños de bordado (solo lectura desde la app;
+//    se alimenta con el script de carga desde C:\Bordados_UDP) ──
+
+export const dbDisenosLeer   = () => leerTabla("taller_disenos");
+export const dbDisenoGuardar = d  => upsertTabla("taller_disenos", d);
+export const dbDisenoBorrar  = id => borrarPorId("taller_disenos", id);
+
 // ── Cuellos ──────────────────────────────────────────────────
 
 export const dbCuelLeer      = () => leerTabla("taller_cuellos");

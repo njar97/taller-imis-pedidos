@@ -14,7 +14,10 @@ import { subirArchivoSupabase, subirFotoSupabase } from "./supabaseStorage.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 
-import { useState, useRef } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
+
+// Catálogo de diseños — carga diferida, solo si se abre
+const CatalogoDisenos = lazy(() => import("./CatalogoDisenos.jsx"));
 
 const cargarLectorBordado = () => import("./leerBordado.js").then(m => m.leerMetadataBordado);
 
@@ -103,6 +106,29 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
   const [subiendoImg, setSubiendoImg] = useState(false);
   const [errSubida, setErrSubida] = useState("");
   const [busqD, setBusqD] = useState("");
+  const [showCatalogo, setShowCatalogo] = useState(false);
+
+  // Autollenar desde un diseño del catálogo (taller_disenos):
+  // metadata técnica + links a los archivos en Supabase Storage.
+  function usarDisenoCatalogo(d) {
+    import("./CatalogoDisenos.jsx").then(m => {
+      if (!f.diseño) set("diseño", m.limpiarNombreDiseno(d.nombre));
+    });
+    if (d.puntadas) set("puntadas", String(d.puntadas));
+    if (d.colores) set("numColores", String(d.colores));
+    if (d.anchoMm) set("anchoMm", String(d.anchoMm));
+    if (d.altoMm) set("altoMm", String(d.altoMm));
+    set("estadoDiseño", "Diseño listo");
+    if (d.archivoUrl) { set("linkDstUrl", d.archivoUrl); set("linkDstId", ""); }
+    if (d.archivoEmbUrl) {
+      set("linkDrive", d.archivoEmbUrl);
+      set("linkEmbDriveUrl", d.archivoEmbUrl);
+      set("linkEmbDriveId", "");
+    }
+    if (d.previewUrl && !f.imagenRefUrl) set("imagenRefUrl", d.previewUrl);
+    setShowCatalogo(false);
+    pushToast("📚 Diseño del catálogo aplicado" + (d.puntadas ? ": " + d.puntadas.toLocaleString() + " puntadas" : ""), "success");
+  }
 
   const embRef = useRef();
   const dstRef = useRef();
@@ -421,12 +447,20 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
         <div style={SEC("#1A5F5A")}>🪡 Diseño Wilcom</div>
         <div style={{ marginBottom: 10 }}>
           <label style={LBL}>🔍 ¿Ya existe este diseño?</label>
-          <input
-            style={{ ...INPS, marginBottom: 4 }}
-            value={busqD}
-            placeholder="Ej: COED, Logo empresa..."
-            onChange={e => setBusqD(e.target.value)}
-          />
+          <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+            <input
+              style={{ ...INPS, marginBottom: 0, flex: 1 }}
+              value={busqD}
+              placeholder="Ej: COED, Logo empresa..."
+              onChange={e => setBusqD(e.target.value)}
+            />
+            <button
+              onClick={() => setShowCatalogo(true)}
+              style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid #1A5F5A44", background: "#F0FFF8", color: "#1A5F5A", cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", fontFamily: "inherit", flexShrink: 0 }}
+            >
+              📚 Catálogo
+            </button>
+          </div>
           {resD.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {resD.map(b => (
@@ -806,6 +840,13 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
           </button>
         </div>
       </div>
+
+      {/* ── Picker del catálogo de diseños ── */}
+      {showCatalogo && (
+        <Suspense fallback={null}>
+          <CatalogoDisenos onPick={usarDisenoCatalogo} onClose={() => setShowCatalogo(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -829,6 +870,7 @@ export default function SeccionBordados({
   const [detalle, setDetalle] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [verVersionesId, setVerVersionesId] = useState(null);
+  const [verCatalogo, setVerCatalogo] = useState(false);
 
   const lista = bordados.filter(b => {
     const q = busq.toLowerCase();
@@ -902,6 +944,12 @@ export default function SeccionBordados({
           style={{ padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e0e0e0", fontSize: 13, outline: "none", flex: "1 1 120px", minWidth: 100, fontFamily: "inherit" }}
         />
         <button
+          onClick={() => setVerCatalogo(v => !v)}
+          style={{ padding: "9px 12px", borderRadius: 8, border: verCatalogo ? "none" : "1.5px solid #1A5F5A44", background: verCatalogo ? "#1A5F5A" : "#F0FFF8", color: verCatalogo ? "#fff" : "#1A5F5A", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}
+        >
+          {verCatalogo ? "🪡 Pedidos" : "📚 Catálogo"}
+        </button>
+        <button
           onClick={() => setModal("nuevo")}
           style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "#1A5F5A", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}
         >
@@ -909,6 +957,15 @@ export default function SeccionBordados({
         </button>
       </div>
 
+      {/* ── Catálogo de diseños (vista alterna) ── */}
+      {verCatalogo && (
+        <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "#ccc" }}>Cargando catálogo…</div>}>
+          <CatalogoDisenos />
+        </Suspense>
+      )}
+
+      {!verCatalogo && (
+      <>
       {/* ── Tabs de filtro ── */}
       <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #eee", padding: "0 12px", overflowX: "auto", flexShrink: 0 }}>
         {["Todos", ...BORD_E].map(s => {
@@ -971,6 +1028,8 @@ export default function SeccionBordados({
           </>
         )}
       </div>
+      </>
+      )}
 
       {/* ── Modal de edición ── */}
       {modal && (
