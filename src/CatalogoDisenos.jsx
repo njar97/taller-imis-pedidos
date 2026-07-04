@@ -389,10 +389,11 @@ function VistaDuplicados({ grupos, onElegir, onDescartar, onZoom }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ fontSize: 11.5, color: "#856404", background: "#FFF8E1", border: "1px solid #B8860B33", borderRadius: 10, padding: "8px 12px", lineHeight: 1.45 }}>
-        Estos grupos miden lo mismo y tienen casi las mismas puntadas — casi seguro es el mismo
-        diseño digitalizado o subido más de una vez. <b>Compará las vistas previas</b> (tocá para ampliar)
-        y quedate con el mejor: los archivos del resto (.emb, .dgt) que le falten al elegido{" "}
-        <b>se le pasan automáticamente</b> antes de mandar los otros a la papelera.
+        Estos diseños <b>se ven iguales y miden lo mismo</b> — casi seguro es el mismo diseño
+        digitalizado o subido más de una vez. <b>Compará las vistas previas</b> (tocá para ampliar)
+        y quedate con el mejor: los archivos y datos del resto (.emb, .dgt, puntadas) que le falten
+        al elegido <b>se le pasan automáticamente</b> antes de mandar los otros a la papelera.
+        El mismo logo en tamaños distintos no se marca — esos se guardan a propósito.
       </div>
       {grupos.map(grupo => (
         <div key={grupo.map(d => d.id).join("-")} style={{ border: "1.5px solid #C0392B33", borderRadius: 12, background: "#fff", padding: 10 }}>
