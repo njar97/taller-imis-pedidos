@@ -2,20 +2,33 @@
 //
 // NO se basa en el nombre (los nombres de archivo no dicen mucho:
 // "LETRAS-CHEFA" vs "LETRAS-CHEFA-RECOVERED", "COPY-OF-...", "_v2").
-// Dos señales combinadas:
-//  1. Metadata: dos digitalizaciones del mismo arte comparten tamaño
-//     (±TOL_MM) y conteo de puntadas (±TOL_PT). El mismo logo en tamaños
-//     DISTINTOS no es duplicado — el DST no escala bien, así que los
-//     tamaños se guardan a propósito.
-//  2. Firma visual: la metadata sola da falsos positivos (diseños
-//     distintos con medidas/puntadas parecidas por casualidad), así que
-//     cada par candidato se verifica comparando las previews PNG — una
-//     grilla de densidad de tinta insensible a color y rotación.
+// La regla: el TAMAÑO filtra candidatos y la IMAGEN decide.
+//  - Mismo tamaño (±TOL_MM) + previews que se ven iguales → duplicado.
+//    Las puntadas NO gatean: una re-digitalización puede variar 20% de
+//    puntadas y seguir siendo el mismo diseño (ej. LOGO-UES vs RECOVERED).
+//  - El mismo logo en tamaños DISTINTOS no es duplicado — el DST no
+//    escala bien, así que los tamaños se guardan a propósito.
+//  - Diseños sin medidas (subidos sin metadata): decide solo la imagen,
+//    y únicamente si ambas previews son renders útiles (las fotos con
+//    fondo no generan firma).
+//  - Sin firma visual disponible, cae al criterio viejo de metadata
+//    (puntadas ±TOL_PT + tamaño).
 
 export const TOL_MM = 3; // tolerancia de tamaño en mm
 export const TOL_PT = 0.03; // tolerancia de puntadas (3% del mayor)
 
-/** ¿a y b parecen ser el mismo diseño digitalizado dos veces? */
+const conMedidas = d => d?.anchoMm != null && d?.altoMm != null;
+
+/** ¿a y b miden lo mismo (±TOL_MM)? Gate de candidatos. */
+export function tamanoSimilar(a, b) {
+  return (
+    conMedidas(a) && conMedidas(b) &&
+    Math.abs(a.anchoMm - b.anchoMm) <= TOL_MM &&
+    Math.abs(a.altoMm - b.altoMm) <= TOL_MM
+  );
+}
+
+/** Criterio de metadata pura — fallback cuando no hay firmas visuales. */
 export function sonSimilares(a, b) {
   if (!a?.puntadas || !b?.puntadas) return false;
   if (Math.abs(a.puntadas - b.puntadas) > Math.max(a.puntadas, b.puntadas) * TOL_PT) return false;
@@ -24,12 +37,33 @@ export function sonSimilares(a, b) {
   return true;
 }
 
+/**
+ * ¿Vale la pena comparar visualmente a a y b? Miden parecido, o a alguno
+ * le faltan las medidas (ahí la imagen es la única señal).
+ */
+export function parCandidato(a, b) {
+  if (conMedidas(a) && conMedidas(b)) return tamanoSimilar(a, b);
+  return true;
+}
+
+/** Decisión final sobre un par, con las firmas visuales disponibles. */
+function parDuplicado(a, b, firmas) {
+  const fa = firmas?.get(a.id), fb = firmas?.get(b.id);
+  if (conMedidas(a) && conMedidas(b)) {
+    if (!tamanoSimilar(a, b)) return false;
+    if (fa && fb) return similitudVisual(fa, fb) >= UMBRAL_VISUAL;
+    return sonSimilares(a, b);
+  }
+  // sin medidas: sin ambas firmas no hay señal suficiente
+  return !!(fa && fb) && similitudVisual(fa, fb) >= UMBRAL_VISUAL;
+}
+
 /** Clave estable de un par de ids (orden-independiente) para el set de descartados. */
 export const claveParDup = (idA, idB) => (idA < idB ? idA + "|" + idB : idB + "|" + idA);
 
 /**
- * Ids de diseños que caen en algún par candidato por metadata — para
- * saber a cuáles vale la pena calcularles la firma visual.
+ * Ids de diseños que caen en algún par candidato — para saber a cuáles
+ * vale la pena calcularles la firma visual.
  */
 export function idsCandidatos(disenos, ignorados = new Set()) {
   const ids = new Set();
@@ -37,7 +71,7 @@ export function idsCandidatos(disenos, ignorados = new Set()) {
     for (let j = i + 1; j < disenos.length; j++) {
       const a = disenos[i], b = disenos[j];
       if (ignorados.has(claveParDup(a.id, b.id))) continue;
-      if (sonSimilares(a, b)) { ids.add(a.id); ids.add(b.id); }
+      if (parCandidato(a, b)) { ids.add(a.id); ids.add(b.id); }
     }
   }
   return ids;
@@ -45,10 +79,9 @@ export function idsCandidatos(disenos, ignorados = new Set()) {
 
 /**
  * Agrupa diseños que parecen duplicados entre sí (union-find sobre los
- * pares similares). `ignorados` es un Set de claves de pares que el admin
- * ya marcó como "no son duplicados". Si se pasa `firmas` (Map id →
- * firma visual), un par solo se agrupa si además las previews se parecen
- * — sin firma de alguno de los dos, se mantiene el criterio de metadata.
+ * pares que pasan `parDuplicado`). `ignorados` es un Set de claves de
+ * pares que el admin ya marcó como "no son duplicados"; `firmas` es un
+ * Map id → firma visual (ver firmaVisual).
  * @returns {Array<Array>} grupos de 2+ diseños, mayores primero
  */
 export function detectarDuplicados(disenos, ignorados = new Set(), firmas = null) {
@@ -66,10 +99,7 @@ export function detectarDuplicados(disenos, ignorados = new Set(), firmas = null
     for (let j = i + 1; j < disenos.length; j++) {
       const a = disenos[i], b = disenos[j];
       if (ignorados.has(claveParDup(a.id, b.id))) continue;
-      if (!sonSimilares(a, b)) continue;
-      const fa = firmas?.get(a.id), fb = firmas?.get(b.id);
-      if (fa && fb && similitudVisual(fa, fb) < UMBRAL_VISUAL) continue;
-      padre.set(find(a.id), find(b.id));
+      if (parDuplicado(a, b, firmas)) padre.set(find(a.id), find(b.id));
     }
   }
 
@@ -101,6 +131,11 @@ export function fusionarEnGanador(ganador, perdedores) {
     if (!out.archivoDgtUrl && p.archivoDgtUrl) out.archivoDgtUrl = p.archivoDgtUrl;
     if (!out.previewUrl && p.previewUrl) out.previewUrl = p.previewUrl;
     if (!out.colores && p.colores) out.colores = p.colores;
+    if (!out.puntadas && p.puntadas) out.puntadas = p.puntadas;
+    if (out.anchoMm == null && p.anchoMm != null) {
+      out.anchoMm = p.anchoMm;
+      out.altoMm = p.altoMm;
+    }
   }
   return out;
 }
@@ -188,13 +223,14 @@ export async function firmaVisual(url) {
 
     // mapa binario de tinta + bounding box
     const tinta = new Uint8Array(W * W);
-    let x0 = W, y0 = W, x1 = -1, y1 = -1;
+    let nTinta = 0, x0 = W, y0 = W, x1 = -1, y1 = -1;
     for (let y = 0; y < W; y++) {
       for (let x = 0; x < W; x++) {
         const i4 = (y * W + x) * 4;
         const lum = 0.299 * px[i4] + 0.587 * px[i4 + 1] + 0.114 * px[i4 + 2];
         if (px[i4 + 3] > 40 && lum < 235) {
           tinta[y * W + x] = 1;
+          nTinta++;
           if (x < x0) x0 = x;
           if (x > x1) x1 = x;
           if (y < y0) y0 = y;
@@ -203,6 +239,10 @@ export async function firmaVisual(url) {
       }
     }
     if (x1 < 0) return null; // preview en blanco
+    // >60% de tinta = foto con fondo (subida desde la app), no un render
+    // de bordado sobre blanco — la firma saldría un bloque sólido que
+    // coincide con cualquier cosa (medido: fotos 80-100%, renders 12-31%)
+    if (nTinta / (W * W) > 0.6) return null;
 
     // densidad promedio por celda, normalizada al bbox
     const bw = x1 - x0 + 1, bh = y1 - y0 + 1;

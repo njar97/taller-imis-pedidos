@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   sonSimilares,
+  tamanoSimilar,
+  parCandidato,
   claveParDup,
   detectarDuplicados,
   fusionarEnGanador,
@@ -39,6 +41,22 @@ describe("sonSimilares", () => {
   it("sin puntadas no hay señal → no similares", () => {
     expect(sonSimilares(d(1, null, 50, 61), d(2, 5000, 50, 61))).toBe(false);
     expect(sonSimilares(d(1, 0, 50, 61), d(2, 5000, 50, 61))).toBe(false);
+  });
+});
+
+describe("tamanoSimilar / parCandidato", () => {
+  it("mismo tamaño ±3mm → similar", () => {
+    expect(tamanoSimilar(d(1, 100, 92, 25), d(2, 200, 95, 25))).toBe(true);
+    expect(tamanoSimilar(d(1, 100, 92, 25), d(2, 200, 96, 25))).toBe(false);
+  });
+
+  it("sin medidas no hay tamaño que comparar", () => {
+    expect(tamanoSimilar(d(1, 100, null, null), d(2, 100, 50, 50))).toBe(false);
+  });
+
+  it("parCandidato: con medidas gatea por tamaño; sin medidas siempre es candidato", () => {
+    expect(parCandidato(d(1, 100, 50, 50), d(2, 100, 90, 90))).toBe(false);
+    expect(parCandidato(d(1, null, null, null), d(2, 100, 90, 90))).toBe(true);
   });
 });
 
@@ -151,6 +169,28 @@ describe("firma visual", () => {
     const firmas = new Map([[1, diagonal()]]); // b sin firma
     expect(detectarDuplicados([a, b], new Set(), firmas)).toHaveLength(1);
   });
+
+  it("re-digitalización: mismo tamaño y misma imagen agrupan aunque las puntadas difieran 20%", () => {
+    // caso real: LOGO-UES (10628pt) vs LOGO-UES-RECOVERED (11300pt), 72×90
+    const a = d(119, 10628, 72, 90);
+    const b = d(118, 11300, 72, 90);
+    const firmas = new Map([[119, diagonal()], [118, diagonal()]]);
+    expect(detectarDuplicados([a, b], new Set(), firmas)).toHaveLength(1);
+    // pero sin firmas, cae a metadata y el 6%+ de diferencia no agrupa
+    expect(detectarDuplicados([a, b])).toEqual([]);
+  });
+
+  it("diseños sin medidas: decide solo la imagen, y sin ambas firmas no agrupa", () => {
+    const nuevo = d(161, null, null, null); // subido sin metadata
+    const viejo = d(102, 11014, 78, 78);
+    const iguales = new Map([[161, diagonal()], [102, diagonal()]]);
+    expect(detectarDuplicados([nuevo, viejo], new Set(), iguales)).toHaveLength(1);
+    const distintas = new Map([[161, franjaHorizontal()], [102, diagonal()]]);
+    expect(detectarDuplicados([nuevo, viejo], new Set(), distintas)).toEqual([]);
+    // sin firma (ej. preview era una foto) no hay señal suficiente
+    const soloUna = new Map([[102, diagonal()]]);
+    expect(detectarDuplicados([nuevo, viejo], new Set(), soloUna)).toEqual([]);
+  });
 });
 
 describe("idsCandidatos", () => {
@@ -194,6 +234,13 @@ describe("fusionarEnGanador", () => {
       d(3, 100, 10, 10, { archivoEmbUrl: "p3.emb" }),
     ]);
     expect(out.archivoEmbUrl).toBe("p2.emb");
+  });
+
+  it("un ganador sin metadata hereda puntadas y medidas del perdedor", () => {
+    const out = fusionarEnGanador(d(161, null, null, null), [d(102, 11014, 78, 78)]);
+    expect(out.puntadas).toBe(11014);
+    expect(out.anchoMm).toBe(78);
+    expect(out.altoMm).toBe(78);
   });
 });
 
