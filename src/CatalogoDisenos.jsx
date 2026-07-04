@@ -8,12 +8,13 @@
 //    autollena puntadas/colores/mm y enlaza los archivos.
 
 import { dbDisenosLeer, dbDisenoGuardar, dbDisenoBorrar } from "./lib/db.js";
-import { detectarDuplicados, fusionarEnGanador, claveParDup, leerIgnorados, guardarIgnorados } from "./lib/duplicados.js";
+import { detectarDuplicados, fusionarEnGanador, claveParDup, leerIgnorados, guardarIgnorados, idsCandidatos, firmaVisual } from "./lib/duplicados.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { Modal } from "./lib/Modal.jsx";
 import { useEffect, useMemo, useState } from "react";
 
 let cacheDisenos = null; // cache en memoria por sesión — el catálogo cambia poco
+const cacheFirmas = new Map(); // previewUrl → Promise<firma visual>, por sesión
 
 export function limpiarNombreDiseno(nombre) {
   // "AGUILA_CORBATA-SALOMON_9959pt_59x76mm" → "Corbata Salomon"
@@ -67,10 +68,38 @@ export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
 
   const esPicker = typeof onPick === "function";
 
-  // ── Duplicados (admin): grupos con mismas medidas + puntadas ~iguales ──
+  // ── Duplicados (admin) ─────────────────────────────────────────
+  // Candidatos por metadata (medidas + puntadas ~iguales) verificados
+  // visualmente: la firma de cada preview se calcula async y el grupo
+  // solo se muestra si las previews de verdad se parecen. Sin firmas
+  // todavía (null) no se muestra nada — evita el flash de falsos
+  // positivos mientras cargan las imágenes.
+  const [firmasDup, setFirmasDup] = useState(null);
+
+  useEffect(() => {
+    if (!esAdmin || esPicker || !disenos.length) return;
+    let vivo = true;
+    (async () => {
+      const porId = new Map(disenos.map(d => [d.id, d]));
+      const ids = idsCandidatos(disenos, dupIgnorados);
+      const m = new Map();
+      await Promise.all(
+        [...ids].map(async id => {
+          const url = porId.get(id)?.previewUrl;
+          if (!url) return;
+          if (!cacheFirmas.has(url)) cacheFirmas.set(url, firmaVisual(url));
+          const f = await cacheFirmas.get(url);
+          if (f) m.set(id, f);
+        })
+      );
+      if (vivo) setFirmasDup(m);
+    })();
+    return () => { vivo = false; };
+  }, [disenos, dupIgnorados, esAdmin, esPicker]);
+
   const gruposDup = useMemo(
-    () => (esAdmin && !esPicker ? detectarDuplicados(disenos, dupIgnorados) : []),
-    [disenos, dupIgnorados, esAdmin]
+    () => (esAdmin && !esPicker && firmasDup ? detectarDuplicados(disenos, dupIgnorados, firmasDup) : []),
+    [disenos, dupIgnorados, firmasDup, esAdmin, esPicker]
   );
 
   async function elegirGanador(grupo, ganador) {
