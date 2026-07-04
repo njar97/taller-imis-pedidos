@@ -193,6 +193,11 @@ export const dbDisenosLeer   = () => leerTabla("taller_disenos");
 export const dbDisenoGuardar = d  => upsertTabla("taller_disenos", d);
 export const dbDisenoBorrar  = id => borrarPorId("taller_disenos", id);
 
+// ── Catálogo de diseños de tejido (cuellos/puños) — solo lectura desde
+//    la app; se alimenta desde D:\TEJIDOS con el pipeline de análisis .pds ──
+
+export const dbTejidosLeer   = () => leerTabla("taller_tejidos");
+
 // ── Cuellos ──────────────────────────────────────────────────
 
 export const dbCuelLeer      = () => leerTabla("taller_cuellos");

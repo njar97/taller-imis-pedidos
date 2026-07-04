@@ -12,7 +12,10 @@ import { subirArchivoSupabase } from "./supabaseStorage.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 
-import { useState, useRef } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
+
+// Catálogo de diseños — carga diferida, solo si se abre
+const CatalogoTejidos = lazy(() => import("./CatalogoTejidos.jsx"));
 
 const hoyC = () => new Date().toISOString().split("T")[0];
 const diasC = f => (f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null);
@@ -451,6 +454,7 @@ export default function SeccionCuellos({
   const [detalle, setDetalle] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [verVersionesId, setVerVersionesId] = useState(null);
+  const [verCatalogo, setVerCatalogo] = useState(false);
 
   const lista = cuellos.filter(c => {
     const q = busq.toLowerCase();
@@ -517,6 +521,12 @@ export default function SeccionCuellos({
           style={{ padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e0e0e0", fontSize: 13, outline: "none", flex: "1 1 120px", minWidth: 100, fontFamily: "inherit" }}
         />
         <button
+          onClick={() => setVerCatalogo(v => !v)}
+          style={{ padding: "9px 12px", borderRadius: 8, border: verCatalogo ? "none" : "1.5px solid #B85C0044", background: verCatalogo ? "#B85C00" : "#FFF4E6", color: verCatalogo ? "#fff" : "#B85C00", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}
+        >
+          {verCatalogo ? "🧶 Pedidos" : "📚 Catálogo"}
+        </button>
+        <button
           onClick={() => setModal("nuevo")}
           style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "#B85C00", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}
         >
@@ -524,6 +534,15 @@ export default function SeccionCuellos({
         </button>
       </div>
 
+      {/* ── Catálogo de diseños (vista alterna) ── */}
+      {verCatalogo && (
+        <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "#ccc" }}>Cargando catálogo…</div>}>
+          <CatalogoTejidos />
+        </Suspense>
+      )}
+
+      {!verCatalogo && (
+      <>
       {/* ── Tabs ── */}
       <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #eee", padding: "0 12px", overflowX: "auto", flexShrink: 0 }}>
         {["Todos", ...CUEL_E].map(s => {
@@ -563,7 +582,7 @@ export default function SeccionCuellos({
           <div style={{ textAlign: "center", padding: 60, color: "#ccc" }}>
             <div style={{ fontSize: 44, marginBottom: 10 }}>🧶</div>
             <div style={{ fontSize: 15, fontWeight: 600, color: "#aaa" }}>No hay pedidos de cuellos</div>
-            <div style={{ fontSize: 13, color: "#bbb", marginTop: 4 }}>Módulo listo para cuando la tejedora esté confirmada</div>
+            <div style={{ fontSize: 13, color: "#bbb", marginTop: 4 }}>Registrá el primero con "🧶 Nuevo"</div>
           </div>
         ) : (
           <>
@@ -572,6 +591,8 @@ export default function SeccionCuellos({
           </>
         )}
       </div>
+      </>
+      )}
 
       {/* ── Modal de edición ── */}
       {modal && (
