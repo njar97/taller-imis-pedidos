@@ -8,7 +8,8 @@
 //    autollena puntadas/colores/mm y enlaza los archivos.
 
 import { dbDisenosLeer, dbDisenoGuardar, dbDisenoBorrar } from "./lib/db.js";
-import { pushToast } from "./lib/feedback.js";
+import { detectarDuplicados, fusionarEnGanador, claveParDup, leerIgnorados, guardarIgnorados } from "./lib/duplicados.js";
+import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { Modal } from "./lib/Modal.jsx";
 import { useEffect, useMemo, useState } from "react";
 
@@ -29,6 +30,8 @@ export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
   const [cat, setCat] = useState("Todos");
   const [zoom, setZoom] = useState(null); // diseño en vista ampliada
   const [verBorradores, setVerBorradores] = useState(false);
+  const [verDuplicados, setVerDuplicados] = useState(false);
+  const [dupIgnorados, setDupIgnorados] = useState(() => leerIgnorados());
 
   useEffect(() => {
     if (cacheDisenos) return;
@@ -62,6 +65,48 @@ export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
     pushToast("Diseño quitado del catálogo (recuperable en BD)", "info");
   }
 
+  const esPicker = typeof onPick === "function";
+
+  // ── Duplicados (admin): grupos con mismas medidas + puntadas ~iguales ──
+  const gruposDup = useMemo(
+    () => (esAdmin && !esPicker ? detectarDuplicados(disenos, dupIgnorados) : []),
+    [disenos, dupIgnorados, esAdmin]
+  );
+
+  async function elegirGanador(grupo, ganador) {
+    const perdedores = grupo.filter(x => x.id !== ganador.id);
+    const heredables = perdedores.some(
+      p => (!ganador.archivoEmbUrl && p.archivoEmbUrl) || (!ganador.archivoDgtUrl && p.archivoDgtUrl) || (!ganador.archivoUrl && p.archivoUrl)
+    );
+    const ok = await pushConfirm({
+      titulo: "Quedarse con este diseño",
+      msg:
+        `Los otros ${perdedores.length} diseño(s) del grupo pasan a la papelera.` +
+        (heredables ? ` Los archivos que tengan y a "${limpiarNombreDiseno(ganador.nombre)}" le falten (.emb, .dgt) se pasan al elegido.` : ""),
+      okLabel: "Sí, quedarme con este",
+    });
+    if (!ok) return;
+    const fusionado = fusionarEnGanador(ganador, perdedores);
+    const perdIds = new Set(perdedores.map(p => p.id));
+    setDisenos(prev => {
+      const rows = prev.filter(x => !perdIds.has(x.id)).map(x => (x.id === ganador.id ? fusionado : x));
+      cacheDisenos = rows;
+      return rows;
+    });
+    dbDisenoGuardar(fusionado);
+    perdedores.forEach(p => dbDisenoBorrar(p.id));
+    pushToast(`Duplicados resueltos — quedó "${limpiarNombreDiseno(ganador.nombre)}" (el resto, en papelera)`, "success");
+  }
+
+  function descartarGrupo(grupo) {
+    const nuevos = new Set(dupIgnorados);
+    for (let i = 0; i < grupo.length; i++)
+      for (let j = i + 1; j < grupo.length; j++) nuevos.add(claveParDup(grupo[i].id, grupo[j].id));
+    setDupIgnorados(nuevos);
+    guardarIgnorados(nuevos);
+    pushToast("Ok, no se vuelven a sugerir como duplicados (en este dispositivo)", "info");
+  }
+
   const nBorradores = disenos.filter(d => d.esBorrador).length;
 
   const categorias = useMemo(() => {
@@ -81,8 +126,6 @@ export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
         return a.nombre.localeCompare(b.nombre);
       });
   }, [disenos, busq, cat, verBorradores]);
-
-  const esPicker = typeof onPick === "function";
 
   const contenido = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
@@ -128,12 +171,33 @@ export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
               📝 Borradores <span style={{ opacity: 0.7 }}>{nBorradores}</span>
             </button>
           )}
+          {gruposDup.length > 0 && (
+            <button
+              onClick={() => setVerDuplicados(v => !v)}
+              style={{
+                padding: "5px 10px", borderRadius: 20, whiteSpace: "nowrap", cursor: "pointer",
+                border: verDuplicados ? "1.5px solid #C0392B" : "1.5px dashed #C0392B88",
+                background: verDuplicados ? "#C0392B" : "#fff",
+                color: verDuplicados ? "#fff" : "#C0392B",
+                fontWeight: 700, fontSize: 11, fontFamily: "inherit",
+              }}
+            >
+              ⚖️ Duplicados <span style={{ opacity: 0.7 }}>{gruposDup.length}</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── Grilla ── */}
       <div style={{ flex: 1, overflow: "auto", padding: esPicker ? "4px 0" : 12 }}>
-        {cargando ? (
+        {verDuplicados && gruposDup.length > 0 ? (
+          <VistaDuplicados
+            grupos={gruposDup}
+            onElegir={elegirGanador}
+            onDescartar={descartarGrupo}
+            onZoom={setZoom}
+          />
+        ) : cargando ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
             {[...Array(8)].map((_, i) => (
               <div key={i} className="skeleton" style={{ borderRadius: 12, height: 190 }} />
@@ -284,6 +348,92 @@ function CardDiseno({ d, esPicker, onPick, onZoom }) {
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Comparador de duplicados: grupos de diseños con mismas medidas y
+// puntadas casi iguales (misma digitalización subida más de una vez).
+// El nombre no decide nada — se compara la vista previa y la metadata.
+function VistaDuplicados({ grupos, onElegir, onDescartar, onZoom }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ fontSize: 11.5, color: "#856404", background: "#FFF8E1", border: "1px solid #B8860B33", borderRadius: 10, padding: "8px 12px", lineHeight: 1.45 }}>
+        Estos grupos miden lo mismo y tienen casi las mismas puntadas — casi seguro es el mismo
+        diseño digitalizado o subido más de una vez. <b>Compará las vistas previas</b> (tocá para ampliar)
+        y quedate con el mejor: los archivos del resto (.emb, .dgt) que le falten al elegido{" "}
+        <b>se le pasan automáticamente</b> antes de mandar los otros a la papelera.
+      </div>
+      {grupos.map(grupo => (
+        <div key={grupo.map(d => d.id).join("-")} style={{ border: "1.5px solid #C0392B33", borderRadius: 12, background: "#fff", padding: 10 }}>
+          <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+            {grupo.map(d => (
+              <CardCandidato key={d.id} d={d} onElegir={() => onElegir(grupo, d)} onZoom={() => onZoom(d)} />
+            ))}
+          </div>
+          <div style={{ textAlign: "right", marginTop: 6 }}>
+            <button
+              onClick={() => onDescartar(grupo)}
+              style={{ padding: "5px 12px", borderRadius: 7, border: "1.5px solid #e0e0e0", background: "#fff", color: "#777", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "inherit" }}
+            >
+              ↔️ No son duplicados
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CardCandidato({ d, onElegir, onZoom }) {
+  const archivos = [
+    ["." + (d.formato || "dst").toLowerCase(), !!d.archivoUrl],
+    [".emb", !!d.archivoEmbUrl],
+    [".dgt", !!d.archivoDgtUrl],
+  ];
+  return (
+    <div style={{ minWidth: 180, maxWidth: 210, flexShrink: 0, border: "1.5px solid #eee", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div
+        onClick={onZoom}
+        style={{ height: 140, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-in", borderBottom: "1px solid #f2f2f2", position: "relative" }}
+      >
+        {d.esBorrador && (
+          <span style={{ position: "absolute", top: 5, left: 5, fontSize: 8, fontWeight: 800, color: "#B8860B", background: "#FFF8E1", border: "1px solid #B8860B44", borderRadius: 5, padding: "2px 5px", zIndex: 1 }}>
+            BORRADOR
+          </span>
+        )}
+        {d.previewUrl ? (
+          <img src={d.previewUrl} alt={d.nombre} loading="lazy" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", transform: d.rotacion ? `rotate(${d.rotacion}deg)` : "none" }} />
+        ) : (
+          <div style={{ textAlign: "center", color: "#ccc" }}>
+            <div style={{ fontSize: 30 }}>🧵</div>
+            <div style={{ fontSize: 9, fontWeight: 700 }}>sin vista previa</div>
+          </div>
+        )}
+      </div>
+      <div style={{ padding: "7px 9px", display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#333", lineHeight: 1.2 }}>{limpiarNombreDiseno(d.nombre)}</div>
+        {/* nombre crudo: acá sí sirve — distingue "_v2", "RECOVERED", "COPY-OF" */}
+        <div style={{ fontSize: 8.5, color: "#bbb", wordBreak: "break-all", lineHeight: 1.2 }}>{d.nombre}</div>
+        <div style={{ fontSize: 10, color: "#777" }}>
+          {d.puntadas ? d.puntadas.toLocaleString() + " pt" : "—"}
+          {d.anchoMm ? ` · ${d.anchoMm}×${d.altoMm}mm` : ""}
+          {d.colores ? ` · ${d.colores} col` : ""}
+        </div>
+        <div style={{ fontSize: 9.5, display: "flex", gap: 6 }}>
+          {archivos.map(([ext, tiene]) => (
+            <span key={ext} style={{ color: tiene ? "#1A5F5A" : "#ccc", fontWeight: tiene ? 700 : 400 }}>
+              {ext} {tiene ? "✓" : "—"}
+            </span>
+          ))}
+        </div>
+        <button
+          onClick={onElegir}
+          style={{ marginTop: "auto", padding: "6px 8px", borderRadius: 7, border: "none", background: "#1A5F5A", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "inherit" }}
+        >
+          ✓ Quedarme con este
+        </button>
       </div>
     </div>
   );
