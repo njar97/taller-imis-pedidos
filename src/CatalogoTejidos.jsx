@@ -40,7 +40,10 @@ export default function CatalogoTejidos({ onClose }) {
   }, [tejidos, busq, cat]);
 
   const contenido = (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    // flex:1 + minHeight:0 en vez de height:100% — con height:100% el catálogo
+    // mide lo mismo que toda la sección y el header lo empuja fuera de pantalla:
+    // la última fila queda inalcanzable bajo el BottomNav.
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <div style={{ padding: "0 0 10px", background: "#fff", flexShrink: 0 }}>
         <input
           value={busq}
@@ -71,7 +74,7 @@ export default function CatalogoTejidos({ onClose }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
+      <div className="main-area" style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
         {cargando ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
             {[...Array(6)].map((_, i) => (

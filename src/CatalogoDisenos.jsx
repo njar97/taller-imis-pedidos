@@ -157,7 +157,9 @@ export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
   }, [disenos, busq, cat, verBorradores]);
 
   const contenido = (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    // flex:1 + minHeight:0 en vez de height:100% — con height:100% el catálogo
+    // mide lo mismo que toda la sección y el header lo empuja fuera de pantalla.
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
       {/* ── Buscador + chips de categoría ── */}
       <div style={{ padding: esPicker ? "0 0 10px" : "12px 16px", background: "#fff", flexShrink: 0 }}>
         <input
@@ -218,7 +220,7 @@ export default function CatalogoDisenos({ onPick, onClose, esAdmin }) {
       </div>
 
       {/* ── Grilla ── */}
-      <div style={{ flex: 1, overflow: "auto", padding: esPicker ? "4px 0" : 12 }}>
+      <div className={esPicker ? undefined : "main-area"} style={{ flex: 1, overflow: "auto", padding: esPicker ? "4px 0" : 12 }}>
         {verDuplicados && gruposDup.length > 0 ? (
           <VistaDuplicados
             grupos={gruposDup}
