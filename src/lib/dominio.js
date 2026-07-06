@@ -81,16 +81,19 @@ export const resumenTallas = p => {
 };
 
 // Orden lógico de tallas (mismo rank que SelectorTallas, duplicado para
-// no acoplar dominio.js a un componente). XS < S < M < L < XL < 2XL <
-// 3XL; números van por orden numérico natural.
-const _RANK_TALLAS = { XS: 1, S: 2, M: 3, L: 4, XL: 5, "2XL": 6, "3XL": 7 };
-const _rankTalla = t => {
+// no acoplar dominio.js a un componente). Orden natural pequeño → grande:
+// primero tallas numéricas (niño 6, 8, 12... y numéricas de camisa 34-48),
+// después letras XS < S < M < L < XL < XXL < XXXL. La app usa "XXL" pero
+// hay data legacy con "2XL" — se aceptan ambas.
+const _RANK_TALLAS = { XS: 1, S: 2, M: 3, L: 4, XL: 5, XXL: 6, "2XL": 6, XXXL: 7, "3XL": 7 };
+export const rankTalla = t => {
   if (!t) return 99999; // "sin talla" al final
-  if (_RANK_TALLAS[t]) return _RANK_TALLAS[t];
+  if (_RANK_TALLAS[t]) return 1000 + _RANK_TALLAS[t];
   const n = parseInt(t, 10);
-  if (Number.isFinite(n)) return 1000 + n;
+  if (Number.isFinite(n)) return n;
   return 9999;
 };
+const _rankTalla = rankTalla;
 
 // Items con tipo+talla+qty+precio listos para renderizar el resumen del
 // pedido (TallasChips). Resuelve la fuente correcta:

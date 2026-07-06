@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { itemsResumen, resumenTallas, sumarAbonos } from "./dominio.js";
+import { itemsResumen, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
@@ -928,7 +928,6 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   // la tabla de producción.
   const items = itemsResumen(p);
   const totalPzas = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
-  const algunoTieneTipo = items.some(it => it.tipo);
   const tallasTxt = resumenTallas(p);
   const medsHTML = meds.length ? `
     <div style="margin-bottom:14px;">
@@ -943,28 +942,59 @@ export async function imprimirProduccion(p, todosPedidos = []) {
   })()}
       </table>
     </div>` : "";
-  // Tabla principal: TIPO + TALLA + CANT + SPEC. La columna TIPO solo
-  // aparece si al menos un item tiene tipo (modo lista o modo tallas
-  // post-PR91). Para legacy sin tipo, fallback al layout anterior.
-  const tablaPrendasHTML = items.length ? `
+  // Tabla principal pensada para el taller (lectura mínima): ordenada y
+  // AGRUPADA por talla (la talla se imprime una sola vez, gigante, con el
+  // total de esa talla), icono por nivel escolar, y una casilla por pieza
+  // para ir tachando con lapicero lo que va saliendo — contar casillas es
+  // más fácil que leer números.
+  const ordenados = [...items].sort(
+    (a, b) =>
+      rankTalla(a.talla) - rankTalla(b.talla) ||
+      (a.tipo || "").localeCompare(b.tipo || "") ||
+      (a.spec || "").localeCompare(b.spec || "")
+  );
+  const grupos = [];
+  for (const it of ordenados) {
+    const talla = it.talla || "S/T";
+    const ult = grupos[grupos.length - 1];
+    if (ult && ult.talla === talla) ult.items.push(it);
+    else grupos.push({ talla, items: [it] });
+  }
+  const iconoSpec = s =>
+    /parvulari/i.test(s || "") ? "🧒 " :
+    /b[aá]sica/i.test(s || "") ? "🎒 " :
+    /bachillerato|t[eé]cnic/i.test(s || "") ? "🎓 " : "";
+  const casillas = n => {
+    const q = parseInt(n) || 0;
+    if (q <= 0 || q > 40) return "";
+    return `<span style="line-height:1.9;">${`<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #888;border-radius:3px;margin:0 3px 0 0;vertical-align:middle;"></span>`.repeat(q)}</span>`;
+  };
+  const tablaPrendasHTML = grupos.length ? `
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
-        ${algunoTieneTipo ? `<th style="padding:9px 12px;text-align:left;">Tipo de prenda</th>` : ""}
-        <th style="padding:9px 12px;text-align:center;width:80px;">Talla</th>
-        <th style="padding:9px 12px;text-align:center;width:80px;">Cant.</th>
-        <th style="padding:9px 12px;text-align:left;">Especificación / instrucción</th>
+        <th style="padding:9px 12px;text-align:center;width:90px;">TALLA</th>
+        <th style="padding:9px 12px;text-align:center;width:70px;">CUÁNTOS</th>
+        <th style="padding:9px 12px;text-align:left;">De qué es</th>
+        <th style="padding:9px 12px;text-align:left;width:180px;">Tache al terminar ✔</th>
       </tr></thead>
       <tbody>
-        ${items.map((it, i) => `<tr style="background:${i % 2 === 0 ? "#fff" : "#f4f9f4"};border-bottom:1px solid #eee;">
-          ${algunoTieneTipo ? `<td style="padding:9px 12px;font-weight:800;font-size:14px;color:#2C1654;">${it.tipo || "—"}</td>` : ""}
-          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:16px;color:#E67E22;">${it.talla || "S/T"}</td>
-          <td style="padding:9px 12px;text-align:center;font-weight:900;font-size:18px;color:#1A5276;">${it.qty}</td>
-          <td style="padding:9px 12px;color:#444;font-size:12px;">${it.spec || ""}</td>
-        </tr>`).join("")}
+        ${grupos.map((g, gi) => {
+          const totalTalla = g.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+          const bg = gi % 2 === 0 ? "#fff" : "#f4f9f4";
+          return g.items.map((it, i) => `
+            <tr style="background:${bg};${i === 0 ? "border-top:3px solid #1A5276;" : "border-top:1px dashed #ccd;"}">
+              ${i === 0 ? `<td rowspan="${g.items.length}" style="padding:10px 12px;text-align:center;vertical-align:middle;border-right:2px solid #1A5276;">
+                <div style="font-weight:900;font-size:30px;color:#E67E22;line-height:1;">${g.talla}</div>
+                ${g.items.length > 1 ? `<div style="font-size:10px;font-weight:800;color:#888;margin-top:3px;">${totalTalla} en total</div>` : ""}
+              </td>` : ""}
+              <td style="padding:10px 12px;text-align:center;font-weight:900;font-size:24px;color:#1A5276;">${it.qty}</td>
+              <td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${iconoSpec(it.spec)}${[it.tipo, it.spec].filter(Boolean).join(" — ") || "—"}</td>
+              <td style="padding:10px 12px;">${casillas(it.qty)}</td>
+            </tr>`).join("");
+        }).join("")}
         <tr style="background:#1A5276;color:#fff;font-weight:800;">
-          <td colspan="${algunoTieneTipo ? 2 : 1}" style="padding:9px 12px;text-align:right;">TOTAL A CONFECCIONAR</td>
-          <td style="padding:9px 12px;text-align:center;font-size:18px;">${totalPzas}</td>
-          <td style="padding:9px 12px;font-size:11px;opacity:.85;">piezas</td>
+          <td colspan="2" style="padding:11px 12px;text-align:right;font-size:14px;">TOTAL</td>
+          <td colspan="2" style="padding:11px 12px;font-size:22px;">${totalPzas} piezas</td>
         </tr>
       </tbody>
     </table>` : tallasTxt ? `<div style="font-size:14px;color:#E67E22;font-weight:700;margin-top:6px;">📦 ${tallasTxt}</div>` : `<div style="color:#aaa;font-style:italic;">(sin prendas especificadas)</div>`;
