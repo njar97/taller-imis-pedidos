@@ -5,6 +5,8 @@ import {
   tallasTexto,
   tallasItemsTexto,
   resumenTallas,
+  rankTalla,
+  itemsResumen,
   PEDIDO_BASE,
 } from "./dominio.js";
 
@@ -113,6 +115,34 @@ describe("resumenTallas", () => {
 
   it("devuelve string vacío sin datos", () => {
     expect(resumenTallas({})).toBe("");
+  });
+});
+
+describe("rankTalla", () => {
+  it("orden natural pequeño → grande: niño numérico antes que letras de adulto", () => {
+    const tallas = ["XXL", "S", "14", "6", "M", "12", "XL", "L", "8"];
+    tallas.sort((a, b) => rankTalla(a) - rankTalla(b));
+    expect(tallas).toEqual(["6", "8", "12", "14", "S", "M", "L", "XL", "XXL"]);
+  });
+
+  it("XXL y 2XL son la misma talla (legacy); sin talla va al final", () => {
+    expect(rankTalla("XXL")).toBe(rankTalla("2XL"));
+    expect(rankTalla("XXXL")).toBe(rankTalla("3XL"));
+    expect(rankTalla("XL")).toBeLessThan(rankTalla("XXL"));
+    expect(rankTalla("")).toBeGreaterThan(rankTalla("XXL"));
+  });
+
+  it("itemsResumen ordena por talla con el rank nuevo", () => {
+    const p = {
+      modoRegistro: "tallas",
+      tallasItems: [
+        { id: 1, talla: "XXL", qty: 3 },
+        { id: 2, talla: "6", qty: 3 },
+        { id: 3, talla: "S", qty: 4 },
+        { id: 4, talla: "14", qty: 2 },
+      ],
+    };
+    expect(itemsResumen(p).map(it => it.talla)).toEqual(["6", "14", "S", "XXL"]);
   });
 });
 
