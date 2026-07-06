@@ -769,6 +769,7 @@ export default function DetallePedidoModal({
   onCrearCuelloVinc,
   onWhatsApp,
   onExportarPDF,
+  onImprimirProduccion,
   onAbrirEdicion,
 }) {
   const bVinc = bordados.find(b => String(b.confRef) === String(pedido.id));
@@ -930,6 +931,15 @@ export default function DetallePedidoModal({
               style={btnExport("#1D6A3A")}
             >
               📄 PDF
+            </button>
+          )}
+          {esAdmin && onImprimirProduccion && (
+            <button
+              onClick={onImprimirProduccion}
+              title="Hoja de producción para el taller: tallas, cantidades y especificaciones, sin precios"
+              style={btnExport("#B7791F")}
+            >
+              🏭 Producción
             </button>
           )}
           {pedido.fechaEntrega && (

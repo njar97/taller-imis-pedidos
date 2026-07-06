@@ -1276,6 +1276,7 @@ function App() {
             pushToast("Mensaje de WhatsApp copiado — pegalo en el chat", "success");
           }}
           onExportarPDF={() => exportarPedidoPDF(detalle, "confeccion")}
+          onImprimirProduccion={() => imprimirProduccion(detalle, pedidos)}
           onAbrirEdicion={() => {
             setModal(detalle);
             setDet(null);
