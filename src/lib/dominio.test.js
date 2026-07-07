@@ -6,6 +6,7 @@ import {
   tallasItemsTexto,
   resumenTallas,
   rankTalla,
+  medidaCuelloParaTalla,
   itemsResumen,
   PEDIDO_BASE,
 } from "./dominio.js";
@@ -161,5 +162,38 @@ describe("PEDIDO_BASE", () => {
   it("medidas vienen inicializadas (no null)", () => {
     expect(typeof PEDIDO_BASE.medidas).toBe("object");
     expect(PEDIDO_BASE.medidas).not.toBeNull();
+  });
+});
+
+describe("medidaCuelloParaTalla", () => {
+  it("tallas de nino hasta la 12 usan cuello 12 pulgadas", () => {
+    expect(medidaCuelloParaTalla("6")).toBe('12"');
+    expect(medidaCuelloParaTalla("8")).toBe('12"');
+    expect(medidaCuelloParaTalla("10")).toBe('12"');
+    expect(medidaCuelloParaTalla(12)).toBe('12"');
+  });
+
+  it("14 y S usan 14; M-L usan 15; XL en adelante usan 17", () => {
+    expect(medidaCuelloParaTalla("14")).toBe('14"');
+    expect(medidaCuelloParaTalla("S")).toBe('14"');
+    expect(medidaCuelloParaTalla("XS")).toBe('14"');
+    expect(medidaCuelloParaTalla("M")).toBe('15"');
+    expect(medidaCuelloParaTalla("L")).toBe('15"');
+    expect(medidaCuelloParaTalla("XL")).toBe('17"');
+    expect(medidaCuelloParaTalla("XXL")).toBe('17"');
+    expect(medidaCuelloParaTalla("2XL")).toBe('17"');
+    expect(medidaCuelloParaTalla("4XL")).toBe('17"');
+  });
+
+  it("acepta minusculas y espacios", () => {
+    expect(medidaCuelloParaTalla(" m ")).toBe('15"');
+    expect(medidaCuelloParaTalla("xxl")).toBe('17"');
+  });
+
+  it("tallas que no mapean devuelven null (numericas de camisa, vacias, texto libre)", () => {
+    expect(medidaCuelloParaTalla("38")).toBe(null);
+    expect(medidaCuelloParaTalla("")).toBe(null);
+    expect(medidaCuelloParaTalla(null)).toBe(null);
+    expect(medidaCuelloParaTalla("Especial")).toBe(null);
   });
 });

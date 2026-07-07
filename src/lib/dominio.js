@@ -95,6 +95,28 @@ export const rankTalla = t => {
 };
 const _rankTalla = rankTalla;
 
+// Mapa talla de prenda → medida del cuello tejido (pulgadas), según la
+// tabla definida con el pedido COED El Sunza (jul 2026): el cuello 12"
+// cubre las tallas de niño hasta la 12, el 14" llega hasta la S, el 15"
+// viste M-L y el 17" de XL en adelante. Devuelve null para tallas que no
+// mapean (numéricas de camisa 34-48, texto libre) — esas se listan aparte
+// en la hoja de producción para resolverlas a mano.
+export const medidaCuelloParaTalla = t => {
+  if (t == null || t === "") return null;
+  const s = String(t).trim().toUpperCase();
+  // Solo tallas 100% numéricas ("2XL" parsearía como 2 con parseInt)
+  if (/^\d+$/.test(s)) {
+    const n = parseInt(s, 10);
+    if (n <= 12) return '12"';
+    if (n <= 14) return '14"';
+    return null;
+  }
+  if (s === "XS" || s === "S") return '14"';
+  if (s === "M" || s === "L") return '15"';
+  if (["XL", "XXL", "2XL", "XXXL", "3XL", "4XL"].includes(s)) return '17"';
+  return null;
+};
+
 // Items con tipo+talla+qty+precio listos para renderizar el resumen del
 // pedido (TallasChips). Resuelve la fuente correcta:
 //   - modoRegistro === "lista": agrupa personas[].prendas[] por tipo+talla+precio+spec.

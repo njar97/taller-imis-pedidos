@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { itemsResumen, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { itemsResumen, medidaCuelloParaTalla, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
@@ -1399,4 +1399,193 @@ export function exportarPedidoPDF(pedido, tipo) {
     </body></html>`);
     w.document.close();
   }
+}
+
+// ── Hoja de producción de TEJIDO (cuellos/puños) ─────────────────────────
+// Mismo espíritu que imprimirProduccion pero para un pedido de la sección
+// Cuellos: si el pedido referencia una confección (confRef), deriva las
+// cantidades por medida de cuello desde las tallas reales de ese pedido
+// (1 cuello y 2 puños por prenda — dos mangas), agrupadas con el mapa
+// medidaCuelloParaTalla. Sin confRef cae al total simple (cantidad).
+export function imprimirProduccionCuellos(c, pedidosConf = []) {
+  const num = String(c.id).padStart(3, "0");
+  const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
+  const conf = c.confRef
+    ? (pedidosConf || []).find(x => String(x.id) === String(c.confRef))
+    : null;
+  const items = conf ? itemsResumen(conf) : [];
+
+  // Piezas activas del pedido de tejido (legacy: solo tipoCuello ⇒ cuello)
+  const hayToggles = c.cuello || c.puno || c.banda;
+  const piezas = [
+    { key: "cuello", label: "CUELLOS", icon: "🔵", porPrenda: 1, activa: hayToggles ? !!(c.cuello || {}).activa : true },
+    { key: "puno",   label: "PUÑOS",   icon: "🟡", porPrenda: 2, activa: !!(c.puno || {}).activa },
+    { key: "banda",  label: "BANDAS",  icon: "🟢", porPrenda: 1, activa: !!(c.banda || {}).activa },
+  ].filter(z => z.activa);
+
+  // Agrupar prendas del pedido de confección por medida de cuello
+  const grupos = new Map(); // medida -> { prendas, tallas: Map(talla->qty) }
+  const sinMapa = [];
+  for (const it of items) {
+    const qty = parseInt(it.qty) || 0;
+    if (!qty) continue;
+    const medida = medidaCuelloParaTalla(it.talla);
+    if (!medida) { sinMapa.push(it); continue; }
+    if (!grupos.has(medida)) grupos.set(medida, { prendas: 0, tallas: new Map() });
+    const g = grupos.get(medida);
+    g.prendas += qty;
+    g.tallas.set(it.talla, (g.tallas.get(it.talla) || 0) + qty);
+  }
+  const medidasOrden = [...grupos.keys()].sort((a, b) => parseInt(a) - parseInt(b));
+  const totalPrendas = [...grupos.values()].reduce((s, g) => s + g.prendas, 0);
+
+  const casillas = n => {
+    const q = parseInt(n) || 0;
+    if (q <= 0 || q > 40) return "";
+    return `<span style="line-height:1.9;">${`<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #888;border-radius:3px;margin:0 3px 0 0;vertical-align:middle;"></span>`.repeat(q)}</span>`;
+  };
+
+  const filaMedida = (medida, g, gi) => {
+    const bg = gi % 2 === 0 ? "#fff" : "#fdf6ee";
+    const tallasTxt = [...g.tallas.entries()]
+      .sort((a, b) => rankTalla(a[0]) - rankTalla(b[0]))
+      .map(([t, q]) => `${t}(${q})`)
+      .join(" · ");
+    return piezas.map((z, i) => `
+      <tr style="background:${bg};${i === 0 ? "border-top:3px solid #B85C00;" : "border-top:1px dashed #e0cdb5;"}">
+        ${i === 0 ? `<td rowspan="${piezas.length}" style="padding:10px 12px;text-align:center;vertical-align:middle;border-right:2px solid #B85C00;">
+          <div style="font-weight:900;font-size:30px;color:#B85C00;line-height:1;">${medida}</div>
+          <div style="font-size:10px;font-weight:800;color:#888;margin-top:3px;">${g.prendas} prenda${g.prendas !== 1 ? "s" : ""}</div>
+          <div style="font-size:10px;color:#aaa;margin-top:2px;">${tallasTxt}</div>
+        </td>` : ""}
+        <td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;white-space:nowrap;">${z.icon} ${z.label}</td>
+        <td style="padding:10px 12px;text-align:center;font-weight:900;font-size:24px;color:#1A5276;">${g.prendas * z.porPrenda}</td>
+        <td style="padding:10px 12px;">${casillas(g.prendas * z.porPrenda)}</td>
+      </tr>`).join("");
+  };
+
+  const totalesPiezas = piezas.map(z => `${z.icon} ${totalPrendas * z.porPrenda} ${z.label.toLowerCase()}`).join(" · ");
+
+  const tablaHTML = medidasOrden.length ? `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #B85C00;border-radius:10px;overflow:hidden;">
+      <thead><tr style="background:#B85C00;color:#fff;">
+        <th style="padding:9px 12px;text-align:center;width:110px;">MEDIDA</th>
+        <th style="padding:9px 12px;text-align:left;width:110px;">Pieza</th>
+        <th style="padding:9px 12px;text-align:center;width:80px;">CUÁNTOS</th>
+        <th style="padding:9px 12px;text-align:left;">Tache al terminar ✔</th>
+      </tr></thead>
+      <tbody>
+        ${medidasOrden.map((m, gi) => filaMedida(m, grupos.get(m), gi)).join("")}
+        <tr style="background:#B85C00;color:#fff;font-weight:800;">
+          <td colspan="2" style="padding:11px 12px;text-align:right;font-size:14px;">TOTAL (${totalPrendas} prendas)</td>
+          <td colspan="2" style="padding:11px 12px;font-size:16px;">${totalesPiezas}</td>
+        </tr>
+      </tbody>
+    </table>
+    ${sinMapa.length ? `<div style="margin-top:8px;padding:8px 12px;background:#FFF8E1;border:1.5px solid #B8860B66;border-radius:8px;font-size:12px;color:#7D6608;">
+      ⚠️ Tallas sin medida de cuello asignada (resolver a mano): ${sinMapa.map(it => `${it.talla || "?"}(${it.qty})`).join(" · ")}
+    </div>` : ""}` : `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #B85C00;border-radius:10px;overflow:hidden;">
+      <thead><tr style="background:#B85C00;color:#fff;">
+        <th style="padding:9px 12px;text-align:left;width:140px;">Pieza</th>
+        <th style="padding:9px 12px;text-align:center;width:90px;">CUÁNTOS</th>
+        <th style="padding:9px 12px;text-align:left;">Tache al terminar ✔</th>
+      </tr></thead>
+      <tbody>
+        ${piezas.map((z, i) => {
+    const qty = (parseInt(c.cantidad) || 0) * z.porPrenda;
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#fdf6ee"};border-top:1px solid #e0cdb5;">
+            <td style="padding:10px 12px;font-weight:700;font-size:14px;">${z.icon} ${z.label}</td>
+            <td style="padding:10px 12px;text-align:center;font-weight:900;font-size:24px;color:#1A5276;">${qty}</td>
+            <td style="padding:10px 12px;">${casillas(qty)}</td>
+          </tr>`;
+  }).join("")}
+      </tbody>
+    </table>
+    <div style="margin-top:8px;padding:8px 12px;background:#FFF8E1;border:1.5px solid #B8860B66;border-radius:8px;font-size:12px;color:#7D6608;">
+      ⚠️ Este pedido no está enlazado a una confección — cantidades calculadas del total (${c.cantidad || 0} prendas). Enlazalo con "¿Viene de pedido de confección?" para el desglose por medida.
+    </div>`;
+
+  // Especificaciones de las piezas (largo/ancho/colores por pieza activa)
+  const specPiezas = piezas.map(z => {
+    const pz = c[z.key] || {};
+    const dims = [pz.largo && `largo ${pz.largo}cm`, pz.ancho && `ancho ${pz.ancho}cm`].filter(Boolean).join(" · ");
+    return `<div style="flex:1;min-width:150px;padding:8px 10px;background:#fdf6ee;border-radius:8px;border-left:3px solid #B85C00;">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">${z.icon} ${z.label}</div>
+      <div style="font-size:13px;font-weight:700;color:#222;">${dims || "—"}</div>
+      ${pz.colores ? `<div style="font-size:11px;color:#555;">🎨 ${pz.colores}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  const titulo = nombrePDF("ProduccionTejido", c.id, c.cliente);
+  const w = nuevaVentanaImpresion(titulo);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${titulo}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:24px 30px;font-size:13px;}
+    @media print{body{padding:12px 16px;}.no-print{display:none!important;}@page{margin:8mm;size:A4;}}
+    table{border-collapse:collapse;width:100%;}
+  </style></head><body>
+
+  <div class="no-print" style="margin-bottom:16px;">
+    <div style="background:#FFF4E6;border:1px solid #FFCC80;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#B85C00;">
+      💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${titulo}.pdf</strong>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#B85C00;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="window.parent.__closeFrame__ && window.parent.__closeFrame__()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #B85C00;padding-bottom:10px;margin-bottom:14px;gap:14px;">
+    <div style="flex:1;">
+      <div style="font-size:18px;font-weight:900;color:#B85C00;font-family:Georgia,serif;line-height:1;">${TALLER}</div>
+      <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-top:3px;">Hoja de Producción — Tejido de cuellos · ${fecha}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:30px;font-weight:900;color:#B85C00;line-height:1;">CUEL-${num}</div>
+      <div style="margin-top:4px;display:inline-block;padding:4px 12px;border-radius:20px;background:#FFF5E6;border:1.5px solid #E67E22;font-size:13px;font-weight:800;color:#E67E22;">
+        📌 Entregar: ${c.fechaEntrega || "⚠️ Sin fecha"}
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#fdf6ee;border-radius:10px;padding:12px 14px;border-left:4px solid #B85C00;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <div style="font-size:17px;font-weight:800;color:#5a3200;">👤 ${c.cliente || "—"}</div>
+      ${c.telefono ? `<div style="font-size:12px;color:#555;">📱 ${c.telefono}</div>` : ""}
+    </div>
+    ${conf ? `<div style="font-size:12px;color:#9B59B6;font-weight:700;margin-top:2px;">🔗 Derivado del pedido de confección N°${String(conf.id).padStart(4, "0")} — 1 cuello y 2 puños por prenda</div>` : ""}
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+    <div style="flex:1;min-width:150px;padding:8px 10px;background:#f9f9f9;border-radius:8px;border-left:3px solid #6D4C41;">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;">🧵 Material</div>
+      <div style="font-size:13px;font-weight:700;color:#222;">${[c.material, c.calibre].filter(Boolean).join(" · ") || "—"}</div>
+    </div>
+    ${specPiezas}
+  </div>
+
+  ${tablaHTML}
+
+  ${c.descripcion ? `<div style="margin-top:12px;padding:10px 12px;background:#f9f9f9;border-radius:8px;border-left:3px solid #9B59B6;">
+    <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">📝 Diseño / instrucciones</div>
+    <div style="font-size:13px;color:#333;">${c.descripcion}</div>
+  </div>` : ""}
+
+  <div style="margin-top:14px;">
+    <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
+      ✏️ Anotaciones durante la producción (muestras, ajustes de tensión, agujas)
+    </div>
+    <div style="border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;">
+      ${Array.from({ length: 5 }, () => `<div style="height:22px;border-bottom:1px solid #f0f0f0;"></div>`).join("")}
+    </div>
+  </div>
+  <script>
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+  </script>
+  </body></html>`);
+  w.document.close();
 }

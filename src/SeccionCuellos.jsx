@@ -9,6 +9,7 @@ import { useDebouncedCallback } from "./lib/hooks.js";
 import { Modal } from "./lib/Modal.jsx";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import { subirArchivoSupabase } from "./supabaseStorage.js";
+import { imprimirProduccionCuellos } from "./lib/imprimir.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 
@@ -619,6 +620,7 @@ export default function SeccionCuellos({
           }}
           onConfirmar={() => setConfirm(detalle.id)}
           exportarPedidoPDF={exportarPedidoPDF}
+          pedidosConf={pedidosConf}
         />
       )}
 
@@ -886,7 +888,7 @@ function CardsCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambia
   );
 }
 
-function DetalleCuello({ detalle, esAdmin, onClose, onEditar, onCambiarEstatus, onConfirmar, exportarPedidoPDF }) {
+function DetalleCuello({ detalle, esAdmin, onClose, onEditar, onCambiarEstatus, onConfirmar, exportarPedidoPDF, pedidosConf = [] }) {
   const abonado = (detalle.abonos || []).length > 0
     ? detalle.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0)
     : parseFloat(detalle.anticipo || 0);
@@ -995,6 +997,13 @@ function DetalleCuello({ detalle, esAdmin, onClose, onEditar, onCambiarEstatus, 
       )}
 
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+        <button
+          onClick={() => imprimirProduccionCuellos(detalle, pedidosConf)}
+          title="Hoja de producción para la tejedora: cuántos cuellos y puños por medida, derivado de las tallas del pedido de confección enlazado"
+          style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#B7791F", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12 }}
+        >
+          🏭 Producción
+        </button>
         {esAdmin && exportarPedidoPDF && (
           <button
             onClick={() => exportarPedidoPDF(detalle, "cuello")}
