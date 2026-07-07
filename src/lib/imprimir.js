@@ -5,6 +5,7 @@ import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { itemsResumen, medidaCuelloParaTalla, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
@@ -1407,13 +1408,27 @@ export function exportarPedidoPDF(pedido, tipo) {
 // cantidades por medida de cuello desde las tallas reales de ese pedido
 // (1 cuello y 2 puños por prenda — dos mangas), agrupadas con el mapa
 // medidaCuelloParaTalla. Sin confRef cae al total simple (cantidad).
-export function imprimirProduccionCuellos(c, pedidosConf = []) {
+export async function imprimirProduccionCuellos(c, pedidosConf = []) {
   const num = String(c.id).padStart(3, "0");
   const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
   const conf = c.confRef
     ? (pedidosConf || []).find(x => String(x.id) === String(c.confRef))
     : null;
   const items = conf ? itemsResumen(conf) : [];
+
+  // Catálogo de diseños de tejido — para avisar en la hoja qué medidas ya
+  // tienen diseño listo para la máquina y cuáles hay que crear en HxPDS.
+  // Si la consulta falla (sin red), la hoja sale igual pero sin el aviso.
+  let catalogoTejidos = [];
+  try {
+    catalogoTejidos = await dbTejidosLeer();
+  } catch { /* hoja sin info de catálogo */ }
+  const CAT_POR_PIEZA = { cuello: "Cuello", puno: "Puño", banda: "Banda" };
+  const disenosDe = (medida, piezaKey) =>
+    catalogoTejidos.filter(d =>
+      (d.talla || "").trim() === medida &&
+      (d.categoria || "") === CAT_POR_PIEZA[piezaKey]
+    );
 
   // Piezas activas del pedido de tejido (legacy: solo tipoCuello ⇒ cuello)
   const hayToggles = c.cuello || c.puno || c.banda;
@@ -1451,20 +1466,43 @@ export function imprimirProduccionCuellos(c, pedidosConf = []) {
       .sort((a, b) => rankTalla(a[0]) - rankTalla(b[0]))
       .map(([t, q]) => `${t}(${q})`)
       .join(" · ");
-    return piezas.map((z, i) => `
+    return piezas.map((z, i) => {
+      const ds = disenosDe(medida, z.key);
+      const disenoHTML = catalogoTejidos.length
+        ? (ds.length
+          ? `<div style="font-size:9px;color:#1D6A3A;font-weight:700;margin-top:2px;white-space:normal;">✓ ${ds.map(d => d.nombre).join(" · ")}</div>`
+          : `<div style="font-size:9px;color:#C0392B;font-weight:800;margin-top:2px;white-space:normal;">⚠️ SIN DISEÑO EN CATÁLOGO</div>`)
+        : "";
+      return `
       <tr style="background:${bg};${i === 0 ? "border-top:3px solid #B85C00;" : "border-top:1px dashed #e0cdb5;"}">
         ${i === 0 ? `<td rowspan="${piezas.length}" style="padding:10px 12px;text-align:center;vertical-align:middle;border-right:2px solid #B85C00;">
           <div style="font-weight:900;font-size:30px;color:#B85C00;line-height:1;">${medida}</div>
           <div style="font-size:10px;font-weight:800;color:#888;margin-top:3px;">${g.prendas} prenda${g.prendas !== 1 ? "s" : ""}</div>
           <div style="font-size:10px;color:#aaa;margin-top:2px;">${tallasTxt}</div>
         </td>` : ""}
-        <td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;white-space:nowrap;">${z.icon} ${z.label}</td>
+        <td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${z.icon} ${z.label}${disenoHTML}</td>
         <td style="padding:10px 12px;text-align:center;font-weight:900;font-size:24px;color:#1A5276;">${g.prendas * z.porPrenda}</td>
         <td style="padding:10px 12px;">${casillas(g.prendas * z.porPrenda)}</td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
   };
 
+  // Resumen de diseños faltantes (solo si pudimos leer el catálogo)
+  const faltantes = catalogoTejidos.length
+    ? medidasOrden.flatMap(m =>
+      piezas
+        .filter(z => z.key !== "banda" && disenosDe(m, z.key).length === 0)
+        .map(z => `${z.icon} ${CAT_POR_PIEZA[z.key]} ${m}`))
+    : [];
+
   const totalesPiezas = piezas.map(z => `${z.icon} ${totalPrendas * z.porPrenda} ${z.label.toLowerCase()}`).join(" · ");
+
+  const avisoFaltantes = faltantes.length ? `
+    <div style="margin-bottom:10px;padding:10px 14px;background:#FDECEA;border:2px solid #C0392B;border-radius:10px;">
+      <div style="font-size:12px;font-weight:900;color:#C0392B;">⚠️ ANTES DE TEJER — Faltan ${faltantes.length} diseño(s) en el catálogo:</div>
+      <div style="font-size:12px;color:#7B241C;font-weight:700;margin-top:3px;">${faltantes.join(" · ")}</div>
+      <div style="font-size:10px;color:#922B21;margin-top:3px;">Crearlos en HxPDS, compilar y probar con muestra antes de producir. Verificá también que la variante (grosor de líneas) del pedido exista — el catálogo puede tener la medida en otra variante.</div>
+    </div>` : "";
 
   const tablaHTML = medidasOrden.length ? `
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #B85C00;border-radius:10px;overflow:hidden;">
@@ -1567,6 +1605,7 @@ export function imprimirProduccionCuellos(c, pedidosConf = []) {
     ${specPiezas}
   </div>
 
+  ${avisoFaltantes}
   ${tablaHTML}
 
   ${c.descripcion ? `<div style="margin-top:12px;padding:10px 12px;background:#f9f9f9;border-radius:8px;border-left:3px solid #9B59B6;">
