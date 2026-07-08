@@ -117,6 +117,21 @@ export const medidaCuelloParaTalla = t => {
   return null;
 };
 
+// Agujas por pieza tejida, ESTANDARIZADAS para emparejar montajes de máquina.
+// El cambio de ancho (agujas) es lo caro en la rectilínea (botar tejido al
+// achicar, candado al agrandar); el largo (filas) es barato. Los puños son
+// rib y estiran, así que se ajustan para caer EN LAS MISMAS AGUJAS que un
+// cuello y tejer cuello+puño de distinta medida en un solo montaje.
+// Pares: 215 = cuello 14" + puños 15"/16" · 231 = cuello 15" + puño 17".
+// Cuellos mandan el número (rígidos); los puños ajustados validar con muestra
+// cosida antes de producir. Editable cuando cambien las medidas del catálogo.
+export const AGUJAS_TEJIDO = {
+  cuello: { '12"': 184, '14"': 215, '15"': 231, '16"': 248, '17"': 265 },
+  puno:   { '12"': 196, '14"': 196, '15"': 215, '16"': 215, '17"': 231 },
+};
+export const agujasTejido = (medida, pieza) =>
+  (AGUJAS_TEJIDO[pieza] || {})[medida] ?? null;
+
 // Items con tipo+talla+qty+precio listos para renderizar el resumen del
 // pedido (TallasChips). Resuelve la fuente correcta:
 //   - modoRegistro === "lista": agrupa personas[].prendas[] por tipo+talla+precio+spec.

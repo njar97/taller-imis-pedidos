@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { itemsResumen, medidaCuelloParaTalla, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { agujasTejido, itemsResumen, medidaCuelloParaTalla, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
@@ -1504,6 +1504,55 @@ export async function imprimirProduccionCuellos(c, pedidosConf = []) {
       <div style="font-size:10px;color:#922B21;margin-top:3px;">Crearlos en HxPDS, compilar y probar con muestra antes de producir. Verificá también que la variante (grosor de líneas) del pedido exista — el catálogo puede tener la medida en otra variante.</div>
     </div>` : "";
 
+  // ── Orden de MÁQUINA: agrupar piezas por AGUJAS (emparejando cuello+puño) ──
+  // El cambio de agujas es lo caro; tejiendo de menor a mayor agujas solo se
+  // agregan (candado), nunca se bota tejido. Cuando un cuello y un puño de
+  // distinta medida caen en las mismas agujas, se tejen en el mismo montaje.
+  const SINGULAR = { cuello: "Cuello", puno: "Puño", banda: "Banda" };
+  const montajes = new Map(); // agujas -> [{medida, icon, nombre, qty}]
+  for (const medida of medidasOrden) {
+    const g = grupos.get(medida);
+    for (const z of piezas) {
+      const ag = agujasTejido(medida, z.key);
+      if (!ag) continue; // banda u otra pieza sin agujas mapeadas
+      if (!montajes.has(ag)) montajes.set(ag, []);
+      montajes.get(ag).push({ medida, icon: z.icon, nombre: SINGULAR[z.key] || z.label, qty: g.prendas * z.porPrenda });
+    }
+  }
+  const agujasOrden = [...montajes.keys()].sort((a, b) => a - b);
+  const montajeHTML = agujasOrden.map((ag, idx) => {
+    const its = montajes.get(ag);
+    const totalPz = its.reduce((s, x) => s + x.qty, 0);
+    const esPar = new Set(its.map(x => x.nombre + x.medida)).size > 1;
+    const col = esPar ? "#1D6A3A" : "#B85C00";
+    const flecha = idx > 0
+      ? `<div style="text-align:center;color:#B85C00;font-size:11px;font-weight:800;margin:3px 0;">↓ +${ag - agujasOrden[idx - 1]} agujas (candado)</div>`
+      : "";
+    const filas = its.map(x => `
+      <tr>
+        <td style="padding:6px 12px;font-size:14px;font-weight:700;color:#333;">${x.icon} ${x.nombre} ${x.medida}</td>
+        <td style="padding:6px 12px;text-align:center;font-weight:900;font-size:20px;color:#1A5276;">×${x.qty}</td>
+        <td style="padding:6px 12px;">${casillas(x.qty)}</td>
+      </tr>`).join("");
+    return `${flecha}
+      <table style="width:100%;border-collapse:collapse;border:2.5px solid ${col};border-radius:10px;overflow:hidden;">
+        <thead><tr style="background:${col};color:#fff;">
+          <td style="padding:8px 12px;font-weight:900;font-size:20px;">${ag} <span style="font-size:12px;font-weight:700;">agujas</span></td>
+          <td colspan="2" style="padding:8px 12px;text-align:right;font-weight:800;font-size:12px;">${esPar ? "⭐ MISMO MONTAJE (cuello + puño) &nbsp;·&nbsp; " : ""}${totalPz} pieza${totalPz !== 1 ? "s" : ""}</td>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table>`;
+  }).join("");
+  const tablaMaquinaHTML = agujasOrden.length ? `
+    <div style="margin-top:16px;page-break-inside:avoid;">
+      <div style="font-size:13px;font-weight:900;color:#B85C00;border-bottom:2px solid #B85C00;padding-bottom:4px;margin-bottom:8px;">
+        🔧 ORDEN DE MÁQUINA — por agujas
+        <span style="font-weight:600;font-size:11px;color:#888;">· tejé de arriba a abajo: solo agregás agujas (candado), nunca botás tejido</span>
+      </div>
+      ${montajeHTML}
+      <div style="margin-top:6px;font-size:10px;color:#1D6A3A;font-weight:700;">⭐ Los bloques verdes tejen cuello y puño de distinta medida en el MISMO montaje — no cambiés agujas entre esas piezas.</div>
+    </div>` : "";
+
   const tablaHTML = medidasOrden.length ? `
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #B85C00;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#B85C00;color:#fff;">
@@ -1607,6 +1656,7 @@ export async function imprimirProduccionCuellos(c, pedidosConf = []) {
 
   ${avisoFaltantes}
   ${tablaHTML}
+  ${tablaMaquinaHTML}
 
   ${c.descripcion ? `<div style="margin-top:12px;padding:10px 12px;background:#f9f9f9;border-radius:8px;border-left:3px solid #9B59B6;">
     <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">📝 Diseño / instrucciones</div>
