@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { agujasTejido, itemsResumen, medidaCuelloParaTalla, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { agujasTejido, itemsResumen, medidaCuelloParaTalla, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
@@ -1466,13 +1466,20 @@ export async function imprimirProduccionCuellos(c, pedidosConf = []) {
       .sort((a, b) => rankTalla(a[0]) - rankTalla(b[0]))
       .map(([t, q]) => `${t}(${q})`)
       .join(" · ");
+    const pl = PLANTILLA_TEJIDO[medida];
     return piezas.map((z, i) => {
       const ds = disenosDe(medida, z.key);
-      const disenoHTML = catalogoTejidos.length
-        ? (ds.length
-          ? `<div style="font-size:9px;color:#1D6A3A;font-weight:700;margin-top:2px;white-space:normal;">✓ ${ds.map(d => d.nombre).join(" · ")}</div>`
-          : `<div style="font-size:9px;color:#C0392B;font-weight:800;margin-top:2px;white-space:normal;">⚠️ SIN DISEÑO EN CATÁLOGO</div>`)
-        : "";
+      // Diseño estipulado por la plantilla (autoritativo). Si el puño usa otra
+      // medida que el cuello (rib estira), se anota. Fallback al catálogo.
+      const codPlantilla = pl && (z.key === "cuello" ? pl.cuello : z.key === "puno" ? pl.puno : null);
+      const notaPuno = pl && z.key === "puno" && pl.punoMedida !== medida ? ` (puño ${pl.punoMedida})` : "";
+      const disenoHTML = codPlantilla
+        ? `<div style="font-size:10px;color:#1D6A3A;font-weight:800;margin-top:2px;white-space:normal;">🧵 ${codPlantilla}${notaPuno ? `<span style="color:#B85C00;">${notaPuno}</span>` : ""}</div>`
+        : catalogoTejidos.length
+          ? (ds.length
+            ? `<div style="font-size:9px;color:#1D6A3A;font-weight:700;margin-top:2px;white-space:normal;">✓ ${ds.map(d => d.nombre).join(" · ")}</div>`
+            : `<div style="font-size:9px;color:#C0392B;font-weight:800;margin-top:2px;white-space:normal;">⚠️ SIN DISEÑO EN CATÁLOGO</div>`)
+          : "";
       return `
       <tr style="background:${bg};${i === 0 ? "border-top:3px solid #B85C00;" : "border-top:1px dashed #e0cdb5;"}">
         ${i === 0 ? `<td rowspan="${piezas.length}" style="padding:10px 12px;text-align:center;vertical-align:middle;border-right:2px solid #B85C00;">
@@ -1552,6 +1559,39 @@ export async function imprimirProduccionCuellos(c, pedidosConf = []) {
       ${montajeHTML}
       <div style="margin-top:6px;font-size:10px;color:#1D6A3A;font-weight:700;">⭐ Los bloques verdes tejen cuello y puño de distinta medida en el MISMO montaje — no cambiés agujas entre esas piezas.</div>
     </div>` : "";
+
+  // ── Plantilla de diseños por talla (referencia REUTILIZABLE) ──────────────
+  // Qué archivo de cuello y de puño va para cada grupo de tallas. Base fijada
+  // con el pedido El Sunza; sirve tal cual para próximos pedidos del estilo.
+  const TALLAS_PLANTILLA = {
+    '12"': "6, 8, 10, 12 (niño)", '14"': "13, 14, XS, S",
+    '15"': "M, L", '17"': "XL, XXL, 3XL, 4XL",
+  };
+  const plantillaRefHTML = `
+    <div style="margin-top:16px;page-break-inside:avoid;">
+      <div style="font-size:13px;font-weight:900;color:#6D4C41;border-bottom:2px solid #6D4C41;padding-bottom:4px;margin-bottom:8px;">
+        📋 PLANTILLA DE DISEÑOS POR TALLA
+        <span style="font-weight:600;font-size:11px;color:#888;">· referencia fija para próximos pedidos de este estilo</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;border:2px solid #6D4C41;border-radius:10px;overflow:hidden;">
+        <thead><tr style="background:#6D4C41;color:#fff;">
+          <th style="padding:7px 10px;text-align:center;width:60px;">Medida</th>
+          <th style="padding:7px 10px;text-align:left;">Tallas de prenda</th>
+          <th style="padding:7px 10px;text-align:left;">🔵 Cuello (×1)</th>
+          <th style="padding:7px 10px;text-align:left;">🟡 Puño (×2)</th>
+        </tr></thead>
+        <tbody>
+          ${Object.entries(PLANTILLA_TEJIDO).map(([m, pl], i) => `
+            <tr style="background:${i % 2 === 0 ? "#fff" : "#f7f2ee"};border-top:1px solid #e0d5cc;">
+              <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:18px;color:#6D4C41;">${m}</td>
+              <td style="padding:8px 10px;color:#555;">${TALLAS_PLANTILLA[m] || "—"}</td>
+              <td style="padding:8px 10px;font-weight:800;color:#1D6A3A;">${pl.cuello}</td>
+              <td style="padding:8px 10px;font-weight:800;color:#1D6A3A;">${pl.puno}${pl.punoMedida !== m ? `<span style="color:#B85C00;font-weight:700;font-size:10px;"> (puño ${pl.punoMedida})</span>` : ""}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+      <div style="margin-top:5px;font-size:10px;color:#8a6d5c;">Puño de 12" y 14" es el mismo archivo (P14-2L-196) — el rib estira y cubre ambas. Optimización futura: emparejar agujas para tejer cuello+puño en un montaje (ver hoja de máquina).</div>
+    </div>`;
 
   const tablaHTML = medidasOrden.length ? `
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #B85C00;border-radius:10px;overflow:hidden;">
@@ -1657,6 +1697,7 @@ export async function imprimirProduccionCuellos(c, pedidosConf = []) {
   ${avisoFaltantes}
   ${tablaHTML}
   ${tablaMaquinaHTML}
+  ${plantillaRefHTML}
 
   ${c.descripcion ? `<div style="margin-top:12px;padding:10px 12px;background:#f9f9f9;border-radius:8px;border-left:3px solid #9B59B6;">
     <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">📝 Diseño / instrucciones</div>

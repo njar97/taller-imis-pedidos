@@ -132,6 +132,28 @@ export const AGUJAS_TEJIDO = {
 export const agujasTejido = (medida, pieza) =>
   (AGUJAS_TEJIDO[pieza] || {})[medida] ?? null;
 
+// PLANTILLA de diseños de tejido por medida de cuello — qué archivo exacto
+// (código en D:\TEJIDOS, formato <tipo><pulg>-<estilo>-<agujas>) se teje de
+// cuello y de puño para cada grupo de tallas. Establecida con el pedido COED
+// El Sunza (jul 2026) como base REUTILIZABLE para próximos pedidos del mismo
+// estilo (2 líneas ensanchadas). El puño no siempre coincide en medida con el
+// cuello porque el rib estira: las tallas de 12" y 14" comparten el puño de
+// 14" (196 agujas). Son los diseños ACTUALES; el emparejamiento de agujas
+// (AGUJAS_TEJIDO) es la optimización futura, aún sin producir.
+export const PLANTILLA_TEJIDO = {
+  '12"': { cuello: "C12-2L-183", puno: "P14-2L-196", punoMedida: '14"' },
+  '14"': { cuello: "C14-2L-215", puno: "P14-2L-196", punoMedida: '14"' },
+  '15"': { cuello: "C15-2L-231", puno: "P15-2L-208", punoMedida: '15"' },
+  '17"': { cuello: "C17-2L-265", puno: "P17-2L-226", punoMedida: '17"' },
+};
+// Diseño de tejido para una talla de prenda: combina el mapa talla→cuello con
+// la plantilla. Devuelve { cuelloMedida, cuello, puno, punoMedida } o null.
+export const disenoTejidoParaTalla = t => {
+  const m = medidaCuelloParaTalla(t);
+  const p = m && PLANTILLA_TEJIDO[m];
+  return p ? { cuelloMedida: m, ...p } : null;
+};
+
 // Items con tipo+talla+qty+precio listos para renderizar el resumen del
 // pedido (TallasChips). Resuelve la fuente correcta:
 //   - modoRegistro === "lista": agrupa personas[].prendas[] por tipo+talla+precio+spec.
