@@ -88,6 +88,11 @@
   html.theme-dark{background:#0f0d15}
   html.theme-dark body{background:#0f0d15}
   html.theme-dark #root{filter:invert(1) hue-rotate(180deg)}
+  /* El filter convierte a #root en bloque contenedor de los position:fixed.
+     Su alto por defecto es 100vh (viewport grande, sin descontar la barra del
+     navegador móvil), lo que empuja la bottomnav (bottom:0) fuera de pantalla.
+     Anclamos #root al viewport visible (100dvh) para que quede en su lugar. */
+  html.theme-dark #root{height:100vh;height:100dvh;overflow:hidden}
   html.theme-dark #root img,
   html.theme-dark #root video,
   html.theme-dark #root .sidebar-desktop,
