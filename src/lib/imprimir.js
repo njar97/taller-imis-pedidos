@@ -1564,7 +1564,7 @@ export async function imprimirProduccionCuellos(c, pedidosConf = []) {
   // Qué archivo de cuello y de puño va para cada grupo de tallas. Base fijada
   // con el pedido El Sunza; sirve tal cual para próximos pedidos del estilo.
   const TALLAS_PLANTILLA = {
-    '12"': "6, 8, 10, 12 (niño)", '14"': "13, 14, XS, S",
+    '11"': "4, 6, 8 (niño)", '12"': "10, 12", '14"': "13, 14, XS, S",
     '15"': "M, L", '17"': "XL, XXL, 3XL, 4XL",
   };
   const plantillaRefHTML = `

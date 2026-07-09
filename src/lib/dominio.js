@@ -97,8 +97,8 @@ const _rankTalla = rankTalla;
 
 // Mapa talla de prenda → medida del cuello tejido (pulgadas), según la
 // tabla definida con el pedido COED El Sunza (jul 2026): el cuello 12"
-// cubre las tallas de niño hasta la 12, el 14" llega hasta la S, el 15"
-// viste M-L y el 17" de XL en adelante. Devuelve null para tallas que no
+// tallas 4-8 → cuello 11", 10-12 → 12", 14/S → 14", M-L → 15", XL+ → 17".
+// Devuelve null para tallas que no
 // mapean (numéricas de camisa 34-48, texto libre) — esas se listan aparte
 // en la hoja de producción para resolverlas a mano.
 export const medidaCuelloParaTalla = t => {
@@ -107,6 +107,7 @@ export const medidaCuelloParaTalla = t => {
   // Solo tallas 100% numéricas ("2XL" parsearía como 2 con parseInt)
   if (/^\d+$/.test(s)) {
     const n = parseInt(s, 10);
+    if (n <= 8) return '11"';
     if (n <= 12) return '12"';
     if (n <= 14) return '14"';
     return null;
@@ -125,9 +126,12 @@ export const medidaCuelloParaTalla = t => {
 // Pares: 215 = cuello 14" + puños 15"/16" · 231 = cuello 15" + puño 17".
 // Cuellos mandan el número (rígidos); los puños ajustados validar con muestra
 // cosida antes de producir. Editable cuando cambien las medidas del catálogo.
+// Claves = medida de cuello (grupo de talla); valor = agujas reales (HxPDS).
+// El puño ahora es DOBLADO (mucho más ancho que el cuello), así que ya no
+// comparte montaje con ningún cuello — cada pieza teje en su propio ancho.
 export const AGUJAS_TEJIDO = {
-  cuello: { '12"': 184, '14"': 215, '15"': 231, '16"': 248, '17"': 265 },
-  puno:   { '12"': 196, '14"': 196, '15"': 215, '16"': 215, '17"': 231 },
+  cuello: { '11"': 170, '12"': 184, '14"': 215, '15"': 231, '16"': 248, '17"': 265 },
+  puno:   { '11"': 370, '12"': 400, '14"': 432, '15"': 462, '17"': 492 },
 };
 export const agujasTejido = (medida, pieza) =>
   (AGUJAS_TEJIDO[pieza] || {})[medida] ?? null;
@@ -135,16 +139,16 @@ export const agujasTejido = (medida, pieza) =>
 // PLANTILLA de diseños de tejido por medida de cuello — qué archivo exacto
 // (código en D:\TEJIDOS, formato <tipo><pulg>-<estilo>-<agujas>) se teje de
 // cuello y de puño para cada grupo de tallas. Establecida con el pedido COED
-// El Sunza (jul 2026) como base REUTILIZABLE para próximos pedidos del mismo
-// estilo (2 líneas ensanchadas). El puño no siempre coincide en medida con el
-// cuello porque el rib estira: las tallas de 12" y 14" comparten el puño de
-// 14" (196 agujas). Son los diseños ACTUALES; el emparejamiento de agujas
-// (AGUJAS_TEJIDO) es la optimización futura, aún sin producir.
+// El Sunza (jul 2026) como base REUTILIZABLE. Tabla OFICIAL 2026-07-09: cada
+// grupo de talla tiene su cuello (alto 3" tallas 4-12, 3.5" de la 14 en
+// adelante) y su PUÑO DOBLADO (alto 1.5", largo distinto por talla: 24/26/
+// 28/30/32"). punoMedida = largo del puño en pulgadas. Nombres = agujas reales.
 export const PLANTILLA_TEJIDO = {
-  '12"': { cuello: "C12-2L-183", puno: "P14-2L-196", punoMedida: '14"' },
-  '14"': { cuello: "C14-2L-215", puno: "P14-2L-196", punoMedida: '14"' },
-  '15"': { cuello: "C15-2L-231", puno: "P15-2L-208", punoMedida: '15"' },
-  '17"': { cuello: "C17-2L-265", puno: "P17-2L-226", punoMedida: '17"' },
+  '11"': { cuello: "C11-2L-170", puno: "P24-2L-370", punoMedida: '24"' },
+  '12"': { cuello: "C12-2L-184", puno: "P26-2L-400", punoMedida: '26"' },
+  '14"': { cuello: "C14-2L-215", puno: "P28-2L-432", punoMedida: '28"' },
+  '15"': { cuello: "C15-2L-231", puno: "P30-2L-462", punoMedida: '30"' },
+  '17"': { cuello: "C17-2L-265", puno: "P32-2L-492", punoMedida: '32"' },
 };
 // Diseño de tejido para una talla de prenda: combina el mapa talla→cuello con
 // la plantilla. Devuelve { cuelloMedida, cuello, puno, punoMedida } o null.
