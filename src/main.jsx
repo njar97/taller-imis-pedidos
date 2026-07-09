@@ -238,6 +238,12 @@ import {
 import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
 import { createRoot } from "react-dom/client";
 import { installGlobalErrorHandlers } from "./lib/reportError.js";
+import { aplicarTema, getTema } from "./lib/tema.js";
+
+// Modo nocturno: reafirmar el tema en el DOM al arrancar. El script inline de
+// index.html ya puso la clase antes del primer render (anti-parpadeo); esto
+// deja el meta theme-color consistente y centraliza la lógica en tema.js.
+aplicarTema(getTema());
 
 // Captura errores async (handlers, fetches sin await, throws en timers,
 // promesas rechazadas) que no llegan al ErrorBoundary. Hay que instalarlo

@@ -14,6 +14,7 @@ import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { leerEquipos, guardarEquipo, borrarEquipo } from "./lib/capacidad.js";
 import { leerUsuarios, guardarUsuario, borrarUsuario } from "./lib/usuarios.js";
 import { leerInvitaciones, generarInvitacion, revocarInvitacion, estadoInvitacion, urlInvitacion } from "./lib/invitaciones.js";
+import { getTema, setTema } from "./lib/tema.js";
 
 const INP = {
   width: "100%", padding: "8px 10px", borderRadius: 8,
@@ -76,6 +77,9 @@ export default function SeccionConfig({ onConfigCambia, onVerComoOperario }) {
       <div style={{ fontSize: 11, color: "#888", marginTop: 4, marginBottom: 18 }}>
         Datos que aparecen en cotizaciones y recibos. Solo admin.
       </div>
+
+      {/* Apariencia — modo nocturno */}
+      <TemaEditor />
 
       {/* Datos fiscales editables */}
       <DatosFiscalesEditor
@@ -159,6 +163,56 @@ export default function SeccionConfig({ onConfigCambia, onVerComoOperario }) {
       </div>
     </div>
     </div>
+  );
+}
+
+function TemaEditor() {
+  const [tema, setTemaState] = useState(() => getTema());
+  const dark = tema === "dark";
+
+  const cambiar = () => {
+    const next = dark ? "claro" : "dark";
+    setTema(next);
+    setTemaState(next);
+  };
+
+  return (
+    <Seccion titulo="🌙 Apariencia" color="#2C1654">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#2C1654" }}>
+            {dark ? "🌙 Modo nocturno" : "☀️ Modo claro"}
+          </div>
+          <div style={{ fontSize: 11, color: "#888", marginTop: 3, lineHeight: 1.5 }}>
+            Tema oscuro para descansar la vista. Se guarda en este dispositivo.
+          </div>
+        </div>
+        <button
+          role="switch"
+          aria-checked={dark}
+          aria-label="Modo nocturno"
+          onClick={cambiar}
+          style={{
+            position: "relative", flexShrink: 0,
+            width: 52, height: 30, borderRadius: 15, border: "none",
+            background: dark ? "#2C1654" : "#ccc",
+            cursor: "pointer", padding: 0,
+            transition: "background .2s ease",
+          }}
+        >
+          <span style={{
+            position: "absolute", top: 3, left: dark ? 25 : 3,
+            width: 24, height: 24, borderRadius: "50%", background: "#fff",
+            boxShadow: "0 1px 3px rgba(0,0,0,.3)",
+            transition: "left .2s ease",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12,
+          }}>
+            {dark ? "🌙" : "☀️"}
+          </span>
+        </button>
+      </div>
+    </Seccion>
   );
 }
 

@@ -77,7 +77,42 @@
     .cards-pedidos{display:none!important}
   }
 
+  /* ── Modo nocturno ─────────────────────────────────────────
+     Los colores están hardcodeados inline en ~2.3k lugares, así que el tema
+     oscuro se logra con un filtro global de inversión sobre #root. invert(1)
+     convierte los fondos blancos en oscuros; hue-rotate(180deg) preserva los
+     matices (el morado sigue siendo morado, etc.). Luego se contra-invierten
+     las fotos y las superficies de marca (sidebar/topbar/bottomnav, ya
+     oscuras #2C1654) para que conserven su apariencia. La clase .no-invert
+     sirve para excluir cualquier elemento puntual que se vea mal. */
+  html.theme-dark{background:#0f0d15}
+  html.theme-dark body{background:#0f0d15}
+  html.theme-dark #root{filter:invert(1) hue-rotate(180deg)}
+  html.theme-dark #root img,
+  html.theme-dark #root video,
+  html.theme-dark #root .sidebar-desktop,
+  html.theme-dark #root .topbar-mobile,
+  html.theme-dark #root .bottomnav,
+  html.theme-dark #root .no-invert{filter:invert(1) hue-rotate(180deg)}
 </style>
+<script>
+  // Anti-parpadeo: aplicar la clase del tema oscuro ANTES del primer render,
+  // leyendo la preferencia guardada (o la del sistema si no hay). La lógica
+  // completa vive en src/lib/tema.js; esto sólo evita el flash de blanco.
+  (function(){
+    try{
+      var t = localStorage.getItem('imis_tema');
+      if(t !== 'dark' && t !== 'claro'){
+        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'claro';
+      }
+      if(t === 'dark'){
+        document.documentElement.classList.add('theme-dark');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if(m) m.setAttribute('content', '#0f0d15');
+      }
+    }catch(e){}
+  })();
+</script>
 </head>
 <body>
 <div id="root"></div>
