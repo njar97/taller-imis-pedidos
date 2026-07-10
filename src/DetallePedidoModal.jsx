@@ -770,6 +770,7 @@ export default function DetallePedidoModal({
   onWhatsApp,
   onExportarPDF,
   onImprimirProduccion,
+  onImprimirEntrega,
   onAbrirEdicion,
 }) {
   const bVinc = bordados.find(b => String(b.confRef) === String(pedido.id));
@@ -940,6 +941,15 @@ export default function DetallePedidoModal({
               style={btnExport("#B7791F")}
             >
               🏭 Producción
+            </button>
+          )}
+          {esAdmin && onImprimirEntrega && (
+            <button
+              onClick={onImprimirEntrega}
+              title="Hoja de entrega para el cliente: lista de personas con firma de recibido, sin precios"
+              style={btnExport("#6B21A8")}
+            >
+              📦 Entrega
             </button>
           )}
           {pedido.fechaEntrega && (

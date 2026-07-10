@@ -221,6 +221,7 @@ import {
   imprimirCotizacion,
   imprimirRecibo,
   imprimirProduccion,
+  imprimirEntrega,
   exportarExcelMes,
   exportarPedidoPDF,
 } from "./lib/imprimir.js";
@@ -1283,6 +1284,7 @@ function App() {
           }}
           onExportarPDF={() => exportarPedidoPDF(detalle, "confeccion")}
           onImprimirProduccion={() => imprimirProduccion(detalle, pedidos)}
+          onImprimirEntrega={() => imprimirEntrega(detalle)}
           onAbrirEdicion={() => {
             setModal(detalle);
             setDet(null);

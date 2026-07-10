@@ -841,6 +841,163 @@ export function imprimirRecibo(p) {
   </body></html>`);
   w.document.close();
 }
+// Hoja de entrega — documento para llevar al entregar las prendas al
+// cliente. Cada persona firma su fila al recibir/probarse la prenda, y al
+// pie firman quien entrega (taller) y quien recibe (cliente). No muestra
+// precios (solo la nota de saldo pendiente si lo hay). Si el pedido tiene
+// más piezas que personas nombradas, se agregan filas en blanco para
+// completar en el momento de la entrega.
+export function imprimirEntrega(p) {
+  const num = String(p.id).padStart(4, "0");
+  const fecha = new Date().toLocaleDateString("es-SV", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  const saldo = parseFloat(p.precio || 0) - sumarAbonos(p);
+
+  // Filas con nombre: personas del pedido con sus prendas agrupadas.
+  const personasConPrendas = (p.personas || []).filter(per =>
+    Array.isArray(per.prendas) &&
+    per.prendas.some(pr => pr.tipo || pr.talla)
+  );
+  const filasNombradas = personasConPrendas.map(per => {
+    const grupos = agruparPrendas(per.prendas).filter(g => g.tipo || g.talla);
+    const prendas = grupos
+      .map(g => `${g.qty > 1 ? g.qty + "× " : ""}${[g.tipo, g.talla].filter(Boolean).join(" — ")}`)
+      .join(" · ");
+    const obs = grupos.map(g => g.spec).filter(Boolean).join(" · ");
+    return { nombre: per.nombre || "", prendas, obs };
+  });
+
+  // Total de piezas: por items de talla si existen, si no por prendas.
+  const totalPiezas =
+    (p.tallasItems || []).reduce((s, it) => s + (parseInt(it.qty) || 0), 0) ||
+    personasConPrendas.reduce((s, per) => s + per.prendas.filter(pr => pr.tipo || pr.talla).length, 0) ||
+    filasNombradas.length;
+
+  // Completar con filas en blanco hasta cubrir todas las piezas.
+  const blancas = Math.max(0, totalPiezas - filasNombradas.length);
+  const filas = [
+    ...filasNombradas,
+    ...Array.from({ length: blancas }, () => ({ nombre: "", prendas: "", obs: "" })),
+  ];
+
+  const filasHTML = filas.map((f, i) => `
+    <tr style="background:${i % 2 === 0 ? "#fff" : "#faf8fc"};">
+      <td style="border:1px solid #bbb;padding:0 8px;height:30px;width:26px;text-align:center;color:#888;font-size:11px;">${i + 1}</td>
+      <td style="border:1px solid #bbb;padding:0 8px;height:30px;font-weight:600;">${f.nombre}</td>
+      <td style="border:1px solid #bbb;padding:0 8px;height:30px;font-size:12px;">${f.prendas}</td>
+      <td style="border:1px solid #bbb;padding:0 8px;height:30px;font-size:11px;color:#666;font-style:italic;">${f.obs}</td>
+      <td style="border:1px solid #bbb;padding:0 8px;height:30px;width:150px;"></td>
+    </tr>`).join("");
+
+  const waText = mensajeWA(p, true);
+  const titulo = nombrePDF("Entrega", p.id, p.cliente);
+  const w = nuevaVentanaImpresion(titulo);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${titulo}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
+    @media print{body{padding:10px 16px;}.no-print{display:none!important;}@page{margin:8mm;size:letter;}}
+    table{border-collapse:collapse;width:100%;}
+  </style></head><body>
+
+  <div class="no-print" style="margin-bottom:20px;">
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
+      <button onclick="_print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / PDF</button>
+      <button onclick="window.close()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
+  </div>
+
+  <!-- ENCABEZADO -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2C1654;padding-bottom:12px;margin-bottom:14px;">
+    <div>
+      <div style="font-size:22px;font-weight:900;color:#2C1654;font-family:Georgia,serif;">${TALLER}</div>
+      <div style="font-size:11px;color:#888;margin-top:2px;">${EMPRESA.razonSocial || ""}${EMPRESA.nit ? " · NIT " + EMPRESA.nit : ""}${EMPRESA.nrc ? " · NRC " + EMPRESA.nrc : ""}</div>
+      <div style="font-size:11px;color:#aaa;">${EMPRESA.direccion || ""}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:18px;font-weight:900;color:#2C1654;">HOJA DE ENTREGA</div>
+      <div style="font-size:12px;color:#555;margin-top:2px;">Pedido N°${num}<br>Fecha: ${fecha}</div>
+    </div>
+  </div>
+
+  <!-- CLIENTE -->
+  <div style="display:flex;gap:24px;margin-bottom:10px;">
+    <div style="flex:1;">
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:1px;">Cliente</div>
+      <div style="font-size:14px;font-weight:800;color:#2C1654;">${p.cliente || ""}</div>
+      ${p.nombreContacto ? `<div style="font-size:12px;color:#555;">Contacto: ${p.nombreContacto}</div>` : ""}
+    </div>
+    <div style="max-width:200px;">
+      ${p.telefono ? `<div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:1px;">Teléfono</div><div style="font-size:12px;">${p.telefono}</div>` : ""}
+      <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Cantidad entregada</div>
+      <div style="font-size:13px;font-weight:800;">${totalPiezas} prenda(s)</div>
+    </div>
+  </div>
+
+  <!-- PRODUCTO -->
+  <div style="background:#f5f2f8;border:1px solid #ded5ea;border-radius:6px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;">
+    <strong>Producto:</strong> ${p.tipoPrenda || "(sin especificar)"}${p.tela || p.color ? ` — ${[p.tela, p.color].filter(Boolean).join(", ")}` : ""}${p.descripcion ? `. ${p.descripcion}` : ""}
+  </div>
+
+  <!-- TABLA DE ENTREGA -->
+  <table>
+    <thead><tr style="background:#2C1654;color:#fff;">
+      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:center;width:26px;">N°</th>
+      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;">Nombre</th>
+      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;">Prenda / Talla</th>
+      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;">Observación</th>
+      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;width:150px;">Firma de recibido</th>
+    </tr></thead>
+    <tbody>${filasHTML}</tbody>
+  </table>
+  <div style="margin-top:8px;font-size:13px;font-weight:800;text-align:right;">Total entregado: ${totalPiezas} prenda(s)</div>
+
+  <!-- OBSERVACIONES -->
+  <div style="margin-top:12px;border:1.5px solid #2C1654;border-radius:6px;padding:9px 12px;font-size:11.5px;line-height:1.6;">
+    <strong style="color:#2C1654;">Observaciones:</strong>
+    Las prendas se entregan para verificación y prueba de talla por el cliente.
+    Cualquier ajuste necesario será realizado por el taller.
+    ${saldo > 0 ? `<strong>El pago del saldo pendiente queda sujeto a la conformidad del cliente.</strong>` : ""}
+  </div>
+
+  <!-- FIRMAS -->
+  <div style="display:flex;gap:40px;margin-top:34px;">
+    <div style="flex:1;text-align:center;">
+      <div style="height:28px;"></div>
+      <div style="border-top:1.5px solid #111;padding-top:5px;font-size:11px;line-height:1.8;">
+        <strong>ENTREGÓ</strong> — ${TALLER}<br>Nombre: ______________________________<br>DUI: ____________________
+      </div>
+    </div>
+    <div style="flex:1;text-align:center;">
+      <div style="height:28px;"></div>
+      <div style="border-top:1.5px solid #111;padding-top:5px;font-size:11px;line-height:1.8;">
+        <strong>RECIBIÓ</strong> — ${p.cliente || "Cliente"}<br>Nombre: ______________________________<br>DUI: ____________________ &nbsp; Hora: ________
+      </div>
+    </div>
+  </div>
+
+  <script>
+  const _waMsg=${JSON.stringify(waText)};
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){
+    try{window.parent.document.title=document.title;}catch(e){}
+    window.print();
+    window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});
+    setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);
+  }
+  async function enviarPorWA(){
+    await window.parent.__shareWithPDF__(document.title,_waMsg);
+  }
+  </script>
+  </body></html>`);
+  w.document.close();
+}
+
 export async function imprimirProduccion(p, todosPedidos = []) {
   const num = String(p.id).padStart(4, "0");
   // QR con URL del pedido — el query param ?p=<id> se puede usar en
