@@ -166,9 +166,10 @@ describe("PEDIDO_BASE", () => {
 });
 
 describe("medidaCuelloParaTalla", () => {
-  it("tallas de nino hasta la 12 usan cuello 12 pulgadas", () => {
-    expect(medidaCuelloParaTalla("6")).toBe('12"');
-    expect(medidaCuelloParaTalla("8")).toBe('12"');
+  it("tallas de nino: hasta la 8 usan cuello 11; 10-12 usan 12", () => {
+    expect(medidaCuelloParaTalla("4")).toBe('11"');
+    expect(medidaCuelloParaTalla("6")).toBe('11"');
+    expect(medidaCuelloParaTalla("8")).toBe('11"');
     expect(medidaCuelloParaTalla("10")).toBe('12"');
     expect(medidaCuelloParaTalla(12)).toBe('12"');
   });
