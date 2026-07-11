@@ -842,11 +842,16 @@ export function imprimirRecibo(p) {
   w.document.close();
 }
 // Hoja de entrega — documento para llevar al entregar las prendas al
-// cliente. Cada persona firma su fila al recibir/probarse la prenda, y al
-// pie firman quien entrega (taller) y quien recibe (cliente). No muestra
-// precios (solo la nota de saldo pendiente si lo hay). Si el pedido tiene
-// más piezas que personas nombradas, se agregan filas en blanco para
-// completar en el momento de la entrega.
+// cliente. El formato se decide solo, con el mismo criterio que
+// itemsResumen en dominio.js:
+//   - Pedido por LISTA (personas con prendas): una fila por prenda con
+//     nombre, talla y firma de recibido individual; filas en blanco hasta
+//     completar el total de piezas.
+//   - Pedido por TALLAS (ej. uniformes escolares, sin nombres): tabla
+//     resumen talla × cantidad con columna "cantidad recibida" para
+//     verificar el conteo en la entrega — sin filas de firma individual.
+// En ambos casos: sin precios (solo la nota de saldo pendiente si lo hay)
+// y firmas ENTREGÓ / RECIBIÓ al pie.
 export function imprimirEntrega(p) {
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", {
@@ -876,21 +881,73 @@ export function imprimirEntrega(p) {
     personasConPrendas.reduce((s, per) => s + per.prendas.filter(pr => pr.tipo || pr.talla).length, 0) ||
     filasNombradas.length;
 
-  // Completar con filas en blanco hasta cubrir todas las piezas.
-  const blancas = Math.max(0, totalPiezas - filasNombradas.length);
-  const filas = [
-    ...filasNombradas,
-    ...Array.from({ length: blancas }, () => ({ nombre: "", prendas: "", obs: "" })),
-  ];
+  const esLista = personasConPrendas.length > 0;
+  const th = `padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;`;
+  const td = `border:1px solid #bbb;padding:0 8px;height:30px;`;
 
-  const filasHTML = filas.map((f, i) => `
-    <tr style="background:${i % 2 === 0 ? "#fff" : "#faf8fc"};">
-      <td style="border:1px solid #bbb;padding:0 8px;height:30px;width:26px;text-align:center;color:#888;font-size:11px;">${i + 1}</td>
-      <td style="border:1px solid #bbb;padding:0 8px;height:30px;font-weight:600;">${f.nombre}</td>
-      <td style="border:1px solid #bbb;padding:0 8px;height:30px;font-size:12px;">${f.prendas}</td>
-      <td style="border:1px solid #bbb;padding:0 8px;height:30px;font-size:11px;color:#666;font-style:italic;">${f.obs}</td>
-      <td style="border:1px solid #bbb;padding:0 8px;height:30px;width:150px;"></td>
-    </tr>`).join("");
+  let tablaHTML;
+  if (esLista) {
+    // Formato por LISTA: una fila por prenda, firma individual. Filas en
+    // blanco hasta cubrir todas las piezas.
+    const blancas = Math.max(0, totalPiezas - filasNombradas.length);
+    const filas = [
+      ...filasNombradas,
+      ...Array.from({ length: blancas }, () => ({ nombre: "", prendas: "", obs: "" })),
+    ];
+    tablaHTML = `<table>
+      <thead><tr style="background:#2C1654;color:#fff;">
+        <th style="${th}text-align:center;width:26px;">N°</th>
+        <th style="${th}text-align:left;">Nombre</th>
+        <th style="${th}text-align:left;">Prenda / Talla</th>
+        <th style="${th}text-align:left;">Observación</th>
+        <th style="${th}text-align:left;width:150px;">Firma de recibido</th>
+      </tr></thead>
+      <tbody>${filas.map((f, i) => `
+        <tr style="background:${i % 2 === 0 ? "#fff" : "#faf8fc"};">
+          <td style="${td}width:26px;text-align:center;color:#888;font-size:11px;">${i + 1}</td>
+          <td style="${td}font-weight:600;">${f.nombre}</td>
+          <td style="${td}font-size:12px;">${f.prendas}</td>
+          <td style="${td}font-size:11px;color:#666;font-style:italic;">${f.obs}</td>
+          <td style="${td}width:150px;"></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
+  } else {
+    // Formato por TALLAS: resumen talla × cantidad con columna para anotar
+    // lo recibido/contado en la entrega.
+    const items = (p.tallasItems || []).filter(it => (parseInt(it.qty) || 0) > 0);
+    const filasT = items.length
+      ? items.map((it, i) => `
+        <tr style="background:${i % 2 === 0 ? "#fff" : "#faf8fc"};">
+          <td style="${td}width:70px;text-align:center;font-weight:800;">${it.talla || ""}</td>
+          <td style="${td}width:80px;text-align:center;font-weight:700;">${it.qty}</td>
+          <td style="${td}font-size:12px;color:#555;">${it.spec || ""}</td>
+          <td style="${td}width:110px;"></td>
+          <td style="${td}width:130px;"></td>
+        </tr>`).join("")
+      : `<tr>
+          <td style="${td}text-align:center;">—</td>
+          <td style="${td}text-align:center;font-weight:700;">${totalPiezas}</td>
+          <td style="${td}font-size:12px;color:#555;">${resumenTallas(p) || ""}</td>
+          <td style="${td}width:110px;"></td>
+          <td style="${td}width:130px;"></td>
+        </tr>`;
+    tablaHTML = `<table>
+      <thead><tr style="background:#2C1654;color:#fff;">
+        <th style="${th}text-align:center;width:70px;">Talla</th>
+        <th style="${th}text-align:center;width:80px;">Cantidad</th>
+        <th style="${th}text-align:left;">Especificación</th>
+        <th style="${th}text-align:center;width:110px;">Cant. recibida</th>
+        <th style="${th}text-align:left;width:130px;">Observación</th>
+      </tr></thead>
+      <tbody>${filasT}</tbody>
+      <tfoot><tr style="background:#f0f0f0;font-weight:800;">
+        <td style="${td}text-align:center;color:#2C1654;">TOTAL</td>
+        <td style="${td}text-align:center;color:#2C1654;">${totalPiezas}</td>
+        <td style="${td}"></td><td style="${td}"></td><td style="${td}"></td>
+      </tr></tfoot>
+    </table>`;
+  }
 
   const waText = mensajeWA(p, true);
   const titulo = nombrePDF("Entrega", p.id, p.cliente);
@@ -945,23 +1002,15 @@ export function imprimirEntrega(p) {
   </div>
 
   <!-- TABLA DE ENTREGA -->
-  <table>
-    <thead><tr style="background:#2C1654;color:#fff;">
-      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:center;width:26px;">N°</th>
-      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;">Nombre</th>
-      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;">Prenda / Talla</th>
-      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;">Observación</th>
-      <th style="padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;text-align:left;width:150px;">Firma de recibido</th>
-    </tr></thead>
-    <tbody>${filasHTML}</tbody>
-  </table>
+  ${tablaHTML}
   <div style="margin-top:8px;font-size:13px;font-weight:800;text-align:right;">Total entregado: ${totalPiezas} prenda(s)</div>
 
   <!-- OBSERVACIONES -->
   <div style="margin-top:12px;border:1.5px solid #2C1654;border-radius:6px;padding:9px 12px;font-size:11.5px;line-height:1.6;">
     <strong style="color:#2C1654;">Observaciones:</strong>
-    Las prendas se entregan para verificación y prueba de talla por el cliente.
-    Cualquier ajuste necesario será realizado por el taller.
+    ${esLista
+      ? "Las prendas se entregan para verificación y prueba de talla por el cliente. Cualquier ajuste necesario será realizado por el taller."
+      : "El cliente verifica cantidades por talla al recibir y anota lo contado en la columna correspondiente."}
     ${saldo > 0 ? `<strong>El pago del saldo pendiente queda sujeto a la conformidad del cliente.</strong>` : ""}
   </div>
 
