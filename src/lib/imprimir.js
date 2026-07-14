@@ -30,7 +30,11 @@ export function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false
 
   let totalPedido = 0;
   const filas = personasConPrendas.map((per, i) => {
-    const grupos = agruparPrendas(per.prendas);
+    const grupos = agruparPrendas(per.prendas).sort((a, b) => {
+      const ta = (a.tipo || "zzz").toLowerCase(), tb = (b.tipo || "zzz").toLowerCase();
+      if (ta !== tb) return ta.localeCompare(tb);
+      return rankTalla(a.talla) - rankTalla(b.talla);
+    });
     const subtotal = grupos.reduce(
       (s, g) => s + (parseFloat(g.precio) || 0) * g.qty,
       0
@@ -675,38 +679,47 @@ export function imprimirRecibo(p) {
     month: "long",
     year: "numeric"
   });
+  // Helpers de dinero — alineación tabular (decimales cuadrados) estilo factura.
+  const esCF = String(p.tipoDocumento || "").includes("Crédito Fiscal");
+  const money = n => "$" + (parseFloat(n) || 0).toFixed(2);
+  const NUM = "font-variant-numeric:tabular-nums;white-space:nowrap;";
+
   const tieneItems = (p.tallasItems || []).length > 0;
+  // Tallas ordenadas de la MÁS PEQUEÑA a la MÁS GRANDE (rankTalla: numéricas
+  // por número, luego XS<S<M<L<XL<XXL<XXXL).
+  const itemsOrd = tieneItems
+    ? [...p.tallasItems].sort((a, b) => rankTalla(a.talla) - rankTalla(b.talla))
+    : [];
+  const itemsTotal = itemsOrd.reduce((s, it) => s + (parseFloat(it.precio) || 0) * it.qty, 0);
+  const itemsPzas = itemsOrd.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
   const itemsHTML = tieneItems ? `
-    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;">
+    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px;">
       <thead><tr style="background:#2C1654;color:#fff;">
-        <th style="padding:6px 10px;text-align:left;">Talla</th>
-        <th style="padding:6px 10px;text-align:center;">Cantidad</th>
-        <th style="padding:6px 10px;text-align:left;">Especificación</th>
-        <th style="padding:6px 10px;text-align:right;">Precio u.</th>
-        <th style="padding:6px 10px;text-align:right;">Subtotal</th>
+        <th style="padding:7px 12px;text-align:left;">Talla</th>
+        <th style="padding:7px 12px;text-align:center;width:64px;">Cant.</th>
+        <th style="padding:7px 12px;text-align:right;width:92px;">P. unit.</th>
+        <th style="padding:7px 12px;text-align:right;width:104px;">Importe</th>
       </tr></thead>
       <tbody>
-        ${p.tallasItems.map((it, i) => {
+        ${itemsOrd.map((it, i) => {
     const tieneP = it.precio != null && it.precio !== "" && parseFloat(it.precio) > 0;
     const sub = tieneP ? parseFloat(it.precio) * it.qty : null;
-    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f9f9"};">
-            <td style="padding:6px 10px;font-weight:800;color:#E67E22;">${it.talla}</td>
-            <td style="padding:6px 10px;text-align:center;font-weight:700;">${it.qty}</td>
-            <td style="padding:6px 10px;color:#555;">${it.spec || "—"}</td>
-            <td style="padding:6px 10px;text-align:right;color:#27AE60;font-weight:700;">${tieneP ? "$" + parseFloat(it.precio).toFixed(2) : "—"}</td>
-            <td style="padding:6px 10px;text-align:right;font-weight:800;color:#2C1654;">${sub != null ? "$" + sub.toFixed(2) : "—"}</td>
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f7fc"};border-bottom:1px solid #eee;">
+            <td style="padding:7px 12px;">
+              <span style="font-weight:800;color:#2C1654;">${it.talla || "—"}</span>
+              ${it.spec ? `<span style="color:#999;font-size:11px;"> · ${it.spec}</span>` : ""}
+            </td>
+            <td style="padding:7px 12px;text-align:center;font-weight:700;${NUM}">${it.qty}</td>
+            <td style="padding:7px 12px;text-align:right;color:#555;${NUM}">${tieneP ? money(it.precio) : "—"}</td>
+            <td style="padding:7px 12px;text-align:right;font-weight:800;color:#2C1654;${NUM}">${sub != null ? money(sub) : "—"}</td>
           </tr>`;
   }).join("")}
-        ${(() => {
-    const tot = p.tallasItems.filter(it => it.precio != null && it.precio !== "").reduce((s, it) => s + parseFloat(it.precio || 0) * it.qty, 0);
-    const totPzas = p.tallasItems.reduce((s, it) => s + it.qty, 0);
-    return `<tr style="background:#f0f0f0;font-weight:800;border-top:2px solid #2C1654;">
-            <td style="padding:7px 10px;color:#2C1654;">TOTAL</td>
-            <td style="padding:7px 10px;text-align:center;color:#2C1654;">${totPzas} prendas</td>
-            <td></td><td></td>
-            <td style="padding:7px 10px;text-align:right;font-size:15px;color:#2C1654;">${tot > 0 ? "$" + tot.toFixed(2) : ""}</td>
-          </tr>`;
-  })()}
+        <tr style="border-top:2px solid #2C1654;">
+          <td style="padding:8px 12px;font-weight:800;color:#2C1654;">Total</td>
+          <td style="padding:8px 12px;text-align:center;font-weight:800;color:#2C1654;${NUM}">${itemsPzas}</td>
+          <td></td>
+          <td style="padding:8px 12px;text-align:right;font-weight:900;color:#2C1654;font-size:14px;${NUM}">${itemsTotal > 0 ? money(itemsTotal) : "—"}</td>
+        </tr>
       </tbody>
     </table>` : tallas ? `<div style="margin-top:6px;font-size:14px;color:#E67E22;font-weight:700;">📦 ${tallas}</div>` : "";
   const waText = mensajeWA(p, true);
@@ -773,25 +786,31 @@ export function imprimirRecibo(p) {
     ${tablaPorPersonaHTML(p, "#2C1654", true, false) || itemsHTML}
   </div>
 
-  <!-- PAGO -->
-  ${p.precio ? `
-  <div class="sec">💰 Estado de pago</div>
-  <div style="background:#f8fff9;border:1.5px solid #d4edda;border-radius:10px;padding:16px;margin-bottom:16px;">
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
-      <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #eee;">
-        <div style="font-size:10px;color:#aaa;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Precio total</div>
-        <div style="font-size:22px;font-weight:900;color:#2C1654;">$${parseFloat(p.precio).toFixed(2)}</div>
-      </div>
-      <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #eee;">
-        <div style="font-size:10px;color:#aaa;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Anticipo recibido</div>
-        <div style="font-size:22px;font-weight:900;color:#27AE60;">$${abonado.toFixed(2)}</div>
-      </div>
-      <div style="background:${saldo > 0 ? "#FFF5F5" : "#F0FFF4"};border-radius:8px;padding:12px;border:2px solid ${saldo > 0 ? "#E74C3C" : "#27AE60"};">
-        <div style="font-size:10px;color:#aaa;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Saldo pendiente</div>
-        <div style="font-size:22px;font-weight:900;color:${saldo > 0 ? "#E74C3C" : "#27AE60"};">${saldo > 0 ? "$" + saldo.toFixed(2) : "✅ Pagado"}</div>
+  <!-- TOTALES Y PAGO (estilo factura: bloque apilado, decimales alineados) -->
+  ${p.precio ? (() => {
+    const total = parseFloat(p.precio) || 0;
+    const sub = esCF ? total / 1.13 : null;
+    const iva = esCF ? total - sub : null;
+    const line = (lbl, val, o = {}) => `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:${o.pad || "4px 0"};${o.borderTop ? "border-top:" + o.borderTop + ";" : ""}">
+        <span style="color:${o.lblColor || "#666"};font-weight:${o.lblW || 600};font-size:${o.lblSize || "12px"};${o.upper ? "text-transform:uppercase;letter-spacing:.5px;" : ""}">${lbl}</span>
+        <span style="text-align:right;font-weight:${o.valW || 700};font-size:${o.valSize || "13px"};color:${o.valColor || "#2C1654"};${NUM}">${val}</span>
+      </div>`;
+    return `
+  <div class="sec">💰 Totales y pago</div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+    <div style="width:340px;max-width:100%;border:1.5px solid #e6e1ef;border-radius:12px;padding:14px 18px;background:#fbfafd;">
+      ${esCF ? line("Subtotal", money(sub)) : ""}
+      ${esCF ? line("IVA (13%)", money(iva)) : ""}
+      ${line("Total", money(total), { borderTop: esCF ? "1px solid #e6e1ef" : "", pad: esCF ? "8px 0 4px" : "4px 0", lblW: 800, lblColor: "#2C1654", lblSize: "13px", valW: 800, valSize: "15px" })}
+      ${line("Anticipo recibido", "−" + money(abonado), { valColor: "#27AE60" })}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:24px;margin-top:8px;padding-top:10px;border-top:2px solid #2C1654;">
+        <span style="font-weight:900;color:#2C1654;text-transform:uppercase;letter-spacing:.5px;font-size:13px;">${saldo > 0 ? "Saldo pendiente" : "Estado"}</span>
+        <span style="font-weight:900;font-size:23px;color:${saldo > 0 ? "#E74C3C" : "#27AE60"};${NUM}">${saldo > 0 ? money(saldo) : "✅ Pagado"}</span>
       </div>
     </div>
-  </div>` : ""}
+  </div>`;
+  })() : ""}
 
   <!-- CRÉDITO FISCAL -->
   ${(p.tipoDocumento || "Consumidor Final") !== "Consumidor Final" ? `
@@ -867,7 +886,13 @@ export function imprimirEntrega(p) {
     per.prendas.some(pr => pr.tipo || pr.talla)
   );
   const filasNombradas = personasConPrendas.map(per => {
-    const grupos = agruparPrendas(per.prendas).filter(g => g.tipo || g.talla);
+    const grupos = agruparPrendas(per.prendas)
+      .filter(g => g.tipo || g.talla)
+      .sort((a, b) => {
+        const ta = (a.tipo || "zzz").toLowerCase(), tb = (b.tipo || "zzz").toLowerCase();
+        if (ta !== tb) return ta.localeCompare(tb);
+        return rankTalla(a.talla) - rankTalla(b.talla);
+      });
     const prendas = grupos
       .map(g => `${g.qty > 1 ? g.qty + "× " : ""}${[g.tipo, g.talla].filter(Boolean).join(" — ")}`)
       .join(" · ");
@@ -915,7 +940,9 @@ export function imprimirEntrega(p) {
   } else {
     // Formato por TALLAS: resumen talla × cantidad con columna para anotar
     // lo recibido/contado en la entrega.
-    const items = (p.tallasItems || []).filter(it => (parseInt(it.qty) || 0) > 0);
+    const items = (p.tallasItems || [])
+      .filter(it => (parseInt(it.qty) || 0) > 0)
+      .sort((a, b) => rankTalla(a.talla) - rankTalla(b.talla));
     const filasT = items.length
       ? items.map((it, i) => `
         <tr style="background:${i % 2 === 0 ? "#fff" : "#faf8fc"};">
