@@ -272,8 +272,12 @@ Reglas del JSON:
     rec.onend = () => setEsc(false);
     rec.onerror = () => setEsc(false);
     rec.onresult = e => {
-      const texto = e.results[0][0].transcript;
-      setInput(texto);
+      const texto = (e.results[0][0].transcript || "").trim();
+      if (!texto) return;
+      // Enviar de una — antes solo llenaba la cajita y el usuario creía
+      // que el asistente se había quedado trabado.
+      setInput("");
+      enviarMensaje(texto);
     };
     reconRef.current = rec;
     rec.start();
