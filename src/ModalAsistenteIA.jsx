@@ -69,16 +69,32 @@ ${esAdmin ? "7. Precio y anticipo (opcional)" : ""}
 
 Cuando tengas suficiente info (mínimo cliente + prenda), pregunta "¿Listo para guardar?" y si confirma genera el JSON.
 
+MODO LISTA PEGADA (¡importante!):
+Si el usuario pega una lista tipo WhatsApp (ej: "Rojas\\n4- talla 4\\n2-talla 6" o "Azules: 9 talla 6, 5 talla 8"), NO hagas el flujo de preguntas: parseala completa de una vez y pregunta SOLO lo que falte (cliente, precio o fecha). Reglas de parseo:
+- Cada bloque de color = items con "spec" = color en singular ("Rojas" → spec "Rojo")
+- Variantes van en el spec junto al color: "talla 14 cuello v" → spec "Rojo · cuello V"; "M para niño" → spec "Rojo · M para niño"; "XL cuello redondo hombre" → spec "Rojo · cuello redondo (hombre)"
+- "grupo": tallas numéricas (2,4,...,16) → "nino"; tallas de letra (XS,S,M,L,XL,2XL,3XL) → "adulto"; EXCEPCIÓN: si dice "para niño" → "nino"
+- Campo "color" del pedido = lista de colores: "Rojo / Verde / Azul"
+- Al final muestra un resumen por color con subtotales y el total de piezas para que el usuario verifique contra su lista
+
+DATOS ESPECIALES (inclúyelos en el JSON solo si aplican):
+- Precio unitario → "precio":X.XX en CADA item, y "precio" del pedido = total (unitario × piezas), como texto "160.00"
+- Recargo por talla grande ("hasta la L, más grandes $1 más") → "recargoTalla":"1.00"
+- Intermediario ("se la mando a X", "él se gana $Y por camisa") → "enviarA":"X" y "comisionUnit":"Y". Son datos INTERNOS, no aparecen en documentos
+- Abono/adelanto recibido → "abonos":[{"id":1,"fecha":"YYYY-MM-DD","monto":"70"}]
+- "entrega antes del 30" → fechaEntrega = ese día del mes actual o siguiente (nunca en el pasado)
+
 Cuando generes el JSON, responde ÚNICAMENTE con esto, sin texto antes ni después:
 <PEDIDO_JSON>
-{"cliente":"...","telefono":"...","tipoPrenda":"...","tela":"...","color":"...","tallasItems":[{"tipo":"...","talla":"...","qty":1}],"modoRegistro":"tallas","descripcion":"...","tieneBordado":false,"fechaEntrega":"...","costurera":"...","precio":"...","anticipo":"...","estatus":"Corte","notas":""}
+{"cliente":"...","telefono":"...","tipoPrenda":"...","tela":"...","color":"...","tallasItems":[{"tipo":"...","talla":"...","qty":1,"spec":"","grupo":"adulto"}],"modoRegistro":"tallas","descripcion":"...","tieneBordado":false,"fechaEntrega":"...","costurera":"...","precio":"...","anticipo":"...","estatus":"Corte","notas":""}
 </PEDIDO_JSON>
 
 Reglas del JSON:
-- tallasItems: array con un objeto por talla. Ej: [{"tipo":"Camisa","talla":"M","qty":2},{"tipo":"Camisa","talla":"L","qty":1}]
+- tallasItems: array con un objeto por talla Y por color/variante. Ej: [{"tipo":"Camiseta","talla":"6","qty":9,"spec":"Azul","grupo":"nino"},{"tipo":"Camiseta","talla":"M","qty":2,"spec":"Azul · cuello V","grupo":"adulto"}]
 - Si no sabe la talla específica: [{"tipo":tipoPrenda,"talla":"Única","qty":1}]
 - Si el admin dio precio por unidad, incluir "precio":X.XX en cada item
-- tipoPrenda y tipo dentro de tallasItems deben ser iguales`;
+- tipoPrenda y tipo dentro de tallasItems deben ser iguales
+- En "notas" pon lo que no calce en otro campo (dudas de lectura, aclaraciones del cliente)`;
 
   const [apiKey, setApiKey] = useState(
     () => ANTHROPIC_KEY || localStorage.getItem("taller_ia_key") || ""
@@ -198,6 +214,14 @@ Reglas del JSON:
       if (match) {
         try {
           const pedido = JSON.parse(match[1].trim());
+          // La aritmética no se le confía al modelo: si todos los items
+          // traen precio, el total del pedido se recalcula acá.
+          const its = pedido.tallasItems || [];
+          if (its.length && its.every(i => parseFloat(i.precio) > 0)) {
+            pedido.precio = its
+              .reduce((s, i) => s + parseFloat(i.precio) * (parseInt(i.qty) || 0), 0)
+              .toFixed(2);
+          }
           setPF(pedido);
           setFase("confirmar");
           setMensajes(prev => [
