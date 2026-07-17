@@ -294,7 +294,11 @@ Reglas del JSON:
 
   useEffect(() => {
     const ultimo = mensajes[mensajes.length - 1];
-    if ((ultimo || {}).rol === "assistant") hablar(ultimo.txt);
+    if ((ultimo || {}).rol !== "assistant") return;
+    // Con retardo: el TTS de Chrome/Windows puede trabar el repintado, así
+    // el mensaje se pinta primero y la voz sale después.
+    const t = setTimeout(() => hablar(ultimo.txt), 150);
+    return () => clearTimeout(t);
   }, [mensajes]);
 
   function confirmarPedido() {
@@ -509,7 +513,7 @@ Reglas del JSON:
           </div>
         )}
 
-        {apiKey && fase === "chat" && (
+        {(modoServidor || apiKey || ANTHROPIC_KEY) && fase === "chat" && (
           <>
             <div
               ref={scrollRef}
@@ -638,7 +642,7 @@ Reglas del JSON:
           </>
         )}
 
-        {apiKey && fase === "confirmar" && pedidoFinal && (
+        {(modoServidor || apiKey || ANTHROPIC_KEY) && fase === "confirmar" && pedidoFinal && (
           <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>
               <div style={{ fontSize: 36, marginBottom: 6 }}>✅</div>
