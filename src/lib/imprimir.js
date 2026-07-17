@@ -537,6 +537,7 @@ ${(p.plazoEntrega || p.lugarEntrega) ? `
 <div style="font-size:10.5px;color:#555;line-height:1.65;margin-bottom:16px;border-top:1px solid #ddd;padding-top:8px;">
   <strong>Condiciones generales:</strong><br>
   • Los precios incluyen IVA, mano de obra y materiales según especificación.<br>
+  ${parseFloat(p.recargoTalla || 0) > 0 ? `• Precio válido hasta talla L; tallas XL o mayores tienen un recargo de $${parseFloat(p.recargoTalla).toFixed(2)} por unidad.<br>` : ""}
   • Fecha de entrega a coordinar al momento de la confirmación.<br>
   • Cambios al diseño o cantidades pueden modificar el precio final.<br>
   • Cotización emitida con base a especificaciones recibidas del cliente.
@@ -1088,6 +1089,22 @@ const colorDeItem = it => {
 export const tieneVariosColores = p =>
   new Set(itemsResumen(p).map(colorDeItem).filter(Boolean)).size > 1;
 
+// Opciones de agrupación disponibles para la hoja de producción de un
+// pedido, según la variedad real de sus items. La UI pinta un botón por
+// opción; con una sola opción queda el botón clásico "Producción".
+export const opcionesAgrupacion = p => {
+  const items = itemsResumen(p);
+  const distintos = f => new Set(items.map(f).filter(Boolean));
+  const ops = [{ id: "talla", label: "Por talla" }];
+  const colores = distintos(colorDeItem);
+  if (colores.size > 1) ops.push({ id: "color", label: "Por color" });
+  if (distintos(it => (it.tipo || "").trim()).size > 1) ops.push({ id: "tipo", label: "Por prenda" });
+  // "Por detalle" agrupa por spec (nivel escolar, variante...). Solo se
+  // ofrece si el spec no es en la práctica el color (evita duplicar botón).
+  if (colores.size < 2 && distintos(it => (it.spec || "").trim()).size > 1) ops.push({ id: "spec", label: "Por detalle" });
+  return ops;
+};
+
 // opts.agruparPor: 'talla' (clásico), 'color' (secciones por color) o
 // 'auto' (por color solo si hay 2+ colores). El usuario elige desde el
 // detalle del pedido; los call sites viejos siguen funcionando igual.
@@ -1204,21 +1221,27 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
       (a.tipo || "").localeCompare(b.tipo || "") ||
       (a.spec || "").localeCompare(b.spec || "")
   );
-  // Sección por color: encabezado con subtotal y adentro agrupado por talla —
-  // el taller termina un color completo antes de pasar al siguiente. Se activa
-  // según opts.agruparPor; en 'auto' solo cuando hay 2+ colores detectados.
+  // Secciones: encabezado con subtotal y adentro agrupado por talla — el
+  // taller termina una sección completa antes de pasar a la siguiente.
+  // opts.agruparPor: 'talla' (sin secciones), 'color', 'tipo' (prenda),
+  // 'spec' (detalle/nivel) o 'auto' (por color solo si hay 2+ colores).
   const coloresDistintos = [...new Set(ordenados.map(colorDeItem).filter(Boolean))];
   const modo = opts.agruparPor || "auto";
-  const porColor =
-    modo === "color" ? coloresDistintos.length > 0 :
-    modo === "talla" ? false :
-    coloresDistintos.length > 1;
-  const bloques = porColor
-    ? [...new Set(ordenados.map(colorDeItem))].map(c => ({
-        color: c,
-        items: ordenados.filter(it => colorDeItem(it) === c),
+  const KEY_FNS = {
+    color: colorDeItem,
+    tipo: it => (it.tipo || "").trim(),
+    spec: it => (it.spec || "").trim(),
+  };
+  const keyFn =
+    modo === "talla" ? null :
+    KEY_FNS[modo] || (coloresDistintos.length > 1 ? colorDeItem : null);
+  const bloques = keyFn
+    ? [...new Set(ordenados.map(keyFn))].map(k => ({
+        nombre: k,
+        items: ordenados.filter(it => keyFn(it) === k),
       }))
-    : [{ color: "", items: ordenados }];
+    : [{ nombre: "", items: ordenados }];
+  const porGrupo = !!keyFn;
   const agruparPorTalla = arr => {
     const gs = [];
     for (const it of arr) {
@@ -1250,12 +1273,12 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
         ${bloques.map(b => {
           const grupos = agruparPorTalla(b.items);
           const subtotal = b.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
-          const css = CSS_COLOR[b.color.toLowerCase()] || "#888";
-          const header = porColor ? `
+          const css = CSS_COLOR[(b.nombre || "").toLowerCase()];
+          const dot = css ? `<span style="display:inline-block;width:15px;height:15px;border-radius:50%;background:${css};border:1px solid rgba(0,0,0,.25);vertical-align:middle;margin-right:8px;"></span>` : "";
+          const header = porGrupo ? `
             <tr style="background:#EAF2F8;">
               <td colspan="4" style="padding:9px 12px;border-top:3px solid #1A5276;">
-                <span style="display:inline-block;width:15px;height:15px;border-radius:50%;background:${css};border:1px solid rgba(0,0,0,.25);vertical-align:middle;margin-right:8px;"></span>
-                <span style="font-size:17px;font-weight:900;color:#1A5276;text-transform:uppercase;letter-spacing:.5px;">${b.color || "Sin color"}</span>
+                ${dot}<span style="font-size:17px;font-weight:900;color:#1A5276;text-transform:uppercase;letter-spacing:.5px;">${b.nombre || "Sin especificar"}</span>
                 <span style="font-size:11px;font-weight:800;color:#888;margin-left:9px;">${subtotal} piezas</span>
               </td>
             </tr>` : "";

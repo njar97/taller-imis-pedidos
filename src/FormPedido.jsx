@@ -1103,6 +1103,33 @@ export default function FormPedido({
             />
           </div>
 
+          {/* Recargo por talla grande — se imprime como condición en la cotización */}
+          <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 700, color: "#555", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={f.recargoTalla != null && f.recargoTalla !== ""}
+                onChange={e => s("recargoTalla", e.target.checked ? "1.00" : "")}
+                style={{ width: 18, height: 18 }}
+              />
+              Recargo tallas grandes (XL o mayor)
+            </label>
+            {f.recargoTalla != null && f.recargoTalla !== "" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#555" }}>+$</span>
+                <input
+                  style={{ ...INP, width: 80 }}
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  value={f.recargoTalla}
+                  onChange={e => s("recargoTalla", e.target.value)}
+                />
+                <span style={{ fontSize: 11, color: "#888" }}>por unidad — sale como condición en la cotización</span>
+              </div>
+            )}
+          </div>
+
           {/* Intermediario — datos SOLO internos, no salen en cotización ni recibo */}
           <div
             style={{

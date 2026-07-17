@@ -12,7 +12,7 @@ import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
-import { tieneVariosColores } from "./lib/imprimir.js";
+import { opcionesAgrupacion } from "./lib/imprimir.js";
 import { imgSrc } from "./lib/imagenes.js";
 import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
 import { TallasChips } from "./SelectorTallas.jsx";
@@ -946,33 +946,36 @@ export default function DetallePedidoModal({
               📄 PDF
             </button>
           )}
-          {esAdmin && onImprimirProduccion && !tieneVariosColores(pedido) && (
-            <button
-              onClick={() => onImprimirProduccion({ agruparPor: "talla" })}
-              title="Hoja de producción para el taller: tallas, cantidades y especificaciones, sin precios"
-              style={btnExport("#B7791F")}
-            >
-              🏭 Producción
-            </button>
-          )}
-          {esAdmin && onImprimirProduccion && tieneVariosColores(pedido) && (
-            <>
+          {esAdmin && onImprimirProduccion && (() => {
+            const ops = opcionesAgrupacion(pedido);
+            if (ops.length <= 1) return (
               <button
                 onClick={() => onImprimirProduccion({ agruparPor: "talla" })}
-                title="Hoja de producción agrupada por talla (todos los colores mezclados por talla)"
+                title="Hoja de producción para el taller: tallas, cantidades y especificaciones, sin precios"
                 style={btnExport("#B7791F")}
               >
-                🏭 Por talla
+                🏭 Producción
               </button>
+            );
+            const ICO = { talla: "🏭", color: "🎨", tipo: "👕", spec: "🏷️" };
+            const COL = { talla: "#B7791F", color: "#8E44AD", tipo: "#2980B9", spec: "#16A085" };
+            const TIP = {
+              talla: "Hoja de producción agrupada por talla (todo mezclado, talla gigante)",
+              color: "Hoja en secciones por color, con las tallas adentro de cada color",
+              tipo: "Hoja en secciones por tipo de prenda, con las tallas adentro",
+              spec: "Hoja en secciones por detalle/nivel, con las tallas adentro",
+            };
+            return ops.map(o => (
               <button
-                onClick={() => onImprimirProduccion({ agruparPor: "color" })}
-                title="Hoja de producción en secciones por color, con las tallas adentro de cada color"
-                style={btnExport("#8E44AD")}
+                key={o.id}
+                onClick={() => onImprimirProduccion({ agruparPor: o.id })}
+                title={TIP[o.id]}
+                style={btnExport(COL[o.id])}
               >
-                🎨 Por color
+                {ICO[o.id]} {o.label}
               </button>
-            </>
-          )}
+            ));
+          })()}
           {esAdmin && onImprimirEntrega && (
             <button
               onClick={onImprimirEntrega}
