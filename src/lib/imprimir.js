@@ -1074,7 +1074,24 @@ export function imprimirEntrega(p) {
   w.document.close();
 }
 
-export async function imprimirProduccion(p, todosPedidos = []) {
+// Detección de color en el spec de un item ("Rojo", "Azul · cuello V"...).
+// Compartido entre la hoja de producción y la UI (para ofrecer al usuario
+// elegir cómo agrupar al imprimir).
+const COLOR_RE = /^(rojo|roja|verde|azul|amarillo|amarilla|blanco|blanca|negro|negra|gris|celeste|naranja|morado|morada|rosado|rosada|rosa|beige|caf[eé]|vino|turquesa|corinto|lila|fucsia)s?$/i;
+const CSS_COLOR = { rojo: "#C0392B", roja: "#C0392B", verde: "#27AE60", azul: "#1A5276", amarillo: "#F1C40F", amarilla: "#F1C40F", blanco: "#ECF0F1", blanca: "#ECF0F1", negro: "#2C3E50", negra: "#2C3E50", gris: "#95A5A6", celeste: "#5DADE2", naranja: "#E67E22", morado: "#8E44AD", morada: "#8E44AD", rosado: "#F06292", rosada: "#F06292", rosa: "#F06292", beige: "#D7CCC8", "café": "#795548", cafe: "#795548", vino: "#7B241C", turquesa: "#1ABC9C", corinto: "#7B241C", lila: "#BB8FCE", fucsia: "#D81B60" };
+const colorDeItem = it => {
+  const pref = (it.spec || "").split("·")[0].trim();
+  return COLOR_RE.test(pref) ? pref.replace(/s$/i, "") : "";
+};
+// true si el pedido tiene items de 2+ colores distintos — la UI lo usa para
+// ofrecer el botón "imprimir agrupado por color".
+export const tieneVariosColores = p =>
+  new Set(itemsResumen(p).map(colorDeItem).filter(Boolean)).size > 1;
+
+// opts.agruparPor: 'talla' (clásico), 'color' (secciones por color) o
+// 'auto' (por color solo si hay 2+ colores). El usuario elige desde el
+// detalle del pedido; los call sites viejos siguen funcionando igual.
+export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   const num = String(p.id).padStart(4, "0");
   // QR con URL del pedido — el query param ?p=<id> se puede usar en
   // un futuro deeplink para abrir el detalle del pedido al instante.
@@ -1187,22 +1204,19 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       (a.tipo || "").localeCompare(b.tipo || "") ||
       (a.spec || "").localeCompare(b.spec || "")
   );
-  // Si los specs empiezan con un color ("Rojo", "Azul · cuello V"...), la
-  // tabla se secciona primero por color (encabezado con subtotal) y adentro
-  // se agrupa por talla — el taller termina un color completo antes de pasar
-  // al siguiente. Con un solo color o specs sin color queda igual que antes.
-  const COLOR_RE = /^(rojo|roja|verde|azul|amarillo|amarilla|blanco|blanca|negro|negra|gris|celeste|naranja|morado|morada|rosado|rosada|rosa|beige|caf[eé]|vino|turquesa|corinto|lila|fucsia)s?$/i;
-  const CSS_COLOR = { rojo: "#C0392B", roja: "#C0392B", verde: "#27AE60", azul: "#1A5276", amarillo: "#F1C40F", amarilla: "#F1C40F", blanco: "#ECF0F1", blanca: "#ECF0F1", negro: "#2C3E50", negra: "#2C3E50", gris: "#95A5A6", celeste: "#5DADE2", naranja: "#E67E22", morado: "#8E44AD", morada: "#8E44AD", rosado: "#F06292", rosada: "#F06292", rosa: "#F06292", beige: "#D7CCC8", "café": "#795548", cafe: "#795548", vino: "#7B241C", turquesa: "#1ABC9C", corinto: "#7B241C", lila: "#BB8FCE", fucsia: "#D81B60" };
-  const colorDe = it => {
-    const pref = (it.spec || "").split("·")[0].trim();
-    return COLOR_RE.test(pref) ? pref.replace(/s$/i, "") : "";
-  };
-  const coloresDistintos = [...new Set(ordenados.map(colorDe).filter(Boolean))];
-  const porColor = coloresDistintos.length > 1;
+  // Sección por color: encabezado con subtotal y adentro agrupado por talla —
+  // el taller termina un color completo antes de pasar al siguiente. Se activa
+  // según opts.agruparPor; en 'auto' solo cuando hay 2+ colores detectados.
+  const coloresDistintos = [...new Set(ordenados.map(colorDeItem).filter(Boolean))];
+  const modo = opts.agruparPor || "auto";
+  const porColor =
+    modo === "color" ? coloresDistintos.length > 0 :
+    modo === "talla" ? false :
+    coloresDistintos.length > 1;
   const bloques = porColor
-    ? [...new Set(ordenados.map(colorDe))].map(c => ({
+    ? [...new Set(ordenados.map(colorDeItem))].map(c => ({
         color: c,
-        items: ordenados.filter(it => colorDe(it) === c),
+        items: ordenados.filter(it => colorDeItem(it) === c),
       }))
     : [{ color: "", items: ordenados }];
   const agruparPorTalla = arr => {

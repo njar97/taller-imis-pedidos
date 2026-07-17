@@ -12,6 +12,7 @@ import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
+import { tieneVariosColores } from "./lib/imprimir.js";
 import { imgSrc } from "./lib/imagenes.js";
 import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
 import { TallasChips } from "./SelectorTallas.jsx";
@@ -934,14 +935,32 @@ export default function DetallePedidoModal({
               📄 PDF
             </button>
           )}
-          {esAdmin && onImprimirProduccion && (
+          {esAdmin && onImprimirProduccion && !tieneVariosColores(pedido) && (
             <button
-              onClick={onImprimirProduccion}
+              onClick={() => onImprimirProduccion({ agruparPor: "talla" })}
               title="Hoja de producción para el taller: tallas, cantidades y especificaciones, sin precios"
               style={btnExport("#B7791F")}
             >
               🏭 Producción
             </button>
+          )}
+          {esAdmin && onImprimirProduccion && tieneVariosColores(pedido) && (
+            <>
+              <button
+                onClick={() => onImprimirProduccion({ agruparPor: "talla" })}
+                title="Hoja de producción agrupada por talla (todos los colores mezclados por talla)"
+                style={btnExport("#B7791F")}
+              >
+                🏭 Por talla
+              </button>
+              <button
+                onClick={() => onImprimirProduccion({ agruparPor: "color" })}
+                title="Hoja de producción en secciones por color, con las tallas adentro de cada color"
+                style={btnExport("#8E44AD")}
+              >
+                🎨 Por color
+              </button>
+            </>
           )}
           {esAdmin && onImprimirEntrega && (
             <button
