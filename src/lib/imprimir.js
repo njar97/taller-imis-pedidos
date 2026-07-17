@@ -1187,13 +1187,34 @@ export async function imprimirProduccion(p, todosPedidos = []) {
       (a.tipo || "").localeCompare(b.tipo || "") ||
       (a.spec || "").localeCompare(b.spec || "")
   );
-  const grupos = [];
-  for (const it of ordenados) {
-    const talla = it.talla || "S/T";
-    const ult = grupos[grupos.length - 1];
-    if (ult && ult.talla === talla) ult.items.push(it);
-    else grupos.push({ talla, items: [it] });
-  }
+  // Si los specs empiezan con un color ("Rojo", "Azul · cuello V"...), la
+  // tabla se secciona primero por color (encabezado con subtotal) y adentro
+  // se agrupa por talla — el taller termina un color completo antes de pasar
+  // al siguiente. Con un solo color o specs sin color queda igual que antes.
+  const COLOR_RE = /^(rojo|roja|verde|azul|amarillo|amarilla|blanco|blanca|negro|negra|gris|celeste|naranja|morado|morada|rosado|rosada|rosa|beige|caf[eé]|vino|turquesa|corinto|lila|fucsia)s?$/i;
+  const CSS_COLOR = { rojo: "#C0392B", roja: "#C0392B", verde: "#27AE60", azul: "#1A5276", amarillo: "#F1C40F", amarilla: "#F1C40F", blanco: "#ECF0F1", blanca: "#ECF0F1", negro: "#2C3E50", negra: "#2C3E50", gris: "#95A5A6", celeste: "#5DADE2", naranja: "#E67E22", morado: "#8E44AD", morada: "#8E44AD", rosado: "#F06292", rosada: "#F06292", rosa: "#F06292", beige: "#D7CCC8", "café": "#795548", cafe: "#795548", vino: "#7B241C", turquesa: "#1ABC9C", corinto: "#7B241C", lila: "#BB8FCE", fucsia: "#D81B60" };
+  const colorDe = it => {
+    const pref = (it.spec || "").split("·")[0].trim();
+    return COLOR_RE.test(pref) ? pref.replace(/s$/i, "") : "";
+  };
+  const coloresDistintos = [...new Set(ordenados.map(colorDe).filter(Boolean))];
+  const porColor = coloresDistintos.length > 1;
+  const bloques = porColor
+    ? [...new Set(ordenados.map(colorDe))].map(c => ({
+        color: c,
+        items: ordenados.filter(it => colorDe(it) === c),
+      }))
+    : [{ color: "", items: ordenados }];
+  const agruparPorTalla = arr => {
+    const gs = [];
+    for (const it of arr) {
+      const talla = it.talla || "S/T";
+      const ult = gs[gs.length - 1];
+      if (ult && ult.talla === talla) ult.items.push(it);
+      else gs.push({ talla, items: [it] });
+    }
+    return gs;
+  };
   const iconoSpec = s =>
     /parvulari/i.test(s || "") ? "🧒 " :
     /b[aá]sica/i.test(s || "") ? "🎒 " :
@@ -1203,7 +1224,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
     if (q <= 0 || q > 40) return "";
     return `<span style="line-height:1.9;">${`<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #888;border-radius:3px;margin:0 3px 0 0;vertical-align:middle;"></span>`.repeat(q)}</span>`;
   };
-  const tablaPrendasHTML = grupos.length ? `
+  const tablaPrendasHTML = ordenados.length ? `
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
         <th style="padding:9px 12px;text-align:center;width:90px;">TALLA</th>
@@ -1212,10 +1233,22 @@ export async function imprimirProduccion(p, todosPedidos = []) {
         <th style="padding:9px 12px;text-align:left;width:180px;">Tache al terminar ✔</th>
       </tr></thead>
       <tbody>
-        ${grupos.map((g, gi) => {
-          const totalTalla = g.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
-          const bg = gi % 2 === 0 ? "#fff" : "#f4f9f4";
-          return g.items.map((it, i) => `
+        ${bloques.map(b => {
+          const grupos = agruparPorTalla(b.items);
+          const subtotal = b.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+          const css = CSS_COLOR[b.color.toLowerCase()] || "#888";
+          const header = porColor ? `
+            <tr style="background:#EAF2F8;">
+              <td colspan="4" style="padding:9px 12px;border-top:3px solid #1A5276;">
+                <span style="display:inline-block;width:15px;height:15px;border-radius:50%;background:${css};border:1px solid rgba(0,0,0,.25);vertical-align:middle;margin-right:8px;"></span>
+                <span style="font-size:17px;font-weight:900;color:#1A5276;text-transform:uppercase;letter-spacing:.5px;">${b.color || "Sin color"}</span>
+                <span style="font-size:11px;font-weight:800;color:#888;margin-left:9px;">${subtotal} piezas</span>
+              </td>
+            </tr>` : "";
+          return header + grupos.map((g, gi) => {
+            const totalTalla = g.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+            const bg = gi % 2 === 0 ? "#fff" : "#f4f9f4";
+            return g.items.map((it, i) => `
             <tr style="background:${bg};${i === 0 ? "border-top:3px solid #1A5276;" : "border-top:1px dashed #ccd;"}">
               ${i === 0 ? `<td rowspan="${g.items.length}" style="padding:10px 12px;text-align:center;vertical-align:middle;border-right:2px solid #1A5276;">
                 <div style="font-weight:900;font-size:30px;color:#E67E22;line-height:1;">${g.talla}</div>
@@ -1225,6 +1258,7 @@ export async function imprimirProduccion(p, todosPedidos = []) {
               <td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${iconoSpec(it.spec)}${[it.tipo, it.spec].filter(Boolean).join(" — ") || "—"}</td>
               <td style="padding:10px 12px;">${casillas(it.qty)}</td>
             </tr>`).join("");
+          }).join("");
         }).join("")}
         <tr style="background:#1A5276;color:#fff;font-weight:800;">
           <td colspan="2" style="padding:11px 12px;text-align:right;font-size:14px;">TOTAL</td>
