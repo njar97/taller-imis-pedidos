@@ -193,7 +193,7 @@ Reglas del JSON:
         }
       }
       if (!resp) {
-        if (!esInicio || apiKey) setMensajes(prev => [
+        setMensajes(prev => [
           ...prev,
           { rol: "assistant", txt: "⚠️ Error: " + lastErr + ". Verifica la configuración del servidor IA o tu API key." },
         ]);
@@ -338,6 +338,10 @@ Reglas del JSON:
           borderRadius: "18px 18px 0 0",
           width: "100%",
           maxWidth: 520,
+          // Altura explícita: sin esto el panel colapsaba a solo el header
+          // cuando el chat estaba vacío (se veía únicamente "Asistente IA"
+          // al fondo de la pantalla).
+          height: "min(92vh, 700px)",
           maxHeight: "92vh",
           display: "flex",
           flexDirection: "column",
