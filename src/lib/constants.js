@@ -11,6 +11,13 @@ export const SQL_WASM = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sq
 // en el modal de IA y queda en localStorage.taller_ia_key.
 export const ANTHROPIC_KEY = "";
 
+// Edge Function del asistente IA — la key de Anthropic vive como secreto
+// del servidor (ANTHROPIC_API_KEY en Supabase), no en el navegador.
+export const IA_EDGE_URL = "https://kszdievqesveluzcnzsh.supabase.co/functions/v1/asistente-ia";
+// JWT anon legacy: las Edge Functions con verify_jwt necesitan un JWT
+// (la publishable key de db.js no lo es). Es publico por diseño.
+export const SUPA_ANON_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzemRpZXZxZXN2ZWx1emNuenNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MTgwMTgsImV4cCI6MjA5MDM5NDAxOH0.r28goEyUxZeKK9j0efu1BXC8ssU9lYxRK7dp3BGix1M";
+
 // ── Pedidos de confección ─────────────────────────────────
 // Estatus simplificados (21-may-2026): 4 estados visibles. Cancelado se
 // implementa como soft-delete (papelera), no como estatus. Los estados

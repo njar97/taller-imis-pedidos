@@ -2,7 +2,7 @@
 // el navegador) para crear pedidos por texto o voz.
 // Antes vivía como ModalAsistenteIA compilado en main.js (~603 líneas).
 
-import { ANTHROPIC_KEY } from "./lib/constants.js";
+import { ANTHROPIC_KEY, IA_EDGE_URL, SUPA_ANON_JWT } from "./lib/constants.js";
 import { PEDIDO_BASE } from "./lib/dominio.js";
 import { pushToast } from "./lib/feedback.js";
 
@@ -84,9 +84,19 @@ Reglas del JSON:
     () => ANTHROPIC_KEY || localStorage.getItem("taller_ia_key") || ""
   );
   const [showKey, setShowKey] = useState(false);
+  // true mientras el servidor (Edge Function) responda — la pantalla de
+  // "configura tu API key" solo aparece si el servidor no está configurado
+  // Y no hay key local (compat con el flujo viejo).
+  const [modoServidor, setModoServidor] = useState(true);
 
   useEffect(() => {
-    if (apiKey) enviarMensaje(null, true);
+    enviarMensaje(null, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!modoServidor && apiKey) enviarMensaje(null, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
   useEffect(() => {
@@ -109,42 +119,67 @@ Reglas del JSON:
     }
 
     try {
-      const ENDPOINTS = [
-        "https://corsproxy.io/?https://api.anthropic.com/v1/messages",
-        "https://api.anthropic.com/v1/messages",
-      ];
+      const payload = JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        system: SYSTEM,
+        messages: historial,
+      });
       let resp = null;
       let lastErr = "";
-      for (const url of ENDPOINTS) {
-        try {
-          resp = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-              "anthropic-dangerous-direct-browser-access": "true",
-            },
-            body: JSON.stringify({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 1000,
-              system: SYSTEM,
-              messages: historial,
-            }),
-          });
-          if (resp.ok) break;
-          const errData = await resp.json();
-          lastErr = ((errData || {}).error || {}).message || "HTTP " + resp.status;
-          resp = null;
-        } catch (e) {
-          lastErr = e.message;
-          resp = null;
+      // 1º: Edge Function — la key de Anthropic vive en el servidor y no
+      // se pierde aunque el navegador borre el almacenamiento local.
+      try {
+        const r = await fetch(IA_EDGE_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPA_ANON_JWT,
+            Authorization: "Bearer " + SUPA_ANON_JWT,
+          },
+          body: payload,
+        });
+        if (r.ok) resp = r;
+        else {
+          const d = await r.json().catch(() => ({}));
+          if (((d || {}).error || {}).type === "no_server_key") setModoServidor(false);
+          lastErr = ((d || {}).error || {}).message || "HTTP " + r.status;
+        }
+      } catch (e) {
+        lastErr = e.message;
+      }
+      // 2º (compat): directo con la key local si el servidor no está listo
+      if (!resp && apiKey) {
+        const ENDPOINTS = [
+          "https://api.anthropic.com/v1/messages",
+          "https://corsproxy.io/?https://api.anthropic.com/v1/messages",
+        ];
+        for (const url of ENDPOINTS) {
+          try {
+            resp = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+                "anthropic-dangerous-direct-browser-access": "true",
+              },
+              body: payload,
+            });
+            if (resp.ok) break;
+            const errData = await resp.json();
+            lastErr = ((errData || {}).error || {}).message || "HTTP " + resp.status;
+            resp = null;
+          } catch (e) {
+            lastErr = e.message;
+            resp = null;
+          }
         }
       }
       if (!resp) {
-        setMensajes(prev => [
+        if (!esInicio || apiKey) setMensajes(prev => [
           ...prev,
-          { rol: "assistant", txt: "⚠️ Error: " + lastErr + ". Verifica tu API key o conexión." },
+          { rol: "assistant", txt: "⚠️ Error: " + lastErr + ". Verifica la configuración del servidor IA o tu API key." },
         ]);
         setCarg(false);
         return;
@@ -345,7 +380,7 @@ Reglas del JSON:
           </button>
         </div>
 
-        {!apiKey && !ANTHROPIC_KEY && (
+        {!modoServidor && !apiKey && !ANTHROPIC_KEY && (
           <div
             style={{
               flex: 1,
