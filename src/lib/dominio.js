@@ -219,6 +219,8 @@ export const PEDIDO_BASE = {
   nrc: "",
   dirFiscal: "",
   precio: "",
+  enviarA: "",
+  comisionUnit: "",
   anticipo: "",
   fechaInicio: "",
   fechaEntrega: "",

@@ -468,15 +468,15 @@ ${p.cotizacionAbierta ? (() => {
     <div class="sec-title" style="margin-bottom:6px;">Condiciones de pago</div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ccc;">
       <span>Anticipo al confirmar <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u</span>
+      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u · $${(precioFinal * 0.5).toFixed(2)} total</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;">
       <span>Saldo contra entrega <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u</span>
+      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u · $${(precioFinal * 0.5).toFixed(2)} total</span>
     </div>
     <div style="margin-top:8px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:6px;">
       Total estimado (${totPzas} uds.): <strong>~$${precioFinal.toFixed(2)}</strong><br>
-      <em>Cantidad sujeta a confirmación de participantes</em>
+      <em>Cantidad sujeta a confirmación de participantes — anticipo total varía con la cantidad final</em>
     </div>
   </div>
 </div>

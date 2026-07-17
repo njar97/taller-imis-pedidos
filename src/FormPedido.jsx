@@ -1103,6 +1103,53 @@ export default function FormPedido({
             />
           </div>
 
+          {/* Intermediario — datos SOLO internos, no salen en cotización ni recibo */}
+          <div
+            style={{
+              border: "1.5px dashed #b8a6d9",
+              borderRadius: 10,
+              padding: "10px 12px",
+              marginBottom: 10,
+              background: "#faf7ff",
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#8E44AD", textTransform: "uppercase", marginBottom: 8 }}>
+              🤝 Intermediario (interno — no sale en documentos)
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ flex: 2, minWidth: 140 }}>
+                <label style={LBL}>Se envía a (si no es el cliente)</label>
+                <input
+                  style={INP}
+                  placeholder="Nombre de quien la recibe/reenvía"
+                  value={f.enviarA || ""}
+                  onChange={e => s("enviarA", e.target.value)}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 110 }}>
+                <label style={LBL}>Comisión ($/unidad)</label>
+                <input
+                  style={INP}
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={f.comisionUnit || ""}
+                  onChange={e => s("comisionUnit", e.target.value)}
+                />
+              </div>
+            </div>
+            {parseFloat(f.comisionUnit || 0) > 0 && parseFloat(f.precio || 0) > 0 && (() => {
+              const pzs = totalPzasAuto > 0 ? totalPzasAuto : (f.personas || []).length || 0;
+              const com = parseFloat(f.comisionUnit) * pzs;
+              return (
+                <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: "#6C3483" }}>
+                  Comisión: {pzs} pzas × ${parseFloat(f.comisionUnit).toFixed(2)} = ${com.toFixed(2)} ·
+                  {" "}Neto nuestro: <strong>${(parseFloat(f.precio) - com).toFixed(2)}</strong>
+                </div>
+              );
+            })()}
+          </div>
+
           <RegistroAbonos
             abonos={f.abonos || []}
             precioTotal={f.precio}

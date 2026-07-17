@@ -144,6 +144,17 @@ function InfoTabla({ pedido, esAdmin }) {
     esAdmin ? ["Precio", fmt$(pedido.precio)] : null,
     esAdmin ? ["Abonado", fmt$(sumarAbonos(pedido))] : null,
     esAdmin ? ["Saldo", fmt$(parseFloat(pedido.precio || 0) - sumarAbonos(pedido))] : null,
+    // Intermediario (solo interno, nunca sale en cotización/recibo)
+    ...(esAdmin && parseFloat(pedido.comisionUnit || 0) > 0 ? (() => {
+      const pzs = itemsResumen(pedido).reduce((s, it) => s + (parseInt(it.qty) || 0), 0)
+        || (pedido.personas || []).length || 0;
+      const com = parseFloat(pedido.comisionUnit) * pzs;
+      return [
+        ["🤝 Comisión interm.", `${fmt$(pedido.comisionUnit)} c/u × ${pzs} = ${fmt$(com)}`],
+        ["Neto nuestro", fmt$(parseFloat(pedido.precio || 0) - com)],
+      ];
+    })() : []),
+    esAdmin && pedido.enviarA ? ["📨 Se envía a", pedido.enviarA] : null,
     ["Entrega", pedido.fechaEntrega],
     ["Notas", pedido.notas],
   ].filter(Boolean);
