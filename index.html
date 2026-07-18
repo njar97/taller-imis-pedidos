@@ -99,6 +99,11 @@
   html.theme-dark #root .topbar-mobile,
   html.theme-dark #root .bottomnav,
   html.theme-dark #root .no-invert{filter:invert(1) hue-rotate(180deg)}
+  /* El filtro invert() vuelve blanca toda sombra negra, así que los box-shadow
+     de la app (hardcodeados en negro por todos lados) se ven como halos/capas
+     brillantes en modo oscuro. Los anulamos de raíz. .keep-shadow escapa la
+     regla si algún elemento puntual necesita conservar su sombra. */
+  html.theme-dark #root *:not(.keep-shadow){box-shadow:none!important}
 </style>
 <script>
   // Anti-parpadeo: aplicar la clase del tema oscuro ANTES del primer render,
