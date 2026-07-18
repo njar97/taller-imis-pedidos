@@ -1006,7 +1006,11 @@ export default function DetallePedidoModal({
                         background: "#fff",
                         border: "1px solid #ddd",
                         borderRadius: 10,
-                        boxShadow: "0 6px 20px rgba(0,0,0,.15)",
+                        // Sombra suave alineada a los otros desplegables de la
+                        // app. En modo oscuro el filtro invert() vuelve blanca
+                        // toda sombra negra; un desenfoque chico evita que se
+                        // vea como una capa brillante alrededor del menú.
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
                         overflow: "hidden",
                         minWidth: 190,
                       }}
