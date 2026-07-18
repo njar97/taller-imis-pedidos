@@ -21,9 +21,17 @@ const BTN = (bg = "#9B59B6", disabled = false) => ({
 });
 
 const colorBurbuja = {
-  user: { bg: "#9B59B6", color: "#fff", align: "flex-end" },
-  assistant: { bg: "#f0f0f0", color: "#333", align: "flex-start" },
+  user: { bg: "linear-gradient(135deg,#7C4DFF,#9B59B6)", color: "#fff", align: "flex-end" },
+  assistant: { bg: "#F3EFFB", color: "#2C1654", align: "flex-start" },
 };
+
+// Animaciones del modal (burbujas, puntitos de escritura, punto de estado).
+const IA_CSS = `
+@keyframes iaPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes iaBounce{0%,80%,100%{transform:translateY(0);opacity:.5}40%{transform:translateY(-5px);opacity:1}}
+@keyframes iaPulse{0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,.5)}60%{box-shadow:0 0 0 5px rgba(46,204,113,0)}}
+@keyframes iaSlideUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+`;
 
 export default function ModalAsistenteIA({ rol, onCrearPedido, onAbrir, onCerrar }) {
   const esAdmin = rol === "admin";
@@ -328,59 +336,79 @@ Reglas del JSON:
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "rgba(20,12,48,0.55)",
+        backdropFilter: "blur(5px)",
+        WebkitBackdropFilter: "blur(5px)",
         display: "flex",
-        alignItems: "flex-end",
+        // Escritorio: centrado como diálogo; móvil: bottom sheet clásico.
+        alignItems: typeof window !== "undefined" && window.innerWidth > 700 ? "center" : "flex-end",
         justifyContent: "center",
         zIndex: 200,
-        padding: 0,
+        padding: typeof window !== "undefined" && window.innerWidth > 700 ? 24 : 0,
       }}
     >
+      <style>{IA_CSS}</style>
       <div
         style={{
           background: "#fff",
-          borderRadius: "18px 18px 0 0",
+          borderRadius: typeof window !== "undefined" && window.innerWidth > 700 ? 24 : "24px 24px 0 0",
           width: "100%",
           maxWidth: 520,
           // Altura explícita: sin esto el panel colapsaba a solo el header
           // cuando el chat estaba vacío (se veía únicamente "Asistente IA"
           // al fondo de la pantalla).
-          height: "min(92vh, 700px)",
+          height: "min(88vh, 720px)",
           maxHeight: "92vh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 -8px 40px rgba(0,0,0,0.3)",
+          boxShadow: "0 24px 80px rgba(20,12,48,0.45)",
           overflow: "hidden",
+          animation: "iaSlideUp .28s cubic-bezier(.2,.9,.3,1)",
         }}
       >
         <div
           style={{
-            background: "linear-gradient(135deg,#1A5276,#2C1654)",
+            background: "linear-gradient(120deg,#5B2AC8 0%,#2C1654 70%)",
             padding: "14px 16px",
             display: "flex",
             alignItems: "center",
-            gap: 10,
+            gap: 12,
           }}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.15)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
-              flexShrink: 0,
-            }}
-          >
-            🤖
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.14)",
+                border: "1px solid rgba(255,255,255,0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 21,
+              }}
+            >
+              🤖
+            </div>
+            <div
+              style={{
+                position: "absolute",
+                right: -2,
+                bottom: -2,
+                width: 11,
+                height: 11,
+                borderRadius: "50%",
+                background: "#2ECC71",
+                border: "2px solid #3B1E7E",
+                animation: "iaPulse 2s infinite",
+              }}
+            />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>Asistente IA</div>
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11 }}>
-              Nuevo pedido por voz o texto
+            <div style={{ color: "#fff", fontWeight: 800, fontSize: 15, letterSpacing: 0.2 }}>Asistente IMIS</div>
+            <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 11 }}>
+              En línea · dictá, escribí o pegá tu lista de WhatsApp
             </div>
           </div>
           <button
@@ -527,17 +555,36 @@ Reglas del JSON:
               }}
             >
               {mensajes.map((m, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: colorBurbuja[m.rol].align }}>
+                <div key={i} style={{ display: "flex", justifyContent: colorBurbuja[m.rol].align, alignItems: "flex-end", gap: 7 }}>
+                  {m.rol === "assistant" && (
+                    <div
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 9,
+                        background: "#EFE9FA",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 14,
+                        flexShrink: 0,
+                      }}
+                    >
+                      🤖
+                    </div>
+                  )}
                   <div
                     style={{
-                      maxWidth: "80%",
+                      maxWidth: "78%",
                       background: colorBurbuja[m.rol].bg,
                       color: colorBurbuja[m.rol].color,
-                      borderRadius: m.rol === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                      padding: "10px 14px",
+                      borderRadius: m.rol === "user" ? "18px 18px 5px 18px" : "18px 18px 18px 5px",
+                      padding: "10px 15px",
                       fontSize: 14,
-                      lineHeight: 1.5,
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                      lineHeight: 1.55,
+                      whiteSpace: "pre-wrap",
+                      boxShadow: m.rol === "user" ? "0 3px 10px rgba(124,77,255,0.25)" : "0 1px 3px rgba(44,22,84,0.08)",
+                      animation: "iaPop .22s ease-out",
                     }}
                   >
                     {m.txt}
@@ -545,26 +592,28 @@ Reglas del JSON:
                 </div>
               ))}
               {cargando && (
-                <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "flex-end", gap: 7 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 9, background: "#EFE9FA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>🤖</div>
                   <div
                     style={{
-                      background: "#f0f0f0",
-                      borderRadius: "16px 16px 16px 4px",
-                      padding: "10px 16px",
+                      background: "#F3EFFB",
+                      borderRadius: "18px 18px 18px 5px",
+                      padding: "12px 16px",
                       display: "flex",
                       gap: 5,
                       alignItems: "center",
+                      animation: "iaPop .22s ease-out",
                     }}
                   >
                     {[0, 1, 2].map(i => (
                       <div
                         key={i}
                         style={{
-                          width: 8,
-                          height: 8,
+                          width: 7,
+                          height: 7,
                           borderRadius: "50%",
-                          background: "#9B59B6",
-                          animation: `bounce 1s ease-in-out ${i * 0.2}s infinite`,
+                          background: "#7C4DFF",
+                          animation: `iaBounce 1.1s ease-in-out ${i * 0.18}s infinite`,
                         }}
                       />
                     ))}
@@ -573,71 +622,113 @@ Reglas del JSON:
               )}
             </div>
 
-            <div
-              style={{
-                padding: "12px 14px",
-                borderTop: "1px solid #eee",
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                background: "#fafafa",
-              }}
-            >
-              <button
-                onClick={toggleVoz}
+            {mensajes.length <= 1 && !cargando && (
+              <div style={{ display: "flex", gap: 8, padding: "0 16px 8px", flexWrap: "wrap" }}>
+                <button
+                  onClick={toggleVoz}
+                  style={{
+                    border: "1.5px solid #E3DAF6",
+                    background: "#FAF8FE",
+                    color: "#5B2AC8",
+                    borderRadius: 999,
+                    padding: "7px 14px",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  🎤 Dictar pedido
+                </button>
+                <button
+                  onClick={() => document.getElementById("ia-input")?.focus()}
+                  style={{
+                    border: "1.5px solid #E3DAF6",
+                    background: "#FAF8FE",
+                    color: "#5B2AC8",
+                    borderRadius: 999,
+                    padding: "7px 14px",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  📋 Pegá tu lista de WhatsApp tal cual
+                </button>
+              </div>
+            )}
+
+            <div style={{ padding: "10px 14px 14px", background: "#fff", borderTop: "1px solid #F1EDF9" }}>
+              <div
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "50%",
-                  border: "2px solid " + (escuchando ? "#E63946" : "#e0e0e0"),
-                  background: escuchando ? "#E63946" : "#fff",
-                  cursor: "pointer",
-                  fontSize: 20,
                   display: "flex",
+                  gap: 6,
                   alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  boxShadow: escuchando ? "0 0 0 4px rgba(230,57,70,0.2)" : "none",
+                  background: escuchando ? "#FFF3F4" : "#F4F2FA",
+                  border: "1.5px solid " + (escuchando ? "#F5B7BC" : "transparent"),
+                  borderRadius: 28,
+                  padding: 5,
                   transition: "all .2s",
                 }}
               >
-                {escuchando ? "⏹️" : "🎤"}
-              </button>
-              <input
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && enviar()}
-                placeholder={escuchando ? "Escuchando..." : "Escribe o usa el micrófono..."}
-                style={{
-                  flex: 1,
-                  padding: "10px 14px",
-                  borderRadius: 22,
-                  border: "1.5px solid #e0e0e0",
-                  outline: "none",
-                  fontSize: 14,
-                  background: escuchando ? "#FFF5F5" : "#fff",
-                }}
-              />
-              <button
-                onClick={enviar}
-                disabled={!input.trim() || cargando}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: !input.trim() || cargando ? "#e0e0e0" : "#9B59B6",
-                  color: "#fff",
-                  cursor: !input.trim() || cargando ? "not-allowed" : "pointer",
-                  fontSize: 20,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                ➤
-              </button>
+                <button
+                  onClick={toggleVoz}
+                  title={escuchando ? "Detener" : "Hablar"}
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: escuchando ? "#E63946" : "#fff",
+                    cursor: "pointer",
+                    fontSize: 19,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    boxShadow: escuchando ? "0 0 0 5px rgba(230,57,70,0.18)" : "0 1px 4px rgba(44,22,84,0.12)",
+                    transition: "all .2s",
+                  }}
+                >
+                  {escuchando ? "⏹️" : "🎤"}
+                </button>
+                <input
+                  id="ia-input"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && enviar()}
+                  placeholder={escuchando ? "Escuchando…" : "Escribí o pegá la lista…"}
+                  style={{
+                    flex: 1,
+                    padding: "10px 8px",
+                    border: "none",
+                    outline: "none",
+                    fontSize: 14,
+                    background: "transparent",
+                  }}
+                />
+                <button
+                  onClick={enviar}
+                  disabled={!input.trim() || cargando}
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: !input.trim() || cargando ? "#E4E0EE" : "linear-gradient(135deg,#7C4DFF,#5B2AC8)",
+                    color: "#fff",
+                    cursor: !input.trim() || cargando ? "not-allowed" : "pointer",
+                    fontSize: 18,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    boxShadow: !input.trim() || cargando ? "none" : "0 3px 10px rgba(124,77,255,0.4)",
+                    transition: "all .2s",
+                  }}
+                >
+                  ➤
+                </button>
+              </div>
             </div>
           </>
         )}
