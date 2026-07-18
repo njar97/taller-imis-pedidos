@@ -17,6 +17,7 @@ import {
   chipActiveStyle,
 } from "./lib/ui.jsx";
 import { ListaPrendas } from "./ListaPrendas.jsx";
+import TablaMedidas from "./TablaMedidas.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
 import FormNav from "./FormNav.jsx";
@@ -168,6 +169,11 @@ export default function FormPedido({
   const [f, setF] = useState(initForm);
   const [sugs, setSugs] = useState([]);
   const [showSugs, setShowSugs] = useState(false);
+  // Vista de captura de personas: "tarjetas" (clásica) o "tabla" (tipo
+  // Excel, para quien viene de los libros de medidas). Se recuerda.
+  const [vistaPersonas, setVistaPersonas] = useState(() => {
+    try { return localStorage.getItem("pl_vista_personas") || "tarjetas"; } catch { return "tarjetas"; }
+  });
   // Últimos 3 tipos de prenda "libres" usados (no del catálogo). Memoria
   // compartida en Supabase para que aparezcan como chips de atajo.
   const [recientes, setRecientes] = useState([]);
@@ -834,11 +840,40 @@ export default function FormPedido({
         />
       )}
       {f.modoRegistro === "lista" && (
-        <ListaPrendas
-          items={f.personas || []}
-          onChange={handlePersonas}
-          tipoPrendaDefault={f.tipoPrenda || ""}
-        />
+        <>
+          {/* Vista de captura: tarjetas (la clásica) o tabla tipo Excel
+              (para quien viene de los libros de medidas). Misma data. */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            {[["tarjetas", "🗂 Tarjetas"], ["tabla", "📊 Tabla (tipo Excel)"]].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => { setVistaPersonas(id); try { localStorage.setItem("pl_vista_personas", id); } catch { /* sin storage */ } }}
+                style={{
+                  border: "1.5px solid " + (vistaPersonas === id ? "#6C3483" : "#ddd"),
+                  background: vistaPersonas === id ? "#6C3483" : "#fff",
+                  color: vistaPersonas === id ? "#fff" : "#666",
+                  borderRadius: 8,
+                  padding: "7px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {vistaPersonas === "tabla" ? (
+            <TablaMedidas personas={f.personas || []} onChange={handlePersonas} />
+          ) : (
+            <ListaPrendas
+              items={f.personas || []}
+              onChange={handlePersonas}
+              tipoPrendaDefault={f.tipoPrenda || ""}
+            />
+          )}
+        </>
       )}
 
       </SeccionOpcional>
