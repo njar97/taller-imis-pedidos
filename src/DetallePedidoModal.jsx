@@ -792,6 +792,7 @@ export default function DetallePedidoModal({
   const pBord = bVinc ? parseFloat(bVinc.precioT || 0) : 0;
   const pCuel = cVinc ? parseFloat(cVinc.precioT || 0) : 0;
   const [verVersiones, setVerVersiones] = useState(false);
+  const [menuProd, setMenuProd] = useState(false);
   const [edRec, setEdRec] = useState(() => leerSnapshotReciente(pedido.id));
 
   const deshacerEdicionReciente = async () => {
@@ -961,6 +962,7 @@ export default function DetallePedidoModal({
           )}
           {esAdmin && onImprimirProduccion && (() => {
             const ops = opcionesAgrupacion(pedido);
+            // Con una sola forma de agrupar, el botón imprime directo.
             if (ops.length <= 1) return (
               <button
                 onClick={() => onImprimirProduccion({ agruparPor: "talla" })}
@@ -970,24 +972,78 @@ export default function DetallePedidoModal({
                 🏭 Producción
               </button>
             );
+            // Con varias opciones, un solo botón despliega un menú con todas
+            // las formas de agrupar (talla/color/prenda/detalle) — así la
+            // barra de acciones no se llena de botones de producción.
             const ICO = { talla: "🏭", color: "🎨", tipo: "👕", spec: "🏷️" };
-            const COL = { talla: "#B7791F", color: "#8E44AD", tipo: "#2980B9", spec: "#16A085" };
             const TIP = {
-              talla: "Hoja de producción agrupada por talla (todo mezclado, talla gigante)",
-              color: "Hoja en secciones por color, con las tallas adentro de cada color",
-              tipo: "Hoja en secciones por tipo de prenda, con las tallas adentro",
-              spec: "Hoja en secciones por detalle/nivel, con las tallas adentro",
+              talla: "Agrupada por talla (todo mezclado, talla gigante)",
+              color: "Secciones por color, con las tallas adentro de cada color",
+              tipo: "Secciones por tipo de prenda, con las tallas adentro",
+              spec: "Secciones por detalle/nivel, con las tallas adentro",
             };
-            return ops.map(o => (
-              <button
-                key={o.id}
-                onClick={() => onImprimirProduccion({ agruparPor: o.id })}
-                title={TIP[o.id]}
-                style={btnExport(COL[o.id])}
-              >
-                {ICO[o.id]} {o.label}
-              </button>
-            ));
+            return (
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => setMenuProd(v => !v)}
+                  title="Hoja de producción — elegí cómo agrupar"
+                  style={btnExport("#B7791F")}
+                >
+                  🏭 Producción ▾
+                </button>
+                {menuProd && (
+                  <>
+                    <div
+                      onClick={() => setMenuProd(false)}
+                      style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        left: 0,
+                        zIndex: 41,
+                        background: "#fff",
+                        border: "1px solid #ddd",
+                        borderRadius: 10,
+                        boxShadow: "0 6px 20px rgba(0,0,0,.15)",
+                        overflow: "hidden",
+                        minWidth: 190,
+                      }}
+                    >
+                      {ops.map((o, i) => (
+                        <button
+                          key={o.id}
+                          onClick={() => {
+                            setMenuProd(false);
+                            onImprimirProduccion({ agruparPor: o.id });
+                          }}
+                          title={TIP[o.id]}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            width: "100%",
+                            padding: "10px 14px",
+                            border: "none",
+                            borderTop: i > 0 ? "1px solid #f0f0f0" : "none",
+                            background: "#fff",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: "#333",
+                            textAlign: "left",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <span>{ICO[o.id]}</span> {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
           })()}
           {esAdmin && onImprimirEntrega && (
             <button
