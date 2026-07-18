@@ -240,6 +240,7 @@ import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
 import { createRoot } from "react-dom/client";
 import { installGlobalErrorHandlers } from "./lib/reportError.js";
 import { aplicarTema, getTema } from "./lib/tema.js";
+import { importarExcelPedido } from "./lib/importarExcel.js";
 
 // Modo nocturno: reafirmar el tema en el DOM al arrancar. El script inline de
 // index.html ya puso la clase antes del primer render (anti-parpadeo); esto
@@ -1146,6 +1147,8 @@ function App() {
           title={
             modal === "nuevo"
               ? "✂️ Nuevo Pedido"
+              : modal.importado && !modal.id
+              ? "📗 Pedido importado de Excel"
               : modal.esCotizacion
               ? (modal.id
                   ? "🧮 Cotización COT-" + String(modal.id).padStart(4, "0")
@@ -1179,6 +1182,53 @@ function App() {
             >
               {"\uD83E\uDD16 Registrar con Asistente IA (voz o texto)"}
             </button>
+          )}
+          {modal === "nuevo" && (
+            <>
+              <button
+                onClick={() => document.getElementById("imp-excel-pedido")?.click()}
+                style={{
+                  width: "100%",
+                  padding: "11px",
+                  borderRadius: 10,
+                  border: "1.5px solid #1D6A3A",
+                  background: "#F0FFF4",
+                  color: "#1D6A3A",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  marginBottom: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                {"\uD83D\uDCD7 Importar Excel de medidas (formato del taller)"}
+              </button>
+              <input
+                id="imp-excel-pedido"
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: "none" }}
+                onChange={async e => {
+                  const f = e.target.files && e.target.files[0];
+                  e.target.value = "";
+                  if (!f) return;
+                  try {
+                    const { borrador, resumen } = await importarExcelPedido(f);
+                    pushToast(
+                      "\uD83D\uDCD7 " + resumen.personas + " personas importadas (" +
+                        resumen.tablas.map(t => t.tipo + " " + t.filas).join(", ") + ") \u2014 revis\u00E1 y guard\u00E1",
+                      "success", 5000
+                    );
+                    setModal({ ...borrador, importado: true });
+                  } catch (err) {
+                    pushToast(err.message, "error", 6000);
+                  }
+                }}
+              />
+            </>
           )}
           <FormPedido
             key={modal === "nuevo" && seedDuplicar ? `seed-${seedDuplicar.id || Date.now()}` : (modal === "nuevo" ? "nuevo" : (modal && modal.id) || "blank")}

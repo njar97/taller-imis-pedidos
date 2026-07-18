@@ -149,6 +149,9 @@ export default function FormPedido({
       modoRegistro: (initial || {}).modoRegistro || "tallas",
       tipoCliente: (initial || {}).tipoCliente || "persona",
       nombreContacto: (initial || {}).nombreContacto || "",
+      // Flag de UI del importador de Excel — no existe como columna, no
+      // debe viajar al guardar (undefined desaparece en el JSON).
+      importado: undefined,
     };
     if (!initial && DRAFT_KEY) {
       try {
