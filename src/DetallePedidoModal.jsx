@@ -13,6 +13,7 @@ import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura } from 
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { opcionesAgrupacion } from "./lib/imprimir.js";
+import { exportarExcelMedidas } from "./lib/exportarExcelMedidas.js";
 import { imgSrc } from "./lib/imagenes.js";
 import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
 import { TallasChips } from "./SelectorTallas.jsx";
@@ -944,6 +945,18 @@ export default function DetallePedidoModal({
               style={btnExport("#1D6A3A")}
             >
               📄 PDF
+            </button>
+          )}
+          {esAdmin && (pedido.personas || []).length > 0 && (
+            <button
+              onClick={() => {
+                try { exportarExcelMedidas(pedido); }
+                catch (e) { pushToast(e.message, "error"); }
+              }}
+              title="Descargar las medidas en el formato Excel del taller (una hoja por prenda)"
+              style={btnExport("#217346")}
+            >
+              📗 Excel
             </button>
           )}
           {esAdmin && onImprimirProduccion && (() => {
