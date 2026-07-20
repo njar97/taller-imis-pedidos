@@ -18,6 +18,8 @@ const SeccionPapeleraLazy = lazy(() => import("./SeccionPapelera.jsx"));
 
 // Pantalla de login (decompilada a JSX legible)
 import PantallaLogin from "./PantallaLogin.jsx";
+import PantallaHuella from "./PantallaHuella.jsx";
+import { huellaActivada } from "./lib/biometria.js";
 
 // Secciones secundarias — lazy (cargadas al primer acceso, no en el arranque)
 const SeccionEstadisticas = lazy(() => import("./SeccionEstadisticas.jsx"));
@@ -266,6 +268,9 @@ const gsCatalogoGuardar = dbCatalogoGuardar;
 function App() {
   const [rol, setRol] = useState(null);
   const [sesionUser, setSesionUser] = useState(null); // { email, nombre, rol, modulos }
+  // Candado biométrico: si hay sesión guardada Y huella activada, el rol
+  // recuperado queda retenido acá hasta que el sensor verifique.
+  const [huellaLock, setHuellaLock] = useState(null); // { rol, nombre }
   const [seccion, setSec] = useState("pedidos");
   const [modoProduccion, setModoProduccion] = useState(false);
 
@@ -291,18 +296,20 @@ function App() {
       if (cancelado) return;
       const u = { ...s.user, rol: wl.rol, nombre: wl.nombre, modulos: wl.modulos };
       setSesionUser(u);
+      let rolFinal;
       if (u.rol === "admin") {
-        setRol("admin");
+        rolFinal = "admin";
       } else {
         const mods = Array.isArray(u.modulos) && u.modulos.length > 0
           ? u.modulos : ["pedidos", "bordados", "cuellos"];
-        if (mods.length === 1) setRol("operario_" + mods[0]);
-        // si tiene varios, queda en null y se renderiza PantallaLogin;
-        // PantallaLogin no detecta sesion previa, así que el usuario
-        // tendría que volver a entrar el código. Para evitarlo,
-        // entramos al primer modulo permitido por default.
-        else setRol("operario_" + mods[0]);
+        // si tiene varios, entramos al primer modulo permitido por
+        // default (PantallaLogin no detecta sesion previa).
+        rolFinal = "operario_" + mods[0];
       }
+      // Con huella activada, el rol queda retenido hasta que el sensor
+      // verifique (PantallaHuella). Sin huella, entra directo como antes.
+      if (huellaActivada()) setHuellaLock({ rol: rolFinal, nombre: wl.nombre });
+      else setRol(rolFinal);
     })();
     return () => { cancelado = true; };
   }, []);
@@ -752,6 +759,24 @@ function App() {
       t: "⚠️ Fotos no subidas"
     }
   }[sync];
+  if (!rolBase && huellaLock) return (
+    <>
+      <PantallaHuella
+        nombre={huellaLock.nombre}
+        onOk={() => { setRol(huellaLock.rol); setHuellaLock(null); }}
+        onUsarEmail={async () => {
+          // Fallback: cerrar la sesión guardada y volver al login OTP.
+          setHuellaLock(null);
+          try {
+            const { cerrarSesion } = await import("./lib/auth.js");
+            await cerrarSesion();
+          } catch {}
+        }}
+      />
+      <Toaster />
+      <ConfirmDialog />
+    </>
+  );
   if (!rolBase) return (
     <>
       <PantallaLogin onLogin={setRol} />

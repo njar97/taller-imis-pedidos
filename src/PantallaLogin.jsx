@@ -11,6 +11,7 @@ import { TALLER } from "./lib/constants.js";
 import { pushToast } from "./lib/feedback.js";
 import { pedirMagicLink, verificarCodigo } from "./lib/auth.js";
 import { buscarInvitacionPorToken } from "./lib/invitaciones.js";
+import { soportaHuella, huellaActivada, activarHuella } from "./lib/biometria.js";
 
 import { useState, useEffect } from "react";
 
@@ -53,8 +54,12 @@ export default function PantallaLogin({ onLogin }) {
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [verificando, setVerificando] = useState(false);
-  const [paso, setPaso] = useState("email"); // "email" | "codigo" | "modulo"
+  const [paso, setPaso] = useState("email"); // "email" | "codigo" | "huella" | "modulo"
   const [sesionUser, setSesionUser] = useState(null);
+  // Adónde seguir después del paso "huella" (oferta post-login):
+  // { rol, nombre, email } o { modulo:true, nombre, email }
+  const [destinoPostLogin, setDestinoPostLogin] = useState(null);
+  const [activandoHuella, setActivandoHuella] = useState(false);
 
   // Si la URL tiene ?invite=TOKEN, arrancamos en flujo de invitacion.
   const [invitacionToken] = useState(() => leerInviteDeURL());
@@ -103,20 +108,85 @@ export default function PantallaLogin({ onLogin }) {
     // Limpio el ?invite= de la URL una vez consumida.
     if (invitacionToken) limpiarInviteDeURL();
     const u = res.sesion.user;
+    let destino;
     if (u.rol === "admin") {
-      pushToast(`Bienvenido${u.nombre ? ", " + u.nombre.split(" ")[0] : ""}`, "success");
-      onLogin("admin");
+      destino = { rol: "admin", nombre: u.nombre, email: u.email };
+    } else {
+      const mods = Array.isArray(u.modulos) && u.modulos.length > 0 ? u.modulos : MODULOS.map(m => m.id);
+      if (mods.length === 1) {
+        destino = { rol: "operario_" + mods[0], nombre: u.nombre, email: u.email };
+      } else {
+        setSesionUser({ ...u, modulosPermitidos: mods });
+        destino = { modulo: true, nombre: u.nombre, email: u.email };
+      }
+    }
+    // Si el dispositivo tiene sensor y aún no hay huella registrada,
+    // ofrecemos activarla antes de entrar (paso opcional, se puede saltar).
+    if (!huellaActivada() && (await soportaHuella())) {
+      setDestinoPostLogin(destino);
+      setPaso("huella");
       return;
     }
-    // operario
-    const mods = Array.isArray(u.modulos) && u.modulos.length > 0 ? u.modulos : MODULOS.map(m => m.id);
-    if (mods.length === 1) {
-      pushToast(`Bienvenido${u.nombre ? ", " + u.nombre.split(" ")[0] : ""}`, "success");
-      onLogin("operario_" + mods[0]);
-      return;
+    irADestino(destino);
+  }
+
+  function irADestino(d) {
+    if (d.modulo) { setPaso("modulo"); return; }
+    pushToast(`Bienvenido${d.nombre ? ", " + d.nombre.split(" ")[0] : ""}`, "success");
+    onLogin(d.rol);
+  }
+
+  async function aceptarHuella() {
+    setActivandoHuella(true);
+    const r = await activarHuella(destinoPostLogin?.email || email.trim().toLowerCase());
+    setActivandoHuella(false);
+    if (r.ok) {
+      pushToast("Huella activada 👆 La próxima vez entrás sin código", "success", 5000);
+    } else if (!r.cancelado) {
+      pushToast("No se pudo activar la huella: " + (r.error || ""), "error", 5000);
     }
-    setSesionUser({ ...u, modulosPermitidos: mods });
-    setPaso("modulo");
+    // Con o sin huella, seguimos al destino (si canceló, entra igual).
+    irADestino(destinoPostLogin);
+  }
+
+  // PASO 2.5 (opcional): ofrecer activar el ingreso con huella
+  if (paso === "huella") {
+    return (
+      <div style={wrap}>
+        <div style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
+          <div style={{ fontSize: 52, marginBottom: 8 }}>👆</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: "#fff", fontFamily: "Georgia,serif" }}>
+            ¿Entrar con huella?
+          </div>
+          <div style={{ fontSize: 13, color: "#9B59B6", marginTop: 10, marginBottom: 26, lineHeight: 1.6 }}>
+            Activá el sensor de este dispositivo y la próxima vez
+            entrás con un toque, sin esperar el código por email.
+          </div>
+          <button
+            onClick={aceptarHuella}
+            disabled={activandoHuella}
+            style={{
+              width: "100%", padding: "15px", borderRadius: 10, border: "none",
+              background: activandoHuella ? "#555" : "#27AE60", color: "#fff",
+              fontWeight: 800, fontSize: 15, cursor: activandoHuella ? "wait" : "pointer",
+              fontFamily: "inherit", marginBottom: 10, boxSizing: "border-box",
+            }}
+          >
+            {activandoHuella ? "⏳ Esperando el sensor..." : "👆 Activar huella"}
+          </button>
+          <button
+            onClick={() => irADestino(destinoPostLogin)}
+            style={{
+              width: "100%", padding: "12px", background: "transparent",
+              border: "1px solid #3a1f6b", color: "#9B59B6", borderRadius: 8,
+              cursor: "pointer", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box",
+            }}
+          >
+            Ahora no
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // PASO 3: picker de modulo para operarios con varios modulos
