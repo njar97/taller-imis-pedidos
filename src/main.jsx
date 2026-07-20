@@ -1094,6 +1094,7 @@ function App() {
             setMasOpen={setMasOpen}
             setRol={setRol}
             esAdmin={esAdmin}
+            sesionEmail={sesionUser?.email}
           />
         )}
       </main>

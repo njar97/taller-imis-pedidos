@@ -1,10 +1,15 @@
 // Bottom-sheet con los items de navegación que no entran en la barra inferior
 // (NAV_IDS_VISIBLES). Aparece cuando el usuario toca "Más" en BottomNav.
-// Incluye un botón explícito de "Salir" al final.
+// Incluye un botón explícito de "Salir" al final y el toggle de ingreso
+// con huella (activar/desactivar el candado biométrico del dispositivo).
 //
 // Renderiza nada cuando masOpen es falso — el control vive en App.
 
 import { NAV_IDS_VISIBLES } from "./lib/navItems.js";
+import { soportaHuella, huellaActivada, activarHuella, desactivarHuella } from "./lib/biometria.js";
+import { pushToast } from "./lib/feedback.js";
+
+import { useState, useEffect } from "react";
 
 function ItemMas({ item, activo, bloqueado, onClick }) {
   return (
@@ -44,8 +49,37 @@ export default function MasOpenSheet({
   setMasOpen,
   setRol,
   esAdmin,
+  sesionEmail,
 }) {
   const items = nav.filter(item => !NAV_IDS_VISIBLES.includes(item.id));
+
+  // Toggle de huella: solo se muestra si el dispositivo tiene sensor.
+  const [haySensor, setHaySensor] = useState(false);
+  const [huellaOn, setHuellaOn] = useState(() => huellaActivada());
+  const [activando, setActivando] = useState(false);
+  useEffect(() => { soportaHuella().then(setHaySensor); }, []);
+
+  async function toggleHuella() {
+    if (huellaOn) {
+      desactivarHuella();
+      setHuellaOn(false);
+      pushToast("Huella desactivada. Volvés a entrar con código.", "success");
+      return;
+    }
+    if (!sesionEmail) {
+      pushToast("No hay sesión activa para asociar la huella", "error");
+      return;
+    }
+    setActivando(true);
+    const r = await activarHuella(sesionEmail);
+    setActivando(false);
+    if (r.ok) {
+      setHuellaOn(true);
+      pushToast("Huella activada 👆 Al reabrir la app entrás con un toque", "success", 5000);
+    } else if (!r.cancelado) {
+      pushToast("No se pudo activar: " + (r.error || ""), "error", 5000);
+    }
+  }
   return (
     <div
       onClick={() => setMasOpen(false)}
@@ -103,6 +137,28 @@ export default function MasOpenSheet({
               />
             );
           })}
+          {haySensor && (
+            <button
+              onClick={toggleHuella}
+              disabled={activando}
+              style={{
+                border: "none",
+                background: huellaOn ? "rgba(39,174,96,0.18)" : "transparent",
+                cursor: activando ? "wait" : "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 4,
+                padding: "12px 4px",
+                borderRadius: 10,
+              }}
+            >
+              <span style={{ fontSize: 26 }}>{activando ? "⏳" : "👆"}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: huellaOn ? "#27AE60" : "#bbb" }}>
+                {huellaOn ? "Huella ✓" : "Huella"}
+              </span>
+            </button>
+          )}
           <button
             onClick={() => {
               setRol(null);

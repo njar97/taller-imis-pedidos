@@ -10,6 +10,63 @@
 import { TALLER } from "./lib/constants.js";
 import { fmt$ } from "./lib/dominio.js";
 import PushSwitch from "./PushSwitch.jsx";
+import { soportaHuella, huellaActivada, activarHuella, desactivarHuella } from "./lib/biometria.js";
+import { pushToast } from "./lib/feedback.js";
+
+import { useState, useEffect } from "react";
+
+// Toggle del ingreso con huella (candado biométrico). Solo se renderiza
+// si el dispositivo tiene autenticador de plataforma (Windows Hello,
+// Touch ID, etc.). El registro queda asociado al email de la sesión.
+function BotonHuella({ sesionEmail }) {
+  const [haySensor, setHaySensor] = useState(false);
+  const [huellaOn, setHuellaOn] = useState(() => huellaActivada());
+  const [activando, setActivando] = useState(false);
+  useEffect(() => { soportaHuella().then(setHaySensor); }, []);
+  if (!haySensor) return null;
+
+  async function toggle() {
+    if (huellaOn) {
+      desactivarHuella();
+      setHuellaOn(false);
+      pushToast("Huella desactivada. Volvés a entrar con código.", "success");
+      return;
+    }
+    if (!sesionEmail) {
+      pushToast("No hay sesión activa para asociar la huella", "error");
+      return;
+    }
+    setActivando(true);
+    const r = await activarHuella(sesionEmail);
+    setActivando(false);
+    if (r.ok) {
+      setHuellaOn(true);
+      pushToast("Huella activada 👆 Al reabrir la app entrás con un toque", "success", 5000);
+    } else if (!r.cancelado) {
+      pushToast("No se pudo activar: " + (r.error || ""), "error", 5000);
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={activando}
+      style={{
+        width: "100%",
+        padding: "7px",
+        borderRadius: 8,
+        border: "1px solid " + (huellaOn ? "#27AE6055" : "#3a1f6b"),
+        background: huellaOn ? "rgba(39,174,96,0.12)" : "transparent",
+        color: huellaOn ? "#27AE60" : "#555",
+        cursor: activando ? "wait" : "pointer",
+        fontSize: 11,
+        marginBottom: 6,
+      }}
+    >
+      {activando ? "⏳ Esperando el sensor..." : huellaOn ? "👆 Huella activada ✓" : "👆 Activar ingreso con huella"}
+    </button>
+  );
+}
 
 function NavButton({ item, activo, bloqueado, matAgotados, esAdmin, onClick }) {
   return (
@@ -311,6 +368,7 @@ export default function SidebarDesktop({
             </div>
           </div>
         )}
+        <BotonHuella sesionEmail={sesionEmail} />
         <button
           onClick={() => {
             if (onCerrarSesion) onCerrarSesion();
