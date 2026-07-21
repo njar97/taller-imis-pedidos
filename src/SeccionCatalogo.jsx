@@ -4,6 +4,8 @@
 import { Modal } from "./lib/Modal.jsx";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { dbCatalogoGuardar as gsCatalogoGuardar } from "./lib/db.js";
+import { comprimirImagen, imgSrc } from "./lib/imagenes.js";
+import { subirFotoSupabase } from "./supabaseStorage.js";
 
 import { useState } from "react";
 
@@ -28,7 +30,7 @@ const LBL = {
   letterSpacing: 0.3,
 };
 
-const ICONOS = ["✂️", "👔", "👕", "👗", "👖", "🤵", "⚽", "🪡", "👚", "🧥"];
+const ICONOS = ["✂️", "👔", "👕", "👗", "👖", "🤵", "⚽", "🪡", "👚", "🧥", "🥼", "🎓"];
 
 const fmtT = n => n ? `${n} día${n !== 1 ? "s" : ""}` : "-";
 
@@ -78,6 +80,77 @@ function EditorTecnicas({ value = [], onChange }) {
   );
 }
 
+// Fotos del producto (mockups, fotos reales). Se suben comprimidas al
+// Storage bajo catalogo/<producto>/ y quedan como objetos con el mismo
+// shape que las imágenes de pedidos ({nombre, tipo, supabaseUrl, ...}).
+function FotosProducto({ value = [], onChange, nombreProducto }) {
+  const [subiendo, setSubiendo] = useState(false);
+
+  const alElegir = async e => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    setSubiendo(true);
+    const nuevas = [];
+    for (const file of files) {
+      try {
+        const data = await comprimirImagen(file);
+        const r = await subirFotoSupabase(data, file.name, "catalogo", nombreProducto || "producto");
+        if (r.ok) {
+          nuevas.push({
+            nombre: file.name, tipo: "image/jpeg",
+            supabaseUrl: r.url, supabasePath: r.path,
+            driveUrl: null, driveId: null,
+          });
+        } else {
+          pushToast(`No subió ${file.name}: ${r.err || ""}`, "error", 5000);
+        }
+      } catch {
+        pushToast(`Error procesando ${file.name}`, "error");
+      }
+    }
+    setSubiendo(false);
+    if (nuevas.length) onChange([...(value || []), ...nuevas]);
+  };
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label style={LBL}>Fotos del producto (mockup / foto real)</label>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        {(value || []).map((img, i) => (
+          <div key={i} style={{ position: "relative" }}>
+            <img
+              src={imgSrc(img)}
+              alt={img.nombre || ""}
+              style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: "1.5px solid #e0e0e0" }}
+            />
+            <button
+              onClick={() => onChange(value.filter((_, j) => j !== i))}
+              title="Quitar (la foto queda en el Storage por si otro pedido la cita)"
+              style={{
+                position: "absolute", top: -6, right: -6, width: 20, height: 20,
+                borderRadius: "50%", border: "none", background: "#DC3545", color: "#fff",
+                fontSize: 11, cursor: "pointer", lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <label style={{
+          width: 72, height: 72, borderRadius: 8, border: "2px dashed #c9b8e8",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: subiendo ? "wait" : "pointer", color: "#9B59B6", fontSize: 22,
+          background: "#faf7ff",
+        }}>
+          {subiendo ? "⏳" : "＋"}
+          <input type="file" accept="image/*" multiple onChange={alElegir} style={{ display: "none" }} disabled={subiendo} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 function ModalFormProducto({ initial, onSave, onCancel }) {
   const def = {
     nombre: "",
@@ -93,6 +166,7 @@ function ModalFormProducto({ initial, onSave, onCancel }) {
     preciosPorTalla: { XS: "", S: "", M: "", L: "", XL: "", "2XL": "", "3XL": "" },
     notas: "",
     tecnicas: [],
+    imagenes: [],
   };
   const [f, setF] = useState({ ...def, ...(initial || {}) });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -218,6 +292,8 @@ function ModalFormProducto({ initial, onSave, onCancel }) {
           <label style={LBL}>Precio base ($ — para prendas sin talla fija)</label>
           <input type="number" style={INPS} value={f.precioBase || ""} onChange={e => set("precioBase", e.target.value)} placeholder="0.00" />
         </div>
+
+        <FotosProducto value={f.imagenes || []} onChange={v => set("imagenes", v)} nombreProducto={f.nombre} />
 
         <div style={{ marginBottom: 16 }}>
           <label style={LBL}>Notas / instrucciones</label>
@@ -349,6 +425,14 @@ export default function SeccionCatalogo({ catalogo, setCatalogo, esAdmin }) {
               onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.1)")}
               onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
             >
+              {(prod.imagenes || [])[0] && (
+                <img
+                  src={imgSrc(prod.imagenes[0])}
+                  alt={prod.nombre}
+                  style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 10, marginBottom: 10, background: "#f5f3fa" }}
+                  loading="lazy"
+                />
+              )}
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
                 <div style={{ fontSize: 32, lineHeight: 1, flexShrink: 0 }}>{prod.icono || "✂️"}</div>
                 <div style={{ flex: 1 }}>
@@ -394,6 +478,25 @@ export default function SeccionCatalogo({ catalogo, setCatalogo, esAdmin }) {
 
       {detalle && (
         <Modal title={`${detalle.icono || "✂️"} ${detalle.nombre}`} onClose={() => setDet(null)}>
+          {(detalle.imagenes || []).length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              {detalle.imagenes.map((img, i) => (
+                <img
+                  key={i}
+                  src={imgSrc(img)}
+                  alt={img.nombre || ""}
+                  onClick={() => window.open(img.supabaseUrl || imgSrc(img), "_blank")}
+                  title="Ver en grande"
+                  style={{
+                    width: detalle.imagenes.length === 1 ? "100%" : 110,
+                    height: detalle.imagenes.length === 1 ? "auto" : 110,
+                    maxHeight: 260, objectFit: "cover", borderRadius: 10,
+                    border: "1.5px solid #eee", cursor: "zoom-in",
+                  }}
+                />
+              ))}
+            </div>
+          )}
           <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
             {[
               ["Modo de registro", detalle.modoDefault === "lista" ? "📋 Lista de prendas" : "📦 Por tallas"],
