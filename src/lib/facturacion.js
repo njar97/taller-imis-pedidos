@@ -70,16 +70,19 @@ async function supa(path, opts = {}) {
 
 export async function facturasDePedido(pedidoId) {
   try {
-    return await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&order=id.desc`);
+    return await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&nit_emisor=eq.${NIT_EMISOR}&order=id.desc`);
   } catch (e) {
     console.error("facturasDePedido:", e);
     return [];
   }
 }
 
+// La serie de correlativos es POR CONTRIBUYENTE: cada NIT lleva su propia
+// numeración de DTE ante Hacienda, así que nunca se mezcla con otro emisor.
 async function siguienteCorrelativo(tipo, ambiente) {
   const rows = await supa(
-    `/taller_facturas?tipo_dte=eq.${tipo}&ambiente=eq.${ambiente}&select=correlativo&order=correlativo.desc&limit=1`
+    `/taller_facturas?nit_emisor=eq.${NIT_EMISOR}&tipo_dte=eq.${tipo}&ambiente=eq.${ambiente}` +
+    `&select=correlativo&order=correlativo.desc&limit=1`
   );
   return rows && rows.length ? Number(rows[0].correlativo) + 1 : 1;
 }
@@ -198,6 +201,7 @@ export async function emitirFacturaPedido(pedido) {
     if (data.ok) {
       const registro = {
         pedido_id: pedido.id,
+        nit_emisor: NIT_EMISOR,
         tipo_dte: prep.tipo,
         ambiente,
         correlativo: corr,
