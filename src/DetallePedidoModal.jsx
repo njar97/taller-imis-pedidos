@@ -22,7 +22,11 @@ import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js"
 import { generarTokenCaptura, urlCaptura } from "./lib/captura.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import {
+  facturasDePedido, prepararFacturaPedido, emitirFacturaPedido,
+  tieneTokenPuente, loginPuente, ambienteDte,
+} from "./lib/facturacion.js";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
@@ -312,8 +316,136 @@ function DetalleFactura({ pedido }) {
         >
           📋 Copiar detalle
         </button>
+        <FacturaElectronica pedido={pedido} />
       </div>
     </details>
+  );
+}
+
+// Emisión de la factura electrónica (DTE) vía puente MH. Muestra las facturas
+// ya emitidas del pedido y el botón para emitir. La primera vez pide conectar
+// con el usuario/contraseña de Tlacuilo (token de larga duración del bridge).
+function FacturaElectronica({ pedido }) {
+  const [facturas, setFacturas] = useState([]);
+  const [emitiendo, setEmitiendo] = useState(false);
+  const [pideLogin, setPideLogin] = useState(false);
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+
+  useEffect(() => {
+    facturasDePedido(pedido.id).then(setFacturas);
+  }, [pedido.id]);
+
+  const emitir = async () => {
+    const prep = prepararFacturaPedido(pedido);
+    if (!prep.ok) { pushToast(prep.error, "error"); return; }
+    if (!tieneTokenPuente()) { setPideLogin(true); return; }
+
+    const amb = ambienteDte();
+    const tipoTxt = prep.tipo === "03" ? "Crédito Fiscal (CCF)" : "Factura (consumidor final)";
+    const lineas = [
+      `${tipoTxt} por ${fmt$(prep.total)} — ambiente ${amb === "01" ? "PRODUCCIÓN (efecto fiscal real)" : "pruebas"}.`,
+      prep.receptor.nombre ? `Cliente: ${prep.receptor.nombre}${prep.receptor.nit ? ` (NIT ${prep.receptor.nit})` : ""}` : null,
+      ...prep.avisos.map(a => `⚠ ${a}`),
+      facturas.length ? `⚠ Este pedido YA tiene ${facturas.length} factura(s) emitida(s).` : null,
+    ].filter(Boolean);
+
+    const ok = await pushConfirm({
+      titulo: "Emitir factura electrónica",
+      msg: <div>{lineas.map((l, i) => <div key={i} style={{ marginBottom: 4 }}>{l}</div>)}</div>,
+      okLabel: "Sí, emitir a Hacienda",
+    });
+    if (!ok) return;
+
+    setEmitiendo(true);
+    try {
+      const reg = await emitirFacturaPedido(pedido);
+      setFacturas(f => [reg, ...f]);
+      pushToast(`✅ DTE sellado por MH — ${reg.numero_control}`, "success", 6000);
+      if (reg._sinRegistro)
+        pushToast("⚠ La factura se selló pero NO se pudo registrar en la app — anotá el sello", "error", 10000);
+    } catch (e) {
+      pushToast(e.message, "error", 8000);
+      if (!tieneTokenPuente()) setPideLogin(true);
+    } finally {
+      setEmitiendo(false);
+    }
+  };
+
+  const conectar = async () => {
+    try {
+      await loginPuente(user.trim(), pass);
+      setPideLogin(false); setPass("");
+      pushToast("Conectado al emisor ✓ — ya podés emitir", "success");
+    } catch (e) {
+      pushToast(e.message, "error");
+    }
+  };
+
+  const inp = {
+    width: "100%", padding: "7px 9px", borderRadius: 7,
+    border: "1px solid #ddd", fontSize: 12, boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ marginTop: 10, borderTop: "1px dashed #e0e0e0", paddingTop: 10 }}>
+      {facturas.map((f, i) => (
+        <div
+          key={i}
+          style={{
+            fontSize: 11, background: "#f0f9f1", border: "1px solid #d4ead7",
+            borderRadius: 7, padding: "6px 8px", marginBottom: 6, color: "#2e5f38",
+          }}
+        >
+          <div style={{ fontWeight: 700 }}>
+            {f.tipo_dte === "03" ? "CCF" : "FC"} {f.numero_control || "(sin nº control)"}
+            {f.ambiente === "00" ? " · PRUEBAS" : ""}
+          </div>
+          <div style={{ wordBreak: "break-all" }}>Sello: {f.sello || "—"}</div>
+        </div>
+      ))}
+      {pideLogin ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ fontSize: 11, color: "#888" }}>
+            Conectar con el emisor (usuario de Tlacuilo, una sola vez):
+          </div>
+          <input style={inp} placeholder="Usuario o correo" value={user}
+            onChange={e => setUser(e.target.value)} autoComplete="off" />
+          <input style={inp} placeholder="Contraseña" type="password" value={pass}
+            onChange={e => setPass(e.target.value)} autoComplete="off"
+            onKeyDown={e => { if (e.key === "Enter" && user && pass) conectar(); }} />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={conectar} disabled={!user || !pass}
+              style={{
+                flex: 1, padding: "8px 10px", border: "none", borderRadius: 8,
+                background: "#27AE60", color: "#fff", fontWeight: 700, fontSize: 12,
+                cursor: "pointer", opacity: !user || !pass ? 0.5 : 1,
+              }}>
+              Conectar
+            </button>
+            <button onClick={() => setPideLogin(false)}
+              style={{
+                padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8,
+                background: "#fff", color: "#888", fontSize: 12, cursor: "pointer",
+              }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={emitir}
+          disabled={emitiendo}
+          style={{
+            width: "100%", padding: "9px 10px", border: "none", borderRadius: 8,
+            background: emitiendo ? "#aaa" : "#1a7f37", color: "#fff",
+            fontWeight: 700, fontSize: 12, cursor: emitiendo ? "wait" : "pointer",
+          }}
+        >
+          {emitiendo ? "Emitiendo…" : facturas.length ? "🧾 Emitir OTRA factura (DTE)" : "🧾 Emitir factura electrónica (DTE)"}
+        </button>
+      )}
+    </div>
   );
 }
 
