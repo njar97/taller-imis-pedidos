@@ -19,7 +19,7 @@ const SeccionPapeleraLazy = lazy(() => import("./SeccionPapelera.jsx"));
 // Pantalla de login (decompilada a JSX legible)
 import PantallaLogin from "./PantallaLogin.jsx";
 import PantallaHuella from "./PantallaHuella.jsx";
-import { huellaActivada } from "./lib/biometria.js";
+import { necesitaDesbloqueo } from "./lib/biometria.js";
 
 // Secciones secundarias — lazy (cargadas al primer acceso, no en el arranque)
 const SeccionEstadisticas = lazy(() => import("./SeccionEstadisticas.jsx"));
@@ -306,9 +306,9 @@ function App() {
         // default (PantallaLogin no detecta sesion previa).
         rolFinal = "operario_" + mods[0];
       }
-      // Con huella activada, el rol queda retenido hasta que el sensor
-      // verifique (PantallaHuella). Sin huella, entra directo como antes.
-      if (huellaActivada()) setHuellaLock({ rol: rolFinal, nombre: wl.nombre });
+      // El candado biométrico solo aparece si venció el período de
+      // gracia (12 h desde el último desbloqueo) — no en cada abierta.
+      if (necesitaDesbloqueo()) setHuellaLock({ rol: rolFinal, nombre: wl.nombre });
       else setRol(rolFinal);
     })();
     return () => { cancelado = true; };

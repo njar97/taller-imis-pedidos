@@ -17,6 +17,10 @@
 // de extremo a extremo.
 
 const CRED_KEY = "TALLER_HUELLA_CRED"; // { id: base64url, email }
+const ULTIMO_OK_KEY = "TALLER_HUELLA_ULTIMO_OK"; // timestamp ms del último desbloqueo
+// Período de gracia: dentro de esta ventana desde el último desbloqueo
+// la app entra directo sin volver a pedir la huella.
+const GRACIA_MS = 12 * 60 * 60 * 1000; // 12 horas
 
 function b64urlToBuf(s) {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
@@ -54,7 +58,27 @@ export function huellaActivada() {
 }
 
 export function desactivarHuella() {
-  try { localStorage.removeItem(CRED_KEY); } catch {}
+  try {
+    localStorage.removeItem(CRED_KEY);
+    localStorage.removeItem(ULTIMO_OK_KEY);
+  } catch {}
+}
+
+function marcarDesbloqueo() {
+  try { localStorage.setItem(ULTIMO_OK_KEY, String(Date.now())); } catch {}
+}
+
+// ¿Toca pedir la huella en este arranque? Solo si está activada Y venció
+// el período de gracia desde el último desbloqueo. Así no molesta en
+// cada abierta — pide una vez cada tanto (o tras mucho tiempo sin usar).
+export function necesitaDesbloqueo() {
+  if (!huellaActivada()) return false;
+  try {
+    const t = parseInt(localStorage.getItem(ULTIMO_OK_KEY) || "0", 10);
+    return !t || Date.now() - t > GRACIA_MS;
+  } catch {
+    return true;
+  }
 }
 
 // Registra la credencial en el sensor del dispositivo. Llamar con la
@@ -82,6 +106,7 @@ export async function activarHuella(email) {
     });
     if (!cred) return { ok: false, error: "No se creó la credencial" };
     localStorage.setItem(CRED_KEY, JSON.stringify({ id: bufToB64url(cred.rawId), email }));
+    marcarDesbloqueo(); // recién activada = recién verificada
     return { ok: true };
   } catch (e) {
     // NotAllowedError = canceló el prompt; no es un fallo "real".
@@ -103,7 +128,8 @@ export async function verificarHuella() {
         timeout: 60_000,
       },
     });
-    return assertion ? { ok: true } : { ok: false, error: "Sin respuesta del sensor" };
+    if (assertion) { marcarDesbloqueo(); return { ok: true }; }
+    return { ok: false, error: "Sin respuesta del sensor" };
   } catch (e) {
     const cancelado = e?.name === "NotAllowedError";
     return { ok: false, cancelado, error: e?.message || String(e) };
