@@ -9,6 +9,7 @@ import { TALLER } from "./lib/constants.js";
 import { pushToast } from "./lib/feedback.js";
 import { capturaLeerPedido, capturaGuardarPersonas } from "./lib/captura.js";
 import TablaMedidas from "./TablaMedidas.jsx";
+import FichasMedidas from "./FichasMedidas.jsx";
 
 import { useState, useEffect, useRef } from "react";
 
@@ -19,6 +20,12 @@ export default function PantallaCaptura({ token }) {
   const [guardando, setGuardando] = useState(false);
   const [sucio, setSucio] = useState(false);
   const sucioRef = useRef(false);
+  // En teléfono la tabla con scroll horizontal es incómoda → fichas
+  // persona-por-persona por default; en pantalla ancha, la tabla.
+  const [vista, setVista] = useState(() => {
+    try { return window.innerWidth < 720 ? "fichas" : "tabla"; }
+    catch { return "fichas"; }
+  });
 
   useEffect(() => {
     (async () => {
@@ -98,13 +105,31 @@ export default function PantallaCaptura({ token }) {
       </div>
 
       <div style={{ padding: 12, maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ fontSize: 12, color: "#777", margin: "6px 2px 10px", lineHeight: 1.5 }}>
-          Llená el nombre y las medidas de cada persona. Cambiá de prenda con las
-          pestañas. Cuando termines (o cada tantas personas) tocá <strong>Guardar</strong>.
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 2px 10px" }}>
+          <div style={{ flex: 1, fontSize: 12, color: "#777", lineHeight: 1.5 }}>
+            {vista === "fichas"
+              ? <>Tocá una persona para llenar sus medidas. Cuando termines (o cada tantas personas) tocá <strong>Guardar</strong>.</>
+              : <>Llená la cuadrícula como en Excel (podés pegar rangos copiados). Al terminar tocá <strong>Guardar</strong>.</>}
+          </div>
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            {[["fichas", "👤 Fichas"], ["tabla", "📊 Tabla"]].map(([v, l]) => (
+              <button key={v} onClick={() => setVista(v)} style={{
+                padding: "7px 11px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                border: "1.5px solid " + (vista === v ? "#6C3483" : "#ddd6ec"),
+                background: vista === v ? "#6C3483" : "#fff",
+                color: vista === v ? "#fff" : "#6C3483",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>{l}</button>
+            ))}
+          </div>
         </div>
-        <div style={{ background: "#fff", borderRadius: 12, padding: 10 }}>
-          <TablaMedidas personas={personas} onChange={cambiar} />
-        </div>
+        {vista === "fichas" ? (
+          <FichasMedidas personas={personas} onChange={cambiar} />
+        ) : (
+          <div style={{ background: "#fff", borderRadius: 12, padding: 10 }}>
+            <TablaMedidas personas={personas} onChange={cambiar} />
+          </div>
+        )}
       </div>
 
       {/* Barra fija de guardar */}

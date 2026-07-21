@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { pushConfirm } from "./lib/feedback.js";
 
-const SECCIONES = [
+export const SECCIONES = [
   {
     id: "chaqueta",
     label: "👕 Camisa / Blusa",
