@@ -19,7 +19,16 @@ const SeccionPapeleraLazy = lazy(() => import("./SeccionPapelera.jsx"));
 // Pantalla de login (decompilada a JSX legible)
 import PantallaLogin from "./PantallaLogin.jsx";
 import PantallaHuella from "./PantallaHuella.jsx";
+import PantallaCaptura from "./PantallaCaptura.jsx";
 import { necesitaDesbloqueo } from "./lib/biometria.js";
+
+// Modo captura pública (?captura=TOKEN): la página corre sin login y solo
+// muestra la tabla de personas del pedido del token. Se resuelve una vez
+// al cargar el módulo.
+const CAPTURA_TOKEN = (() => {
+  try { return new URLSearchParams(window.location.search).get("captura"); }
+  catch { return null; }
+})();
 
 // Secciones secundarias — lazy (cargadas al primer acceso, no en el arranque)
 const SeccionEstadisticas = lazy(() => import("./SeccionEstadisticas.jsx"));
@@ -279,6 +288,7 @@ function App() {
   // "modulo" (solo si tiene varios) — para simplificar, si tiene 1
   // modulo en su whitelist entra a ese. Si no, vuelve a login.
   useEffect(() => {
+    if (CAPTURA_TOKEN) return; // página pública: sin restauración de sesión
     let cancelado = false;
     (async () => {
       const { recogerSesionDesdeURL, sesionActualConRefresh, cerrarSesion } = await import("./lib/auth.js");
@@ -759,6 +769,13 @@ function App() {
       t: "⚠️ Fotos no subidas"
     }
   }[sync];
+  if (CAPTURA_TOKEN) return (
+    <>
+      <PantallaCaptura token={CAPTURA_TOKEN} />
+      <Toaster />
+      <ConfirmDialog />
+    </>
+  );
   if (!rolBase && huellaLock) return (
     <>
       <PantallaHuella

@@ -19,6 +19,7 @@ import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
 import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js";
+import { generarTokenCaptura, urlCaptura } from "./lib/captura.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
 import { useState, useMemo } from "react";
@@ -793,6 +794,44 @@ export default function DetallePedidoModal({
   const pCuel = cVinc ? parseFloat(cVinc.precioT || 0) : 0;
   const [verVersiones, setVerVersiones] = useState(false);
   const [edRec, setEdRec] = useState(() => leerSnapshotReciente(pedido.id));
+  const [capturaTok, setCapturaTok] = useState(pedido.capturaToken || null);
+  const [generandoLink, setGenerandoLink] = useState(false);
+
+  // Genera (si hace falta) y copia el link público de captura de medidas.
+  const copiarLinkCaptura = async () => {
+    let tok = capturaTok;
+    if (!tok) {
+      setGenerandoLink(true);
+      tok = generarTokenCaptura();
+      try {
+        const SUPA = "https://kszdievqesveluzcnzsh.supabase.co/rest/v1";
+        const KEY = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
+        const r = await fetch(`${SUPA}/taller_pedidos?id=eq.${pedido.id}`, {
+          method: "PATCH",
+          headers: {
+            apikey: KEY, Authorization: "Bearer " + KEY,
+            "Content-Type": "application/json", Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ captura_token: tok }),
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        setCapturaTok(tok);
+        pedido.capturaToken = tok; // que sobreviva reaperturas del modal
+      } catch (e) {
+        setGenerandoLink(false);
+        pushToast("No pude generar el link: " + (e?.message || e), "error", 5000);
+        return;
+      }
+      setGenerandoLink(false);
+    }
+    const url = urlCaptura(tok);
+    try {
+      await navigator.clipboard.writeText(url);
+      pushToast("Link de captura copiado 📋 Mandalo por WhatsApp a quien toma las medidas", "success", 6000);
+    } catch {
+      window.prompt("Copiá el link de captura:", url);
+    }
+  };
 
   const deshacerEdicionReciente = async () => {
     if (!edRec || !edRec.snapshot) return;
@@ -957,6 +996,16 @@ export default function DetallePedidoModal({
               style={btnExport("#217346")}
             >
               📗 Excel
+            </button>
+          )}
+          {esAdmin && (
+            <button
+              onClick={copiarLinkCaptura}
+              disabled={generandoLink}
+              title="Link público para llenar las medidas desde el teléfono, sin cuenta: mandalo a quien toma las medidas donde el cliente"
+              style={btnExport(capturaTok ? "#27AE60" : "#C0392B")}
+            >
+              {generandoLink ? "⏳" : "🔗"} Medidas{capturaTok ? " ✓" : ""}
             </button>
           )}
           {esAdmin && onImprimirProduccion && (() => {

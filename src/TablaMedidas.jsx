@@ -113,6 +113,56 @@ export default function TablaMedidas({ personas, onChange }) {
     }, 30);
   };
 
+  // Orden visual de columnas de la sección activa — para mapear un pegado
+  // multi-celda de Excel (tab = columna, salto de línea = fila).
+  const ordenCols = ["nombre", "grado", "talla", ...sec.cols.map(([k]) => k), "abono"];
+
+  // Aplica un valor a la columna correspondiente de una persona (copia).
+  const aplicarValor = (p, key, v) => {
+    if (key === "nombre") return { ...p, nombre: v };
+    if (key === "grado") return { ...p, cargo: v };
+    if (key === "talla") {
+      const prendas = (p.prendas || []).length
+        ? p.prendas.map((pr, k) => (k === 0 ? { ...pr, talla: v } : pr))
+        : p.prendas;
+      return { ...p, talla: v, prendas };
+    }
+    const meds = { ...(p.medidas || {}) };
+    if (key === "abono") {
+      if (v === "") delete meds.abono; else meds.abono = v;
+      return { ...p, medidas: meds };
+    }
+    meds[sec.id] = { ...(meds[sec.id] || {}) };
+    if (v === "") delete meds[sec.id][key];
+    else meds[sec.id][key] = v;
+    return { ...p, medidas: meds };
+  };
+
+  // Pegar un rango copiado de Excel: llena desde la celda actual hacia la
+  // derecha y hacia abajo, creando filas si el rango es más largo.
+  const alPegar = (e, fila, col) => {
+    const texto = e.clipboardData?.getData("text") ?? "";
+    // Un solo valor sin tabs ni saltos → pegado normal del input.
+    if (!texto.includes("\t") && !/\r?\n/.test(texto.trim())) return;
+    e.preventDefault();
+    const filasTxt = texto.replace(/\r/g, "").split("\n");
+    while (filasTxt.length && filasTxt[filasTxt.length - 1] === "") filasTxt.pop();
+    const c0 = ordenCols.indexOf(col);
+    if (c0 < 0) return;
+    let nuevo = [...lista];
+    filasTxt.forEach((linea, df) => {
+      const idx = fila + df;
+      while (nuevo.length <= idx) nuevo.push({ nombre: "", talla: "", prendas: [], medidas: {} });
+      let p = nuevo[idx];
+      linea.split("\t").forEach((v, dc) => {
+        const key = ordenCols[c0 + dc];
+        if (key) p = aplicarValor(p, key, v.trim());
+      });
+      nuevo[idx] = p;
+    });
+    onChange(nuevo);
+  };
+
   const inputCelda = (fila, col, valor, alCambiar, extra = {}) => (
     <input
       data-fila={fila}
@@ -120,6 +170,7 @@ export default function TablaMedidas({ personas, onChange }) {
       value={valor == null ? "" : valor}
       onChange={e => alCambiar(e.target.value)}
       onKeyDown={e => alTeclear(e, fila)}
+      onPaste={e => alPegar(e, fila, col)}
       style={{ ...CELDA, ...(extra.style || {}) }}
       placeholder={extra.placeholder || ""}
       inputMode={extra.num ? "decimal" : undefined}
@@ -150,7 +201,7 @@ export default function TablaMedidas({ personas, onChange }) {
           </button>
         ))}
         <div style={{ marginLeft: "auto", fontSize: 11, color: "#999", alignSelf: "center" }}>
-          Enter ⏎ baja · Tab → avanza
+          Enter ⏎ baja · Tab → avanza · pegá un rango desde Excel 📋
         </div>
       </div>
 
