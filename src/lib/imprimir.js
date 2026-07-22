@@ -1175,6 +1175,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid #eee;">
           <div>
             <span style="font-size:12px;font-weight:900;color:#2C1654;">${i + 1}. ${per.nombre || "Sin nombre"}</span>
+            ${per.talla ? `<span style="font-size:11px;font-weight:800;background:#1A5276;color:#fff;border-radius:5px;padding:2px 8px;margin-left:6px;">Talla ${per.talla}</span>` : `<span style="font-size:9px;font-weight:800;background:#fff3cd;color:#856404;border:1px solid #ffe08a;border-radius:5px;padding:1px 6px;margin-left:6px;">sin talla</span>`}
             ${per.cargo ? `<span style="font-size:10px;color:#888;margin-left:6px;">${per.cargo}</span>` : ""}
             ${per.gafete ? `<span style="font-size:9px;background:#eef;border-radius:4px;padding:1px 5px;margin-left:4px;color:#555;font-weight:700;">Gafete ${per.gafete}</span>` : ""}
           </div>
