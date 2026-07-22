@@ -900,8 +900,109 @@ function FilaPrecio({ label, monto }) {
   );
 }
 
+// Información citada del catálogo cuando el pedido está vinculado (catalogoRef).
+// Muestra imagen del producto, bordados con su diseño/archivo, y specs — para
+// que en el detalle del pedido salga todo aunque no se haya duplicado en el
+// pedido. Es informativo: siempre se cita, marcado como "del catálogo".
+function DelCatalogo({ pedido, catalogo, onVerFoto }) {
+  const ref = pedido.catalogoRef;
+  if (!ref || !Array.isArray(catalogo)) return null;
+  const prod = catalogo.find(p => String(p.id) === String(ref));
+  if (!prod) return null;
+
+  const imgs = (prod.imagenes || []).filter(i => i.supabaseUrl || i.driveUrl || imgSrc(i));
+  const disenos = [];
+  for (const t of prod.tecnicas || []) {
+    for (const d of t.disenos || []) {
+      disenos.push({ ...d, tecnica: t.tipo });
+    }
+  }
+  const nombreArchivo = (u) => {
+    if (!u) return "";
+    try { return decodeURIComponent(u.split("/").pop()); } catch { return u.split("/").pop(); }
+  };
+
+  const lbl = { fontSize: 10.5, fontWeight: 800, color: "#8a7", textTransform: "uppercase", letterSpacing: ".04em" };
+  return (
+    <div style={{
+      border: "1.5px solid #E4E2DB", borderRadius: 12, padding: 12,
+      marginBottom: 12, background: "#FAFAF7",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "#2C1654" }}>
+          {prod.icono || "📖"} {prod.nombre}
+        </span>
+        <span style={{ ...lbl, color: "#b9a", border: "1px solid #e6dff0", borderRadius: 6, padding: "1px 7px" }}>
+          del catálogo
+        </span>
+      </div>
+
+      {imgs.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          {imgs.map((img, i) => (
+            <img
+              key={i}
+              src={img.supabaseUrl || imgSrc(img)}
+              alt={prod.nombre}
+              onClick={() => onVerFoto && onVerFoto(imgs.map(x => x.supabaseUrl || imgSrc(x)), i)}
+              style={{
+                width: imgs.length === 1 ? "100%" : 120, maxHeight: 240,
+                height: imgs.length === 1 ? "auto" : 120, objectFit: "cover",
+                borderRadius: 10, border: "1px solid #eee", cursor: "zoom-in",
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {[
+        ["Telas", (prod.telas || []).join(", ")],
+        ["Colores", (prod.colores || []).join(", ")],
+        ["Precio base", prod.precioBase ? "$" + prod.precioBase : ""],
+      ].filter(([, v]) => v).map(([k, v]) => (
+        <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "3px 0", fontSize: 12.5 }}>
+          <span style={{ color: "#aaa", fontWeight: 700 }}>{k}</span>
+          <span style={{ color: "#333", textAlign: "right" }}>{v}</span>
+        </div>
+      ))}
+
+      {disenos.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ ...lbl, color: "#9a8", marginBottom: 6 }}>Bordados · diseño y archivo</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {disenos.map((d, i) => (
+              <div key={i} style={{
+                display: "flex", gap: 8, alignItems: "flex-start",
+                border: "1px solid #eee", borderRadius: 9, padding: 8, background: "#fff",
+              }}>
+                {d.disenoImg
+                  ? <img src={d.disenoImg} alt="" style={{ width: 56, height: 40, objectFit: "contain", background: "#fff", border: "1px solid #f0f0f0", borderRadius: 5, flex: "none" }} />
+                  : <div style={{ width: 56, height: 40, display: "grid", placeItems: "center", color: "#ccc", fontSize: 8, border: "1px solid #f0f0f0", borderRadius: 5, flex: "none" }}>sin<br />preview</div>}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#333" }}>{d.ubicacion || "—"}</div>
+                  <div style={{ fontSize: 10.5, color: "#999" }}>
+                    {d.tecnica}{(d.ancho && d.alto) ? ` · ${d.ancho}×${d.alto} cm` : ""}
+                  </div>
+                  {d.disenoArchivo && (
+                    <div style={{ fontSize: 10.5, marginTop: 3, color: "#2C1654", fontWeight: 700, wordBreak: "break-all" }}>
+                      {nombreArchivo(d.disenoArchivo)}
+                      {d.formato ? <span style={{ marginLeft: 5, background: "#F0ECF6", borderRadius: 4, padding: "0 5px", fontSize: 9 }}>{d.formato}</span> : null}
+                    </div>
+                  )}
+                  {d.notas && <div style={{ fontSize: 10.5, color: "#777", marginTop: 3 }}>{d.notas}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DetallePedidoModal({
   pedido,
+  catalogo,
   esAdmin,
   bordados,
   cuellos,
@@ -1049,6 +1150,7 @@ export default function DetallePedidoModal({
       {esAdmin && <DetalleFactura pedido={pedido} />}
       <Abonos abonos={pedido.abonos} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
+      <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
       <Personas personas={pedido.personas} />
 
       <div style={{ marginBottom: 8 }}>

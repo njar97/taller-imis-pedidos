@@ -1288,6 +1288,7 @@ function App() {
       {detalle && (
         <DetallePedidoModal
           pedido={detalle}
+          catalogo={catalogo}
           esAdmin={esAdmin}
           bordados={bordados}
           cuellos={cuellos}
