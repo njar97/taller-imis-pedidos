@@ -1429,30 +1429,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     ${p.notas ? `<div>${p.notas}</div>` : ""}
   </div>` : ""}
 
-  <!-- ESPECIFICACIONES DE DISEÑO -->
-  ${diagramaURL ? `
-  <div style="font-size:11px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🎨 Especificaciones de diseño</div>
-  <div style="display:flex;gap:16px;align-items:flex-start;background:#faf6ff;border:1.5px solid #D7BDE2;border-radius:10px;padding:12px;margin-bottom:14px;">
-    <div style="flex-shrink:0;text-align:center;">
-      <img src="${diagramaURL}" style="width:140px;height:auto;border-radius:6px;display:block;" alt="diagrama diseños"/>
-      <div style="font-size:7px;color:#bbb;margin-top:3px;font-style:italic;">vista frontal · D=portador derecho · I=portador izquierdo</div>
-    </div>
-    <div style="flex:1;">
-      ${(p.disenos||[]).filter(d=>d.ubicacion).map((d,i)=>{
-        const col={"Sublimación":"#2980B9","DTF":"#D35400","Bordado":"#8E44AD","Serigrafía":"#27AE60"}[d.tecnica]||"#7F8C8D";
-        const size=d.ancho&&d.alto?`${d.ancho}×${d.alto}cm`:"";
-        const pos=d.posicionCuello?`↕ ${d.posicionCuello}cm desde cuello`:"";
-        return `<div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:6px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:3px;background:${col};color:#fff;font-size:9px;font-weight:900;flex-shrink:0;margin-top:1px;">${i+1}</span>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#2C1654;">${d.ubicacion||""}</div>
-            <div style="font-size:11px;color:${col};font-weight:700;">${d.tecnica||""}${size?" · "+size:""}${pos?" · "+pos:""}</div>
-            ${d.notas?`<div style="font-size:10px;color:#888;font-style:italic;">${d.notas}</div>`:""}
-          </div>
-        </div>`;
-      }).join("")}
-    </div>
-  </div>` : ""}
+  <!-- Especificaciones de diseño: removidas de la hoja de producción (van en el módulo de bordado) -->
 
   <!-- MEDIDAS -->
   ${medsHTML}
