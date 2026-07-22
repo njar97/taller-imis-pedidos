@@ -18,17 +18,27 @@ function esc(s) {
   ));
 }
 
-// Extrae los bordados/estampados del producto desde sus técnicas.
+// Extrae los bordados/estampados del producto desde sus técnicas, incluyendo
+// el diseño vinculado (preview + archivo de máquina + formato) si lo tiene.
 function tecnicasDe(prod) {
   const out = [];
   for (const t of prod.tecnicas || []) {
     for (const d of t.disenos || []) {
       const dim = [d.ancho, d.alto].filter(Boolean).join(" × ");
+      let archivoNom = "";
+      if (d.disenoArchivo) {
+        try { archivoNom = decodeURIComponent(d.disenoArchivo.split("/").pop()); }
+        catch { archivoNom = d.disenoArchivo.split("/").pop(); }
+      }
       out.push({
         tipo: t.tipo || "Aplicación",
         ubicacion: d.ubicacion || "—",
         medida: dim ? dim + " cm" : "",
         notas: d.notas || "",
+        img: d.disenoImg || "",
+        diseno: d.disenoNombre || "",
+        formato: d.formato || "",
+        archivo: archivoNom,
       });
     }
   }
@@ -111,15 +121,26 @@ export function imprimirFichaProducto(prod) {
     `<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`
   ).join("");
 
-  const tecRows = tec.length
-    ? tec.map((t, i) => `<tr>
-        <td class="n">${i + 1}</td>
-        <td><b>${esc(t.ubicacion)}</b></td>
-        <td>${esc(t.tipo)}</td>
-        <td>${esc(t.medida)}</td>
-        <td class="nt">${esc(t.notas)}</td>
-      </tr>`).join("")
-    : `<tr><td colspan="5" class="empty">Sin bordados/estampados registrados</td></tr>`;
+  const tecCards = tec.length
+    ? tec.map((t, i) => {
+        const thumb = t.img
+          ? `<img class="dz" src="${esc(t.img)}" alt="${esc(t.diseno)}">`
+          : `<div class="dz none">sin<br>preview</div>`;
+        const archivoLn = t.archivo
+          ? `<div class="af"><span class="afl">Archivo</span> <b>${esc(t.archivo)}</b>${t.formato ? ` <span class="fmt">${esc(t.formato)}</span>` : ""}</div>`
+          : (t.diseno ? `<div class="af"><span class="afl">Diseño</span> <b>${esc(t.diseno)}</b></div>` : "");
+        return `<div class="bc">
+          <span class="bn">${i + 1}</span>
+          ${thumb}
+          <div class="bd">
+            <div class="bu">${esc(t.ubicacion)}</div>
+            <div class="bmeta">${esc(t.tipo)}${t.medida ? " · " + esc(t.medida) : ""}</div>
+            ${archivoLn}
+            ${t.notas ? `<div class="bnt">${esc(t.notas)}</div>` : ""}
+          </div>
+        </div>`;
+      }).join("")
+    : `<div class="empty">Sin bordados/estampados registrados</div>`;
 
   const imgBlock = img
     ? `<div class="fig"><img src="${esc(img.supabaseUrl || img.driveUrl)}" alt="${esc(prod.nombre)}"></div>`
@@ -136,12 +157,20 @@ export function imprimirFichaProducto(prod) {
     table.sp{border-collapse:collapse;width:100%;font-size:13px}
     table.sp td{padding:9px 6px;border-top:1px solid #E4E2DB}
     table.sp td.k{text-transform:uppercase;letter-spacing:.04em;font-size:11px;color:#6B6B64;font-weight:700;white-space:nowrap;width:1%;padding-right:14px}
-    table.tec{border-collapse:collapse;width:100%;font-size:12px;margin-top:4px}
-    table.tec th{background:${ACCENT};color:#fff;text-transform:uppercase;font-size:10px;letter-spacing:.04em;padding:7px 8px;text-align:left;font-weight:700}
-    table.tec td{border:1px solid #E4E2DB;padding:7px 8px;vertical-align:top}
-    table.tec td.n{text-align:center;font-weight:800;color:${ACCENT};width:22px}
-    table.tec td.nt{color:#555;font-size:11px}
-    table.tec td.empty{text-align:center;color:#999;font-style:italic}
+    .bcards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+    .bc{position:relative;display:flex;gap:11px;align-items:flex-start;border:1px solid #E4E2DB;border-radius:10px;padding:10px 11px 10px 30px}
+    .bc .bn{position:absolute;left:9px;top:10px;width:17px;height:17px;border-radius:50%;background:${ACCENT};color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center}
+    .bc .dz{width:80px;height:56px;object-fit:contain;background:#fff;border:1px solid #EDEBE4;border-radius:6px;flex:none}
+    .bc .dz.none{display:grid;place-items:center;color:#bbb;font-size:9px;text-align:center;line-height:1.1}
+    .bc .bd{flex:1;min-width:0}
+    .bc .bu{font-weight:800;font-size:12.5px;color:#1E2024}
+    .bc .bmeta{font-size:10.5px;color:#8a8a82;margin-top:1px}
+    .bc .af{font-size:11px;color:#333;margin-top:5px;word-break:break-all}
+    .bc .af .afl{text-transform:uppercase;font-size:8.5px;letter-spacing:.04em;color:#9a9a92;font-weight:700}
+    .bc .af b{color:${ACCENT}}
+    .bc .fmt{background:#F0ECF6;color:${ACCENT};border-radius:4px;padding:0 5px;font-size:9px;font-weight:800;letter-spacing:.03em}
+    .bc .bnt{font-size:10.5px;color:#666;margin-top:4px}
+    .empty{text-align:center;color:#999;font-style:italic;padding:16px;border:1px dashed #ddd;border-radius:10px}
     .notas{font-size:12.5px;color:#333;background:#FAF9F5;border:1px solid #EDEBE4;border-radius:10px;padding:12px 14px;white-space:normal}
   `;
 
@@ -156,11 +185,8 @@ export function imprimirFichaProducto(prod) {
           <table class="sp"><tbody>${specRows}</tbody></table>
         </div>
       </div>
-      <h2>Bordados y aplicaciones</h2>
-      <table class="tec">
-        <thead><tr><th>#</th><th>Ubicación</th><th>Técnica</th><th>Medida</th><th>Notas</th></tr></thead>
-        <tbody>${tecRows}</tbody>
-      </table>
+      <h2>Bordados y aplicaciones · diseño y archivo</h2>
+      <div class="bcards">${tecCards}</div>
       ${notas}
     </section></body></html>`;
 
