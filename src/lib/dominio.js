@@ -166,12 +166,23 @@ export const disenoTejidoParaTalla = t => {
 // Si tallasItems viene de un pedido legacy sin `tipo`, devuelve los items
 // igual (el chip simplemente no muestra el tipo encima).
 export const itemsResumen = p => {
-  const esLista = p.modoRegistro === "lista" && Array.isArray(p.personas) && p.personas.length;
+  const personas = Array.isArray(p.personas) ? p.personas : [];
+  // Cuenta como "lista" si el modo lo dice, o si hay personas con talla/prendas
+  // (p.ej. tallas tomadas persona-por-persona en la captura de medidas, que
+  // llenan personas[].talla directamente sin prendas[]).
+  const esLista = personas.length &&
+    (p.modoRegistro === "lista" || personas.some(per => per.talla || (per.prendas || []).length));
   let items;
   if (esLista) {
     const mapa = new Map();
-    for (const per of p.personas) {
-      for (const pr of per.prendas || []) {
+    for (const per of personas) {
+      // Prendas explícitas de la persona; si no tiene pero sí talla, se genera
+      // una prenda a partir de la talla capturada + el tipo de prenda del pedido,
+      // usando la especialidad (cargo) como "detalle" para poder agrupar por ella.
+      const prendas = (per.prendas || []).length
+        ? per.prendas
+        : (per.talla ? [{ tipo: p.tipoPrenda || "", talla: per.talla, spec: per.cargo || "" }] : []);
+      for (const pr of prendas) {
         const tipo = (pr.tipo || "").trim();
         const talla = pr.talla || "";
         const precio = pr.precio != null ? pr.precio : null;
