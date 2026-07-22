@@ -13,6 +13,7 @@ import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura } from 
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { opcionesAgrupacion } from "./lib/imprimir.js";
+import { imprimirHojaTaller } from "./lib/documentosProducto.js";
 import { exportarExcelMedidas } from "./lib/exportarExcelMedidas.js";
 import { imgSrc } from "./lib/imagenes.js";
 import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
@@ -1242,30 +1243,28 @@ export default function DetallePedidoModal({
               {generandoLink ? "⏳" : "🔗"} Medidas{capturaTok ? " ✓" : ""}
             </button>
           )}
+          {esAdmin && (
+            <button
+              onClick={() => imprimirHojaTaller(pedido)}
+              title="Hoja de producción para el taller: por talla, con cada persona y sus medidas. Tachá al terminar."
+              style={btnExport("#B7791F")}
+            >
+              🏭 Producción
+            </button>
+          )}
           {esAdmin && onImprimirProduccion && (() => {
-            const ops = opcionesAgrupacion(pedido);
-            if (ops.length <= 1) return (
-              <button
-                onClick={() => onImprimirProduccion({ agruparPor: "talla" })}
-                title="Hoja de producción para el taller: tallas, cantidades y especificaciones, sin precios"
-                style={btnExport("#B7791F")}
-              >
-                🏭 Producción
-              </button>
-            );
-            const ICO = { talla: "🏭", color: "🎨", tipo: "👕", spec: "🏷️" };
-            const COL = { talla: "#B7791F", color: "#8E44AD", tipo: "#2980B9", spec: "#16A085" };
-            const TIP = {
-              talla: "Hoja de producción agrupada por talla (todo mezclado, talla gigante)",
-              color: "Hoja en secciones por color, con las tallas adentro de cada color",
-              tipo: "Hoja en secciones por tipo de prenda, con las tallas adentro",
-              spec: "Hoja en secciones por detalle/nivel, con las tallas adentro",
-            };
+            // La hoja vieja (por color / prenda / detalle) queda solo para
+            // pedidos con varios colores o tipos, donde ese agrupamiento ayuda
+            // a comprar/organizar. En pedidos simples basta la hoja de arriba.
+            const ops = opcionesAgrupacion(pedido).filter(o => o.id !== "talla");
+            if (!ops.length) return null;
+            const ICO = { color: "🎨", tipo: "👕", spec: "🏷️" };
+            const COL = { color: "#8E44AD", tipo: "#2980B9", spec: "#16A085" };
             return ops.map(o => (
               <button
                 key={o.id}
                 onClick={() => onImprimirProduccion({ agruparPor: o.id })}
-                title={TIP[o.id]}
+                title={"Hoja agrupada por " + o.label.toLowerCase()}
                 style={btnExport(COL[o.id])}
               >
                 {ICO[o.id]} {o.label}

@@ -9,6 +9,7 @@
 
 import { nuevaVentanaImpresion } from "./imprimir.js";
 import { MEDIDAS_DEF } from "./constants.js";
+import { rankTalla } from "./dominio.js";
 
 const ACCENT = "#2C1654"; // morado Taller IMIS
 
@@ -288,6 +289,141 @@ export function imprimirPlanillaTallas(prod, opts = {}) {
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
     <title>Planilla de tallas — ${esc(prod.nombre)}</title><style>${css}</style></head>
     <body>${BARRA}${listas}${hojaEspecial(hojasTot)}</body></html>`;
+
+  win.document.write(html);
+  win.document.close();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HOJA DE PRODUCCIÓN (para el taller / corte / costura)
+// ─────────────────────────────────────────────────────────────
+// Formato claro para quien corta y cose: agrupado por talla, cada persona
+// bajo su talla con las medidas especiales al lado, y un resumen de totales
+// arriba (para comprar tela de un vistazo). Reemplaza la tabla-arriba +
+// lista-abajo que costaba relacionar. Genérico: sirve para cualquier pedido
+// con personas[].talla (no solo filipinas).
+
+const MED_LBL = {
+  hombro: "Hombro", pecho: "Pecho", cintura: "Cintura", cadera: "Cadera",
+  largo: "Largo", sisa: "Sisa", manga: "L. manga", puno: "Puño", cuello: "Cuello",
+  escote: "Escote", costado: "Costado", alto: "Alto", talle: "Talle", sep: "Sep.",
+  ctcodo: "Cont. codo", altcodo: "Alto codo", base: "Base", muslo: "Muslo",
+  rodilla: "Rodilla", ruedo: "Ruedo", tiroD: "Tiro del.", tiroT: "Tiro tras.",
+};
+const ESP_COLOR = { cocinero: "#2E7D4F", pastelero: "#1F4E9B", chef: "#B8860B" };
+const ESP_BG = { cocinero: "#E7F3EC", pastelero: "#E7EEF9", chef: "#FBF1D8" };
+
+function medidasDePersona(per) {
+  const out = [];
+  const m = per.medidas || {};
+  for (const sec of ["chaqueta", "pantalon"]) {
+    if (m[sec]) for (const [k, v] of Object.entries(m[sec])) {
+      if (v !== "" && v != null) out.push([MED_LBL[k] || k, v]);
+    }
+  }
+  if (m.quepi && m.quepi.contornoCabeza) out.push(["Contorno cabeza", m.quepi.contornoCabeza]);
+  return out;
+}
+
+export function imprimirHojaTaller(p) {
+  const win = nuevaVentanaImpresion("Producción — " + (p.tipoPrenda || p.cliente || "Pedido"));
+  const personas = Array.isArray(p.personas) ? p.personas : [];
+
+  // Agrupar por talla (las sin talla van aparte).
+  const porTalla = new Map();
+  const pendientes = [];
+  for (const per of personas) {
+    const t = (per.talla || "").trim();
+    if (!t) { pendientes.push(per); continue; }
+    if (!porTalla.has(t)) porTalla.set(t, []);
+    porTalla.get(t).push(per);
+  }
+  const tallasOrd = [...porTalla.keys()].sort((a, b) => rankTalla(a) - rankTalla(b));
+  const totalConTalla = [...porTalla.values()].reduce((s, arr) => s + arr.length, 0);
+
+  // Colores de especialidad solo si el pedido las usa.
+  const cargos = new Set(personas.map(per => (per.cargo || "").trim().toLowerCase()).filter(Boolean));
+  const usaEsp = [...cargos].some(c => ESP_COLOR[c]);
+
+  const badge = (per) => {
+    const c = (per.cargo || "").trim();
+    if (!c) return "";
+    const key = c.toLowerCase();
+    const col = ESP_COLOR[key] || "#6b6b64";
+    const bg = ESP_BG[key] || "#f0eee9";
+    return `<span class="esp" style="color:${col};background:${bg}">${esc(c)}</span>`;
+  };
+
+  const filaPersona = (per) => {
+    const meds = medidasDePersona(per);
+    const medBox = meds.length
+      ? `<div class="med">✂ A LA MEDIDA — ${meds.map(([l, v]) => `${esc(l)}: <b>${esc(v)}</b>`).join(" · ")}</div>`
+      : "";
+    const nota = per.nota ? `<div class="nota">📌 ${esc(per.nota)}</div>` : "";
+    return `<div class="prow">
+      <span class="ck"></span>
+      <div class="who"><div class="nm">${esc(per.nombre || "Sin nombre")}</div>${medBox}${nota}</div>
+      ${badge(per)}
+    </div>`;
+  };
+
+  const seccionTalla = (t) => {
+    const arr = porTalla.get(t);
+    return `<section class="tsec">
+      <div class="thd">TALLA ${esc(t)} <span class="cnt">${arr.length}</span></div>
+      ${arr.map(filaPersona).join("")}
+    </section>`;
+  };
+
+  const seccionPend = pendientes.length ? `<section class="tsec">
+      <div class="thd falta">⚠ PENDIENTE DE TALLA <span class="cnt">${pendientes.length}</span></div>
+      ${pendientes.map(filaPersona).join("")}
+    </section>` : "";
+
+  // Resumen (tabla general compacta) — vinculado: mismos números que las secciones.
+  const resumen = tallasOrd.map(t =>
+    `<span class="rchip"><b>${esc(t)}</b> ${porTalla.get(t).length}</span>`
+  ).join("") + (pendientes.length ? `<span class="rchip pend"><b>s/talla</b> ${pendientes.length}</span>` : "");
+
+  const leyenda = usaEsp
+    ? `<div class="leg">${[["cocinero", "Cocinero"], ["pastelero", "Pastelero"], ["chef", "Chef"]]
+        .filter(([k]) => cargos.has(k))
+        .map(([k, l]) => `<span style="color:${ESP_COLOR[k]};background:${ESP_BG[k]}"><i style="background:${ESP_COLOR[k]}"></i>${l}</span>`).join("")}</div>`
+    : "";
+
+  const css = BASE_CSS + `
+    .rsum{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 4px}
+    .rsum .t{font-family:var(--body);font-size:11px;font-weight:700;color:#6B6B64;text-transform:uppercase;letter-spacing:.05em;margin-right:4px}
+    .rchip{background:#F1EFEA;border:1px solid #E0DDD5;border-radius:20px;padding:4px 14px;font-size:15px;font-variant-numeric:tabular-nums}
+    .rchip b{color:${ACCENT};margin-right:3px}
+    .rchip.pend{background:#FBF1D8;border-color:#EAD9A0;color:#7a5a00}
+    .leg{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px;font-size:13px;font-weight:700}
+    .leg span{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:8px}
+    .leg i{width:12px;height:12px;border-radius:50%;display:inline-block}
+    .hint{font-size:12px;color:#777;margin:4px 0 14px;line-height:1.5}
+    .tsec{margin-bottom:16px;break-inside:avoid}
+    .thd{font-size:22px;font-weight:800;background:#1c1c1c;color:#fff;padding:8px 15px;border-radius:9px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;letter-spacing:.4px}
+    .thd.falta{background:#B8860B}
+    .thd .cnt{background:#fff;color:#1c1c1c;border-radius:20px;padding:0 15px;font-size:19px;min-width:40px;text-align:center;font-variant-numeric:tabular-nums}
+    .prow{display:flex;align-items:center;gap:13px;padding:11px 6px;border-bottom:1.5px solid #eee;break-inside:avoid}
+    .ck{width:26px;height:26px;border:2.2px solid #333;border-radius:6px;flex:none}
+    .who{flex:1;min-width:0}
+    .nm{font-size:18px;font-weight:700;line-height:1.15}
+    .med{margin-top:4px;font-size:13px;background:#FFF6DA;border:1.4px solid #F0D97A;border-radius:7px;padding:4px 9px;color:#5a4a10;display:inline-block}
+    .nota{margin-top:4px;font-size:12.5px;color:#7a5a00;font-weight:600}
+    .esp{font-size:13px;font-weight:800;padding:6px 13px;border-radius:8px;white-space:nowrap;flex:none}
+  `;
+
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
+    <title>Producción — ${esc(p.tipoPrenda || p.cliente || "Pedido")}</title><style>${css}</style></head>
+    <body>${BARRA}<section class="page">
+      ${encabezado({ nombre: (p.tipoPrenda || "Pedido") + " — " + (p.cliente || ""), icono: "🏭", imagenes: [] }, "Hoja de producción", ["Fecha", "Costurera"])}
+      <div class="rsum"><span class="t">Total ${totalConTalla}${pendientes.length ? " + " + pendientes.length + " pend." : ""}:</span>${resumen}</div>
+      ${leyenda}
+      <div class="hint">Cada renglón es una prenda. Tachá ▢ al terminar. Las que dicen «A la medida» se cortan con esas medidas, no por talla.${usaEsp ? " El color indica qué lleva bordado." : ""}</div>
+      ${tallasOrd.map(seccionTalla).join("")}
+      ${seccionPend}
+    </section></body></html>`;
 
   win.document.write(html);
   win.document.close();
