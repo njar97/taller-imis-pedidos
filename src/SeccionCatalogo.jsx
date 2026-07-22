@@ -6,6 +6,7 @@ import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { dbCatalogoGuardar as gsCatalogoGuardar } from "./lib/db.js";
 import { comprimirImagen, imgSrc } from "./lib/imagenes.js";
 import { subirFotoSupabase } from "./supabaseStorage.js";
+import { imprimirFichaProducto, imprimirPlanillaTallas } from "./lib/documentosProducto.js";
 
 import { useState } from "react";
 
@@ -528,6 +529,21 @@ export default function SeccionCatalogo({ catalogo, setCatalogo, esAdmin }) {
               </div>
             </div>
           )}
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, marginBottom: esAdmin ? 10 : 0 }}>
+            <button
+              onClick={() => imprimirFichaProducto(detalle)}
+              style={{ flex: "1 1 150px", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #2C1654", background: "#fff", color: "#2C1654", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}
+            >
+              🧾 Ficha técnica (PDF)
+            </button>
+            <button
+              onClick={() => imprimirPlanillaTallas(detalle)}
+              style={{ flex: "1 1 150px", padding: "10px 12px", borderRadius: 8, border: "none", background: "#2C1654", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}
+            >
+              📋 Planilla de tallas (PDF)
+            </button>
+          </div>
 
           {esAdmin && (
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
