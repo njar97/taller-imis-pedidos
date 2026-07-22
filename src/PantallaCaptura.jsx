@@ -54,18 +54,28 @@ export default function PantallaCaptura({ token }) {
     sucioRef.current = true;
   }
 
-  async function guardar() {
+  async function guardar(silencioso = false) {
     setGuardando(true);
     const ok = await capturaGuardarPersonas(token, personas);
     setGuardando(false);
     if (ok) {
       setSucio(false);
       sucioRef.current = false;
-      pushToast("Medidas guardadas ✅", "success");
-    } else {
+      if (!silencioso) pushToast("Medidas guardadas ✅", "success");
+    } else if (!silencioso) {
       pushToast("No se pudo guardar. Revisá la conexión y probá de nuevo.", "error", 6000);
     }
+    return ok;
   }
+
+  // Autoguardado: ~1.2 s después de dejar de escribir, guarda solo (silencioso).
+  // El botón de abajo sigue disponible para forzar el guardado al instante.
+  useEffect(() => {
+    if (!sucioRef.current) return;
+    const t = setTimeout(() => { guardar(true); }, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personas]);
 
   if (estado === "cargando") {
     return (
@@ -108,8 +118,8 @@ export default function PantallaCaptura({ token }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 2px 10px" }}>
           <div style={{ flex: 1, fontSize: 12, color: "#777", lineHeight: 1.5 }}>
             {vista === "fichas"
-              ? <>Tocá una persona para llenar sus medidas. Cuando termines (o cada tantas personas) tocá <strong>Guardar</strong>.</>
-              : <>Llená la cuadrícula como en Excel (podés pegar rangos copiados). Al terminar tocá <strong>Guardar</strong>.</>}
+              ? <>Tocá una persona, anotá <strong>talla</strong> y <strong>largo de manga</strong>. Se <strong>guarda solo</strong> mientras escribís.</>
+              : <>Llená la cuadrícula como en Excel (podés pegar rangos copiados). Se <strong>guarda solo</strong>.</>}
           </div>
           <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
             {[["fichas", "👤 Fichas"], ["tabla", "📊 Tabla"]].map(([v, l]) => (
@@ -139,11 +149,11 @@ export default function PantallaCaptura({ token }) {
         padding: "10px 16px calc(10px + env(safe-area-inset-bottom))",
         display: "flex", alignItems: "center", gap: 12, justifyContent: "center",
       }}>
-        <span style={{ fontSize: 12, color: sucio ? "#B85C00" : "#27AE60", fontWeight: 700 }}>
-          {sucio ? "● Cambios sin guardar" : "✓ Todo guardado"}
+        <span style={{ fontSize: 12, color: guardando ? "#6C3483" : sucio ? "#B85C00" : "#27AE60", fontWeight: 700 }}>
+          {guardando ? "⏳ Guardando…" : sucio ? "● Guardando en un momento…" : "✓ Todo guardado"}
         </span>
         <button
-          onClick={guardar}
+          onClick={() => guardar(false)}
           disabled={guardando || !sucio}
           style={{
             padding: "12px 34px", borderRadius: 10, border: "none",
@@ -152,7 +162,7 @@ export default function PantallaCaptura({ token }) {
             cursor: guardando || !sucio ? "default" : "pointer", fontFamily: "inherit",
           }}
         >
-          {guardando ? "⏳ Guardando…" : "💾 Guardar"}
+          {guardando ? "⏳ Guardando…" : "💾 Guardar ya"}
         </button>
       </div>
     </div>

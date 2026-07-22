@@ -46,6 +46,7 @@ function medidasLlenas(p) {
 export default function FichasMedidas({ personas, onChange }) {
   const lista = personas || [];
   const [sel, setSel] = useState(null); // null = lista, número = ficha abierta
+  const [verMedidas, setVerMedidas] = useState(false); // medidas completas expandidas
 
   const upd = (i, cambio) => {
     onChange(lista.map((p, j) => (j === i ? { ...p, ...cambio } : p)));
@@ -114,35 +115,59 @@ export default function FichasMedidas({ personas, onChange }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
-              <label style={LBL}>Grado / cargo</label>
-              <input style={INP} value={p.cargo || ""} onChange={e => upd(i, { cargo: e.target.value })} />
+              <label style={LBL}>Talla</label>
+              <input style={{ ...INP, fontWeight: 700 }} value={p.talla || ""} onChange={e => updTalla(i, e.target.value)} />
             </div>
             <div>
-              <label style={LBL}>Talla</label>
-              <input style={INP} value={p.talla || ""} onChange={e => updTalla(i, e.target.value)} />
+              <label style={{ ...LBL, color: "#6C3483" }}>Largo de manga</label>
+              <input
+                style={{ ...INP, fontWeight: 700, borderColor: "#c9b6e0" }}
+                inputMode="decimal"
+                placeholder="cm"
+                value={(p.medidas || {}).chaqueta?.manga ?? ""}
+                onChange={e => updMedida(i, "chaqueta", "manga", e.target.value)}
+              />
             </div>
           </div>
         </div>
 
-        {/* Medidas por prenda */}
-        {SECCIONES.map(s => (
-          <div key={s.id} style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 10, border: "1.5px solid #eee9f6" }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: s.color, marginBottom: 10 }}>{s.label}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {s.cols.map(([k, l]) => (
-                <div key={k}>
-                  <label style={LBL}>{l}</label>
-                  <input
-                    style={INP}
-                    inputMode="decimal"
-                    value={(p.medidas || {})[s.id]?.[k] ?? ""}
-                    onChange={e => updMedida(i, s.id, k, e.target.value)}
-                  />
-                </div>
-              ))}
+        {/* Medidas completas / especiales — ocultas por defecto */}
+        <button
+          onClick={() => setVerMedidas(v => !v)}
+          style={{
+            width: "100%", padding: "11px", borderRadius: 10, marginBottom: 10,
+            border: "1.5px dashed #c9b6e0", background: verMedidas ? "#f6f1fb" : "#fff",
+            color: "#6C3483", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          {verMedidas ? "▲ Ocultar medidas completas" : "＋ Medidas especiales (a la medida)"}
+        </button>
+
+        {verMedidas && (
+          <>
+            <div style={{ fontSize: 11, color: "#999", margin: "0 2px 10px", lineHeight: 1.4 }}>
+              Solo para quien no calza en talla estándar. Llená lo que necesites.
             </div>
-          </div>
-        ))}
+            {SECCIONES.map(s => (
+              <div key={s.id} style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 10, border: "1.5px solid #eee9f6" }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: s.color, marginBottom: 10 }}>{s.label}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {s.cols.map(([k, l]) => (
+                    <div key={k}>
+                      <label style={LBL}>{l}</label>
+                      <input
+                        style={INP}
+                        inputMode="decimal"
+                        value={(p.medidas || {})[s.id]?.[k] ?? ""}
+                        onChange={e => updMedida(i, s.id, k, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
 
         {/* Abono */}
         <div style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 12, border: "1.5px solid #eee9f6" }}>
