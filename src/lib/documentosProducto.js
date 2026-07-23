@@ -71,12 +71,20 @@ const BASE_CSS = `
   .fld b{text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#1E2024}
   .fld .ln{flex:1;border-bottom:1px solid #C9C6BD;min-width:70px;height:15px}
   h2{text-transform:uppercase;letter-spacing:.07em;font-size:12px;color:#6B6B64;font-weight:700;margin:16px 0 8px}
-  @page{size:A4;margin:0}
+  @page{size:A4;margin:14mm 13mm}
   .bar{position:sticky;top:0;z-index:20;background:${ACCENT};padding:10px 14px;display:flex;gap:8px;justify-content:center}
   .bar button{padding:10px 20px;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
   .bar .go{border:none;background:#fff;color:${ACCENT}}
   .bar .x{border:1.5px solid rgba(255,255,255,.6);background:transparent;color:#fff}
-  @media print{.no-print{display:none!important}.page{page-break-after:always}.page:last-child{page-break-after:auto}}
+  @media print{
+    .no-print{display:none!important}
+    /* el margen lo pone @page (se repite en TODAS las hojas); el padding del
+       .page solo aplicaria a la primera y dejaria las siguientes sin margen */
+    .page{padding:0;page-break-after:always}
+    .page:last-child{page-break-after:auto}
+    thead{display:table-header-group}
+    tr,img{page-break-inside:avoid}
+  }
 `;
 
 // Barra superior (no se imprime) + script para reimprimir. El print se dispara
