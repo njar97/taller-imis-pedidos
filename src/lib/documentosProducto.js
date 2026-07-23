@@ -11,7 +11,10 @@ import { nuevaVentanaImpresion } from "./imprimir.js";
 import { MEDIDAS_DEF } from "./constants.js";
 import { rankTalla } from "./dominio.js";
 
-const ACCENT = "#2C1654"; // morado Taller IMIS
+// Paleta pensada para impresión en BLANCO Y NEGRO: todo lo que se imprime usa
+// negro + grises con buen contraste; nada depende del color para distinguirse.
+// (La barra de controles es no-print, así que su color da igual.)
+const ACCENT = "#1c1c1c"; // negro — imprime nítido en B/N
 
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"]/g, c => (
@@ -165,11 +168,11 @@ export function imprimirFichaProducto(prod) {
     .bc .dz.none{display:grid;place-items:center;color:#bbb;font-size:9px;text-align:center;line-height:1.1}
     .bc .bd{flex:1;min-width:0}
     .bc .bu{font-weight:800;font-size:12.5px;color:#1E2024}
-    .bc .bmeta{font-size:10.5px;color:#8a8a82;margin-top:1px}
+    .bc .bmeta{font-size:10.5px;color:#6b6b64;margin-top:1px}
     .bc .af{font-size:11px;color:#333;margin-top:5px;word-break:break-all}
-    .bc .af .afl{text-transform:uppercase;font-size:8.5px;letter-spacing:.04em;color:#9a9a92;font-weight:700}
+    .bc .af .afl{text-transform:uppercase;font-size:8.5px;letter-spacing:.04em;color:#888;font-weight:700}
     .bc .af b{color:${ACCENT}}
-    .bc .fmt{background:#F0ECF6;color:${ACCENT};border-radius:4px;padding:0 5px;font-size:9px;font-weight:800;letter-spacing:.03em}
+    .bc .fmt{background:#EDEDED;color:${ACCENT};border:1px solid #333;border-radius:4px;padding:0 5px;font-size:9px;font-weight:800;letter-spacing:.03em}
     .bc .bnt{font-size:10.5px;color:#666;margin-top:4px}
     .empty{text-align:center;color:#999;font-style:italic;padding:16px;border:1px dashed #ddd;border-radius:10px}
     .notas{font-size:12.5px;color:#333;background:#FAF9F5;border:1px solid #EDEBE4;border-radius:10px;padding:12px 14px;white-space:normal}
@@ -310,8 +313,9 @@ const MED_LBL = {
   ctcodo: "Cont. codo", altcodo: "Alto codo", base: "Base", muslo: "Muslo",
   rodilla: "Rodilla", ruedo: "Ruedo", tiroD: "Tiro del.", tiroT: "Tiro tras.",
 };
-const ESP_COLOR = { cocinero: "#2E7D4F", pastelero: "#1F4E9B", chef: "#B8860B" };
-const ESP_BG = { cocinero: "#E7F3EC", pastelero: "#E7EEF9", chef: "#FBF1D8" };
+// Distinción por SÍMBOLO + texto (no por color) para que se lea impreso en B/N:
+// ● cocinero · ○ pastelero · ★ chef. Todo en negro.
+const ESP_SIMBOLO = { cocinero: "●", pastelero: "○", chef: "★" };
 
 function medidasDePersona(per) {
   const out = [];
@@ -343,15 +347,13 @@ export function imprimirHojaTaller(p) {
 
   // Colores de especialidad solo si el pedido las usa.
   const cargos = new Set(personas.map(per => (per.cargo || "").trim().toLowerCase()).filter(Boolean));
-  const usaEsp = [...cargos].some(c => ESP_COLOR[c]);
+  const usaEsp = [...cargos].some(c => ESP_SIMBOLO[c]);
 
   const badge = (per) => {
     const c = (per.cargo || "").trim();
     if (!c) return "";
-    const key = c.toLowerCase();
-    const col = ESP_COLOR[key] || "#6b6b64";
-    const bg = ESP_BG[key] || "#f0eee9";
-    return `<span class="esp" style="color:${col};background:${bg}">${esc(c)}</span>`;
+    const sim = ESP_SIMBOLO[c.toLowerCase()] || "◆";
+    return `<span class="esp">${sim} ${esc(c)}</span>`;
   };
 
   const filaPersona = (per) => {
@@ -388,7 +390,7 @@ export function imprimirHojaTaller(p) {
   const leyenda = usaEsp
     ? `<div class="leg">${[["cocinero", "Cocinero"], ["pastelero", "Pastelero"], ["chef", "Chef"]]
         .filter(([k]) => cargos.has(k))
-        .map(([k, l]) => `<span style="color:${ESP_COLOR[k]};background:${ESP_BG[k]}"><i style="background:${ESP_COLOR[k]}"></i>${l}</span>`).join("")}</div>`
+        .map(([k, l]) => `<span>${ESP_SIMBOLO[k]} ${l}</span>`).join("")}</div>`
     : "";
 
   const css = BASE_CSS + `
@@ -396,22 +398,22 @@ export function imprimirHojaTaller(p) {
     .rsum .t{font-family:var(--body);font-size:11px;font-weight:700;color:#6B6B64;text-transform:uppercase;letter-spacing:.05em;margin-right:4px}
     .rchip{background:#F1EFEA;border:1px solid #E0DDD5;border-radius:20px;padding:4px 14px;font-size:15px;font-variant-numeric:tabular-nums}
     .rchip b{color:${ACCENT};margin-right:3px}
-    .rchip.pend{background:#FBF1D8;border-color:#EAD9A0;color:#7a5a00}
+    .rchip.pend{background:#EDEDED;border-color:#B9C0C7;color:#333}
     .leg{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px;font-size:13px;font-weight:700}
-    .leg span{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:8px}
-    .leg i{width:12px;height:12px;border-radius:50%;display:inline-block}
+    .leg span{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:8px;border:1.5px solid #1c1c1c}
     .hint{font-size:12px;color:#777;margin:4px 0 14px;line-height:1.5}
     .tsec{margin-bottom:16px;break-inside:avoid}
     .thd{font-size:22px;font-weight:800;background:#1c1c1c;color:#fff;padding:8px 15px;border-radius:9px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;letter-spacing:.4px}
-    .thd.falta{background:#B8860B}
+    .thd.falta{background:#fff;color:#1c1c1c;border:2.5px dashed #1c1c1c}
+    .thd.falta .cnt{background:#1c1c1c;color:#fff}
     .thd .cnt{background:#fff;color:#1c1c1c;border-radius:20px;padding:0 15px;font-size:19px;min-width:40px;text-align:center;font-variant-numeric:tabular-nums}
     .prow{display:flex;align-items:center;gap:13px;padding:11px 6px;border-bottom:1.5px solid #eee;break-inside:avoid}
-    .ck{width:26px;height:26px;border:2.2px solid #333;border-radius:6px;flex:none}
+    .ck{width:26px;height:26px;border:2.2px solid #1c1c1c;border-radius:6px;flex:none}
     .who{flex:1;min-width:0}
     .nm{font-size:18px;font-weight:700;line-height:1.15}
-    .med{margin-top:4px;font-size:13px;background:#FFF6DA;border:1.4px solid #F0D97A;border-radius:7px;padding:4px 9px;color:#5a4a10;display:inline-block}
-    .nota{margin-top:4px;font-size:12.5px;color:#7a5a00;font-weight:600}
-    .esp{font-size:13px;font-weight:800;padding:6px 13px;border-radius:8px;white-space:nowrap;flex:none}
+    .med{margin-top:4px;font-size:13px;background:#F0F0F0;border:1.4px solid #333;border-radius:7px;padding:4px 9px;color:#1c1c1c;display:inline-block;font-weight:600}
+    .nota{margin-top:4px;font-size:12.5px;color:#333;font-weight:600}
+    .esp{font-size:13px;font-weight:800;padding:6px 13px;border-radius:8px;white-space:nowrap;flex:none;border:1.5px solid #1c1c1c;color:#1c1c1c;background:#fff}
   `;
 
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -420,7 +422,7 @@ export function imprimirHojaTaller(p) {
       ${encabezado({ nombre: (p.tipoPrenda || "Pedido") + " — " + (p.cliente || ""), icono: "🏭", imagenes: [] }, "Hoja de producción", ["Fecha", "Costurera"])}
       <div class="rsum"><span class="t">Total ${totalConTalla}${pendientes.length ? " + " + pendientes.length + " pend." : ""}:</span>${resumen}</div>
       ${leyenda}
-      <div class="hint">Cada renglón es una prenda. Tachá ▢ al terminar. Las que dicen «A la medida» se cortan con esas medidas, no por talla.${usaEsp ? " El color indica qué lleva bordado." : ""}</div>
+      <div class="hint">Cada renglón es una prenda. Tachá ▢ al terminar. Las que dicen «A la medida» se cortan con esas medidas, no por talla.${usaEsp ? " El símbolo (● ○ ★) indica qué lleva bordado en la manga." : ""}</div>
       ${tallasOrd.map(seccionTalla).join("")}
       ${seccionPend}
     </section></body></html>`;
