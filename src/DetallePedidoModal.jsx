@@ -9,7 +9,7 @@
 
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura, carritoPedido } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { opcionesAgrupacion } from "./lib/imprimir.js";
@@ -1049,6 +1049,113 @@ function DelCatalogo({ pedido, catalogo, onVerFoto }) {
   );
 }
 
+// Vista "🛒 Carrito": presenta el pedido como una boleta de supermercado —
+// una orden = varios renglones = 1 factura, con las canastas "pago aparte" y
+// "sin precio" separadas. Solo presenta; el guardado y el DTE no cambian.
+function VistaCarrito({ pedido }) {
+  const { factura, aparte, sinPrecio } = carritoPedido(pedido);
+  const hayFactura = factura.lineas.length > 0 || parseFloat(pedido.precio || 0) > 0;
+
+  const wrap = { border: "1px solid #eee", borderRadius: 12, overflow: "hidden", marginBottom: 12 };
+  const cab = (bg, color) => ({
+    background: bg, color, fontSize: 11.5, fontWeight: 800, textTransform: "uppercase",
+    letterSpacing: 0.4, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center",
+  });
+  const fila = {
+    display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+    borderTop: "1px solid #f2f2f2",
+  };
+  const qtyBadge = {
+    minWidth: 30, textAlign: "center", fontWeight: 800, fontSize: 14, color: "#333",
+    fontVariantNumeric: "tabular-nums",
+  };
+  const Renglon = ({ q, nombre, talla, unit, sub, mudo }) => (
+    <div style={fila}>
+      <span style={qtyBadge}>{q || "—"}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: "#2C1654" }}>{nombre}</span>
+        {talla && (
+          <span style={{ marginLeft: 6, background: "#1A5276", color: "#fff", borderRadius: 10, padding: "1px 7px", fontWeight: 700, fontSize: 10 }}>
+            {/[úu]nica/i.test(String(talla)) ? "única" : talla}
+          </span>
+        )}
+        {unit != null && !mudo && (
+          <span style={{ marginLeft: 6, fontSize: 10.5, color: "#999" }}>× {fmt$(unit)}</span>
+        )}
+      </div>
+      <span style={{ fontWeight: 800, fontSize: 13, color: mudo ? "#bbb" : "#1D6A3A", fontVariantNumeric: "tabular-nums" }}>
+        {mudo ? "sin precio" : (sub != null ? fmt$(sub) : "—")}
+      </span>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Canasta 1 — se factura (1 DTE) */}
+      {hayFactura && (
+        <div style={wrap}>
+          <div style={cab("#EAF7EE", "#1D6A3A")}>
+            <span>🧾 Se factura · 1 DTE</span>
+            <span>{fmt$(factura.total)}</span>
+          </div>
+          {factura.lineas.map((l, i) => (
+            <Renglon key={i} q={l.qty} nombre={l.tipo} unit={l.precio}
+              sub={l.subtotal} mudo={l.precio == null} />
+          ))}
+          <div style={{ borderTop: "1px solid #e8e8e8", padding: "8px 12px", fontSize: 12, color: "#555" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Gravado</span><span>{fmt$(factura.gravado)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>IVA 13%</span><span>{fmt$(factura.iva)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, color: "#1D6A3A", marginTop: 2 }}>
+              <span>Total (IVA incl.)</span><span>{fmt$(factura.total)}</span>
+            </div>
+          </div>
+          {factura.descuadre && (
+            <div style={{ padding: "6px 12px", fontSize: 11, color: "#b8860b", background: "#fffaf0" }}>
+              ⚠ La suma de renglones ({fmt$(factura.sumaLineas)}) no coincide con el precio del pedido ({fmt$(factura.total)}).
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Canasta 2 — pago aparte (no entra al DTE) */}
+      {aparte.lineas.length > 0 && (
+        <div style={wrap}>
+          <div style={cab("#FFF4E6", "#B85C00")}>
+            <span>💵 Pago aparte · no factura</span>
+            <span>{fmt$(aparte.total)}</span>
+          </div>
+          {aparte.lineas.map((l, i) => (
+            <Renglon key={i} q={l.qty} nombre={l.tipo} talla={l.talla} unit={l.precio}
+              sub={l.subtotal} mudo={l.precio == null} />
+          ))}
+        </div>
+      )}
+
+      {/* Canasta 3 — se produce sin precio (alerta) */}
+      {sinPrecio.length > 0 && (
+        <div style={{ ...wrap, border: "1px dashed #d9c7a0" }}>
+          <div style={cab("#FCF6E8", "#8a6d1a")}>
+            <span>⚠ En producción sin precio</span>
+            <span style={{ fontWeight: 700, textTransform: "none", letterSpacing: 0 }}>no se factura</span>
+          </div>
+          {sinPrecio.map((c, i) => (
+            <Renglon key={i} q={c.qty} nombre={c.nombre} talla={c.talla} mudo />
+          ))}
+          <div style={{ padding: "6px 12px", fontSize: 11, color: "#8a6d1a", background: "#fffdf7" }}>
+            Poné el precio de estos componentes en el pedido para que entren a la factura.
+          </div>
+        </div>
+      )}
+
+      {!hayFactura && aparte.lineas.length === 0 && sinPrecio.length === 0 && (
+        <div style={{ padding: 20, textAlign: "center", color: "#999", fontSize: 13 }}>
+          Este pedido todavía no tiene renglones con precio ni componentes.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DetallePedidoModal({
   pedido,
   catalogo,
@@ -1075,7 +1182,15 @@ export default function DetallePedidoModal({
   const pBord = bVinc ? parseFloat(bVinc.precioT || 0) : 0;
   const pCuel = cVinc ? parseFloat(cVinc.precioT || 0) : 0;
   const [verVersiones, setVerVersiones] = useState(false);
+  const [vista, setVista] = useState("detalle"); // "detalle" | "carrito"
   const [edRec, setEdRec] = useState(() => leerSnapshotReciente(pedido.id));
+  // El carrito solo aporta si hay algo que facturar/producir: personas,
+  // componentes o un precio. Sin eso, no mostramos el toggle.
+  const hayCarrito = esAdmin && (
+    (Array.isArray(pedido.personas) && pedido.personas.length > 0) ||
+    (Array.isArray(pedido.componentes) && pedido.componentes.some(c => c && (c.nombre || c.cantidad))) ||
+    parseFloat(pedido.precio || 0) > 0
+  );
   const [capturaTok, setCapturaTok] = useState(pedido.capturaToken || null);
   const [generandoLink, setGenerandoLink] = useState(false);
 
@@ -1189,6 +1304,30 @@ export default function DetallePedidoModal({
             }}>×</button>
         </div>
       )}
+      {hayCarrito && (
+        <div style={{ display: "inline-flex", background: "#f1f0ee", borderRadius: 10, padding: 3, marginBottom: 12, gap: 3 }}>
+          {[["detalle", "📋 Detalle"], ["carrito", "🛒 Carrito"]].map(([v, lbl]) => (
+            <button
+              key={v}
+              onClick={() => setVista(v)}
+              style={{
+                padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                fontFamily: "inherit", fontSize: 12.5, fontWeight: 800,
+                background: vista === v ? "#fff" : "transparent",
+                color: vista === v ? "#2C1654" : "#888",
+                boxShadow: vista === v ? "0 1px 3px rgba(0,0,0,.12)" : "none",
+              }}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {vista === "carrito" ? (
+        <VistaCarrito pedido={pedido} />
+      ) : (
+       <>
       <StatusYCosturera
         pedido={pedido}
         onCambiarEstatus={onCambiarEstatus}
@@ -1244,6 +1383,8 @@ export default function DetallePedidoModal({
       )}
       {verVersiones && (
         <ModalVersionesPedido pedido={pedido} onClose={() => setVerVersiones(false)} />
+      )}
+       </>
       )}
 
       <div

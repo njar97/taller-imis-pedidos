@@ -328,6 +328,49 @@ export function detalleFactura(p) {
   return { lineas, totalQty, sumaLineas, total, gravado, iva, descuadre };
 }
 
+// Vista "carrito de supermercado" de un pedido: presenta TODO lo que lleva la
+// orden como renglones de una boleta, separado en tres canastas. NO cambia el
+// guardado ni el DTE — es solo presentación. Reusa detalleFactura (canasta 1)
+// y itemsResumen (canasta 2) para no duplicar la lógica de precios.
+//
+// Devuelve:
+//   factura   : { lineas, gravado, iva, total, ... }  → lo que va a UN DTE
+//   aparte    : { lineas:[{tipo,talla,precio,qty,subtotal}], total }  → personas
+//               noFactura (pago aparte, no entran al DTE del cliente)
+//   sinPrecio : [{ nombre, talla, qty }]  → componentes del kit sin precio
+//               (se producen pero no se facturan por separado) → sirve de alerta
+export function carritoPedido(p) {
+  const personas = Array.isArray(p.personas) ? p.personas : [];
+  const factura = detalleFactura(p);
+
+  // Canasta 2: personas marcadas noFactura, agrupadas por tipo+talla+precio.
+  const apartePersonas = personas.filter(per => per.noFactura);
+  const itemsAparte = apartePersonas.length
+    ? itemsResumen({ ...p, personas: apartePersonas, tallasItems: [] })
+    : [];
+  const mapa = new Map();
+  for (const it of itemsAparte) {
+    const tipo = ((it.tipo || "").trim()) || (p.tipoPrenda || "Producto");
+    const talla = it.talla || "";
+    const precio = it.precio != null && it.precio !== "" ? parseFloat(it.precio) : null;
+    const key = tipo + "|" + talla + "|" + (precio == null ? "?" : precio.toFixed(2));
+    if (!mapa.has(key)) mapa.set(key, { tipo, talla, precio, qty: 0 });
+    mapa.get(key).qty += parseInt(it.qty) || 0;
+  }
+  const lineasAparte = [...mapa.values()]
+    .map(l => ({ ...l, subtotal: l.precio != null ? +(l.precio * l.qty).toFixed(2) : null }))
+    .sort((a, b) => a.tipo.localeCompare(b.tipo) || _rankTalla(a.talla) - _rankTalla(b.talla));
+  const totalAparte = lineasAparte.reduce((s, l) => s + (l.subtotal || 0), 0);
+
+  // Canasta 3: componentes del kit sin precio → se producen pero no facturan.
+  const sinPrecio = (Array.isArray(p.componentes) ? p.componentes : [])
+    .filter(c => c && (c.nombre || c.cantidad))
+    .filter(c => c.precio == null || c.precio === "" || parseFloat(c.precio) <= 0)
+    .map(c => ({ nombre: (c.nombre || "Prenda").trim(), talla: c.talla || "", qty: parseInt(c.cantidad) || 0 }));
+
+  return { factura, aparte: { lineas: lineasAparte, total: +totalAparte.toFixed(2) }, sinPrecio };
+}
+
 // Texto plano del detalle de factura, listo para copiar/pegar donde se emite.
 export function textoFactura(p) {
   const d = detalleFactura(p);

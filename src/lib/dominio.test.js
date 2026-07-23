@@ -8,6 +8,7 @@ import {
   rankTalla,
   medidaCuelloParaTalla,
   itemsResumen,
+  carritoPedido,
   PEDIDO_BASE,
 } from "./dominio.js";
 
@@ -196,5 +197,44 @@ describe("medidaCuelloParaTalla", () => {
     expect(medidaCuelloParaTalla("")).toBe(null);
     expect(medidaCuelloParaTalla(null)).toBe(null);
     expect(medidaCuelloParaTalla("Especial")).toBe(null);
+  });
+});
+
+describe("carritoPedido", () => {
+  const pedido = {
+    tipoPrenda: "Filipina",
+    precio: "226.00", // 17 filipinas facturables @ ~$13.29 (usamos precio del pedido)
+    personas: [
+      { nombre: "Ana", talla: "M", noFactura: false, prendas: [{ tipo: "Filipina", talla: "M", precio: 13 }] },
+      { nombre: "Luis", talla: "L", noFactura: false, prendas: [{ tipo: "Filipina", talla: "L", precio: 13 }] },
+      { nombre: "Extra1", noFactura: true, prendas: [{ tipo: "Filipina", talla: "XL", precio: 30 }] },
+      { nombre: "Extra2", noFactura: true, prendas: [{ tipo: "Filipina", talla: "XL", precio: 30 }] },
+    ],
+    componentes: [
+      { nombre: "Gabacha", cantidad: 17, precio: 8 },
+      { nombre: "Gorro", cantidad: 17, precio: "" }, // sin precio → se produce, no factura
+    ],
+  };
+
+  it("separa factura, pago aparte y sin precio", () => {
+    const c = carritoPedido(pedido);
+    // Factura: personas facturables + componentes con precio (gabacha)
+    expect(c.factura.lineas.some(l => l.tipo === "Gabacha")).toBe(true);
+    expect(c.factura.total).toBeCloseTo(226, 2);
+    // Pago aparte: las 2 filipinas XL noFactura, agrupadas → qty 2, subtotal 60
+    expect(c.aparte.lineas).toHaveLength(1);
+    expect(c.aparte.lineas[0].qty).toBe(2);
+    expect(c.aparte.total).toBeCloseTo(60, 2);
+    // Sin precio: el gorro (componente sin precio)
+    expect(c.sinPrecio).toHaveLength(1);
+    expect(c.sinPrecio[0].nombre).toBe("Gorro");
+    expect(c.sinPrecio[0].qty).toBe(17);
+  });
+
+  it("un pedido vacío no rompe", () => {
+    const c = carritoPedido({ personas: [], componentes: [] });
+    expect(c.factura.lineas).toHaveLength(0);
+    expect(c.aparte.lineas).toHaveLength(0);
+    expect(c.sinPrecio).toHaveLength(0);
   });
 });
