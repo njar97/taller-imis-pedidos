@@ -86,13 +86,15 @@ function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   );
 }
 
-function EspecsDiseno({ disenos }) {
+function EspecsDiseno({ disenos, onVerFoto }) {
   const items = (disenos || []).filter(d => d.ubicacion);
   const pngUrl = useMemo(
     () => items.length ? diagramaCamisaPNG(disenos, { ancho: 200, alto: 232 }) : "",
     [disenos] // eslint-disable-line react-hooks/exhaustive-deps
   );
   if (!items.length) return null;
+  // Previews reales de bordado (las que existen). Se pueden ampliar.
+  const previews = items.map(d => d.disenoImg).filter(Boolean);
   return (
     <div style={{ marginTop: 12, marginBottom: 4 }}>
       <div style={{ fontSize: 10, color: "#9B59B6", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
@@ -108,9 +110,18 @@ function EspecsDiseno({ disenos }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           {items.map((d, i) => {
             const col = techColor(d.tecnica);
+            const pIdx = d.disenoImg ? previews.indexOf(d.disenoImg) : -1;
             return (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 5 }}>
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 15, height: 15, borderRadius: 3, background: col, color: "#fff", fontSize: 8, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                {d.disenoImg && (
+                  <img
+                    src={d.disenoImg}
+                    alt={d.ubicacion || "bordado"}
+                    onClick={() => onVerFoto && pIdx >= 0 && onVerFoto(previews, pIdx)}
+                    style={{ width: 52, height: 40, objectFit: "contain", background: "#fff", border: "1px solid #ead9f5", borderRadius: 6, flex: "none", cursor: onVerFoto ? "zoom-in" : "default" }}
+                  />
+                )}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#2C1654" }}>{d.ubicacion}</div>
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 1 }}>
@@ -1005,7 +1016,16 @@ function DelCatalogo({ pedido, catalogo, onVerFoto }) {
                 border: "1px solid #eee", borderRadius: 9, padding: 8, background: "#fff",
               }}>
                 {d.disenoImg
-                  ? <img src={d.disenoImg} alt="" style={{ width: 56, height: 40, objectFit: "contain", background: "#fff", border: "1px solid #f0f0f0", borderRadius: 5, flex: "none" }} />
+                  ? <img
+                      src={d.disenoImg}
+                      alt=""
+                      onClick={() => {
+                        const previews = disenos.map(x => x.disenoImg).filter(Boolean);
+                        const idx = previews.indexOf(d.disenoImg);
+                        if (onVerFoto && idx >= 0) onVerFoto(previews, idx);
+                      }}
+                      style={{ width: 56, height: 40, objectFit: "contain", background: "#fff", border: "1px solid #f0f0f0", borderRadius: 5, flex: "none", cursor: onVerFoto ? "zoom-in" : "default" }}
+                    />
                   : <div style={{ width: 56, height: 40, display: "grid", placeItems: "center", color: "#ccc", fontSize: 8, border: "1px solid #f0f0f0", borderRadius: 5, flex: "none" }}>sin<br />preview</div>}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: "#333" }}>{d.ubicacion || "—"}</div>
@@ -1175,7 +1195,7 @@ export default function DetallePedidoModal({
         onCambiarCosturera={onCambiarCosturera}
       />
       <InfoTabla pedido={pedido} esAdmin={esAdmin} />
-      <EspecsDiseno disenos={pedido.disenos} />
+      <EspecsDiseno disenos={pedido.disenos} onVerFoto={onVerFoto} />
       {esAdmin && <DetalleFactura pedido={pedido} />}
       <Abonos abonos={pedido.abonos} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
