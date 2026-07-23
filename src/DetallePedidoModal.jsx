@@ -557,6 +557,34 @@ function Imagenes({ pedido, onVerFoto }) {
   );
 }
 
+function ComponentesKit({ componentes }) {
+  const comps = (Array.isArray(componentes) ? componentes : []).filter(c => c && (c.nombre || c.cantidad));
+  if (comps.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: "#565656", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>
+        ➕ Componentes del kit (talla única)
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {comps.map((c, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1.5px solid #eee", borderRadius: 10, padding: "9px 12px" }}>
+            {c.cantidad != null && c.cantidad !== "" && (
+              <span style={{ minWidth: 34, textAlign: "center", fontWeight: 800, fontSize: 15, color: "#333", fontVariantNumeric: "tabular-nums" }}>{c.cantidad}</span>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#2C1654" }}>
+                {c.nombre || "Prenda"}
+                {c.talla && <span style={{ marginLeft: 6, fontSize: 11, color: "#777", fontWeight: 600 }}>· {/[úu]nica/i.test(String(c.talla)) ? "talla única" : "talla " + c.talla}</span>}
+              </div>
+              {c.nota && <div style={{ fontSize: 11.5, color: "#888", marginTop: 2 }}>{c.nota}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Personas({ personas }) {
   if (!personas || personas.length === 0) return null;
   // Normaliza: si la persona no tiene prendas[], crea una virtual desde
@@ -1153,6 +1181,7 @@ export default function DetallePedidoModal({
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
       <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
       <Personas personas={pedido.personas} />
+      <ComponentesKit componentes={pedido.componentes} />
 
       <div style={{ marginBottom: 8 }}>
         <VinculadoCard

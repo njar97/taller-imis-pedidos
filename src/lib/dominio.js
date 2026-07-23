@@ -247,6 +247,9 @@ export const PEDIDO_BASE = {
   imagenes: [],
   abonos: [],
   personas: [],
+  // Prendas adicionales del kit de TALLA ÚNICA (gabacha, gorro, etc.) que no
+  // se toman por persona pero sí hay que producir. [{nombre, cantidad, talla, nota}]
+  componentes: [],
   modoRegistro: "tallas",
   // Condiciones formales para cotización (todos opcionales). Si tienen
   // contenido se renderizan como secciones en el PDF de cotización.

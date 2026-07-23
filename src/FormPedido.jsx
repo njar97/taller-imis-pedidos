@@ -147,6 +147,7 @@ export default function FormPedido({
       tallasItems: [...((initial || {}).tallasItems || [])],
       abonos: [...((initial || {}).abonos || [])],
       personas: [...((initial || {}).personas || [])],
+      componentes: [...((initial || {}).componentes || [])],
       modoRegistro: (initial || {}).modoRegistro || "tallas",
       tipoCliente: (initial || {}).tipoCliente || "persona",
       nombreContacto: (initial || {}).nombreContacto || "",
@@ -876,6 +877,72 @@ export default function FormPedido({
         </>
       )}
 
+      </SeccionOpcional>
+
+      {/* ── Componentes del kit (talla única) ───────────
+          Prendas extra que acompañan a la principal y NO se toman por
+          persona: gabacha, gorro, etc. Aparecen en la hoja de producción
+          como un bloque aparte con su cantidad, para que la costurera no
+          se pierda de cortarlas. */}
+      <SeccionOpcional
+        id="sec-componentes"
+        titulo="Componentes del kit (talla única)"
+        icon="➕"
+        color="#565656"
+        defaultOpen={(f.componentes || []).length > 0}
+      >
+        <div style={{ fontSize: 11.5, color: "#888", marginBottom: 10, lineHeight: 1.45 }}>
+          Prendas extra de talla única que van con la principal (gabacha, gorro…).
+          No se toman por persona; salen en la hoja de producción con su cantidad.
+        </div>
+        {(f.componentes || []).map((c, i) => {
+          const updC = (campo, v) => s("componentes", (f.componentes || []).map((x, j) => j === i ? { ...x, [campo]: v } : x));
+          return (
+            <div key={i} style={{ background: "#fff", border: "1.5px solid #eee9f6", borderRadius: 12, padding: 12, marginBottom: 8 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input
+                  style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                  placeholder="Prenda (ej. Gabacha, Gorro de chef)"
+                  value={c.nombre || ""}
+                  onChange={e => updC("nombre", e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => s("componentes", (f.componentes || []).filter((_, j) => j !== i))}
+                  style={{ border: "1.5px solid #f5c6cb", background: "#fff8f8", borderRadius: 10, padding: "0 12px", color: "#DC3545", cursor: "pointer", fontFamily: "inherit" }}
+                >✕</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 8, marginBottom: 8 }}>
+                <input
+                  style={{ padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                  inputMode="numeric"
+                  placeholder="Cant."
+                  value={c.cantidad ?? ""}
+                  onChange={e => updC("cantidad", e.target.value)}
+                />
+                <input
+                  style={{ padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                  placeholder="Talla (ej. Única)"
+                  value={c.talla ?? ""}
+                  onChange={e => updC("talla", e.target.value)}
+                />
+              </div>
+              <input
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                placeholder="Nota para el taller (opcional): logo, ubicación del bordado…"
+                value={c.nota || ""}
+                onChange={e => updC("nota", e.target.value)}
+              />
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => s("componentes", [...(f.componentes || []), { nombre: "", cantidad: "", talla: "Única", nota: "" }])}
+          style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px dashed #bdbdbd", background: "#fafafa", color: "#565656", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}
+        >
+          ➕ Agregar componente
+        </button>
       </SeccionOpcional>
 
       {/* ── Tela y color ────────────────────────────── */}

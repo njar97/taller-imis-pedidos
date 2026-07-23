@@ -170,7 +170,7 @@ export default function FichasMedidas({ personas, onChange }) {
         )}
 
         {/* Abono */}
-        <div style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 12, border: "1.5px solid #eee9f6" }}>
+        <div style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 10, border: "1.5px solid #eee9f6" }}>
           <label style={LBL}>Abono ($)</label>
           <input
             style={INP}
@@ -182,6 +182,25 @@ export default function FichasMedidas({ personas, onChange }) {
               else meds.abono = e.target.value;
               upd(i, { medidas: meds });
             }}
+          />
+        </div>
+
+        {/* Notas: la del taller SÍ sale en la hoja de producción; la admin NO.
+            Separadas para que datos de facturación/pago no lleguen a la costurera. */}
+        <div style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 12, border: "1.5px solid #eee9f6" }}>
+          <label style={{ ...LBL, color: "#1E8449" }}>📌 Nota para el taller (sale en producción)</label>
+          <textarea
+            style={{ ...INP, minHeight: 54, resize: "vertical" }}
+            placeholder="Ej.: solo filipina, sin gorro · manga bordada con su nombre"
+            value={p.nota || ""}
+            onChange={e => upd(i, { nota: e.target.value })}
+          />
+          <label style={{ ...LBL, color: "#B9770E", marginTop: 12 }}>🔒 Nota admin (NO sale en producción)</label>
+          <textarea
+            style={{ ...INP, minHeight: 54, resize: "vertical", background: "#FFFDF6", borderColor: "#f0e3c0" }}
+            placeholder="Facturación, precio, pago aparte… (solo lo ve admin)"
+            value={p.notaAdmin || ""}
+            onChange={e => upd(i, { notaAdmin: e.target.value })}
           />
         </div>
 

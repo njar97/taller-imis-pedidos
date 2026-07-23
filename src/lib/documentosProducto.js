@@ -312,6 +312,7 @@ const MED_LBL = {
   escote: "Escote", costado: "Costado", alto: "Alto", talle: "Talle", sep: "Sep.",
   ctcodo: "Cont. codo", altcodo: "Alto codo", base: "Base", muslo: "Muslo",
   rodilla: "Rodilla", ruedo: "Ruedo", tiroD: "Tiro del.", tiroT: "Tiro tras.",
+  ajuste: "Ajuste", contornoCabeza: "Contorno cabeza",
 };
 // Distinción por SÍMBOLO + texto (no por color) para que se lea impreso en B/N:
 // ● cocinero · ○ pastelero · ★ chef. Todo en negro.
@@ -320,12 +321,15 @@ const ESP_SIMBOLO = { cocinero: "●", pastelero: "○", chef: "★" };
 function medidasDePersona(per) {
   const out = [];
   const m = per.medidas || {};
-  for (const sec of ["chaqueta", "pantalon"]) {
-    if (m[sec]) for (const [k, v] of Object.entries(m[sec])) {
+  // Recorre TODAS las secciones de medidas (chaqueta, pantalon, quepi,
+  // filipina, etc.) para no perder ajustes especiales como el escote de
+  // filipina. "abono" es dinero, no medida: se omite.
+  for (const [sec, obj] of Object.entries(m)) {
+    if (sec === "abono" || !obj || typeof obj !== "object") continue;
+    for (const [k, v] of Object.entries(obj)) {
       if (v !== "" && v != null) out.push([MED_LBL[k] || k, v]);
     }
   }
-  if (m.quepi && m.quepi.contornoCabeza) out.push(["Contorno cabeza", m.quepi.contornoCabeza]);
   return out;
 }
 
@@ -382,6 +386,22 @@ export function imprimirHojaTaller(p) {
       ${pendientes.map(filaPersona).join("")}
     </section>` : "";
 
+  // Componentes adicionales del kit (gabacha, gorro, etc.): prendas de talla
+  // única que NO se toman por persona pero SÍ hay que cortar/coser. Sin este
+  // bloque, la costurera no ve que el pedido lleva más que la prenda base.
+  const comps = (Array.isArray(p.componentes) ? p.componentes : [])
+    .filter(c => c && (c.nombre || c.cantidad));
+  const seccionComps = comps.length ? `<section class="tsec">
+      <div class="thd comp">➕ OTRAS PRENDAS DEL KIT</div>
+      ${comps.map(c => `<div class="prow">
+        <span class="ck"></span>
+        <div class="who"><div class="nm">${esc(c.nombre || "Prenda")}${
+          c.talla ? ` <span class="tu">${/[úu]nica/i.test(String(c.talla)) ? "Talla única" : "Talla " + esc(c.talla)}</span>` : ""
+        }</div>${c.nota ? `<div class="nota">📌 ${esc(c.nota)}</div>` : ""}</div>
+        ${c.cantidad ? `<span class="qcomp">${esc(c.cantidad)}</span>` : ""}
+      </div>`).join("")}
+    </section>` : "";
+
   // Resumen (tabla general compacta) — vinculado: mismos números que las secciones.
   const resumen = tallasOrd.map(t =>
     `<span class="rchip"><b>${esc(t)}</b> ${porTalla.get(t).length}</span>`
@@ -406,6 +426,9 @@ export function imprimirHojaTaller(p) {
     .thd{font-size:22px;font-weight:800;background:#1c1c1c;color:#fff;padding:8px 15px;border-radius:9px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;letter-spacing:.4px}
     .thd.falta{background:#fff;color:#1c1c1c;border:2.5px dashed #1c1c1c}
     .thd.falta .cnt{background:#1c1c1c;color:#fff}
+    .thd.comp{background:#565656}
+    .tu{font-size:12px;font-weight:800;border:1.5px solid #1c1c1c;border-radius:6px;padding:1px 8px;margin-left:6px;white-space:nowrap}
+    .qcomp{font-size:20px;font-weight:800;min-width:44px;text-align:center;font-variant-numeric:tabular-nums;flex:none}
     .thd .cnt{background:#fff;color:#1c1c1c;border-radius:20px;padding:0 15px;font-size:19px;min-width:40px;text-align:center;font-variant-numeric:tabular-nums}
     .prow{display:flex;align-items:center;gap:13px;padding:11px 6px;border-bottom:1.5px solid #eee;break-inside:avoid}
     .ck{width:26px;height:26px;border:2.2px solid #1c1c1c;border-radius:6px;flex:none}
@@ -425,6 +448,7 @@ export function imprimirHojaTaller(p) {
       <div class="hint">Cada renglón es una prenda. Tachá ▢ al terminar. Las que dicen «A la medida» se cortan con esas medidas, no por talla.${usaEsp ? " El símbolo (● ○ ★) indica qué lleva bordado en la manga." : ""}</div>
       ${tallasOrd.map(seccionTalla).join("")}
       ${seccionPend}
+      ${seccionComps}
     </section></body></html>`;
 
   win.document.write(html);
