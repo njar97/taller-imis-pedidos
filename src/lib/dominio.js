@@ -284,7 +284,15 @@ export const PEDIDO_BASE = {
 //   total (precio acordado del pedido, o la suma si no hay precio),
 //   gravado, iva, descuadre (true si la suma de líneas ≠ total)
 export function detalleFactura(p) {
-  const items = itemsResumen(p);
+  // Las personas marcadas `noFactura` (pago aparte, no entran al DTE del
+  // cliente) se excluyen del cálculo facturable — pero siguen en la hoja de
+  // producción, que no filtra. Así una misma orden se produce junta y se
+  // factura solo lo que corresponde.
+  const pFact = {
+    ...p,
+    personas: (Array.isArray(p.personas) ? p.personas : []).filter(per => !per.noFactura),
+  };
+  const items = itemsResumen(pFact);
   const mapa = new Map();
   for (const it of items) {
     const tipo = ((it.tipo || "").trim()) || (p.tipoPrenda || "Producto");
@@ -292,6 +300,18 @@ export function detalleFactura(p) {
     const key = tipo + "|" + (precio == null ? "?" : precio.toFixed(2));
     if (!mapa.has(key)) mapa.set(key, { tipo, precio, qty: 0 });
     mapa.get(key).qty += parseInt(it.qty) || 0;
+  }
+  // Componentes del kit (gabacha, gorro, bolsos…) que tengan precio propio se
+  // suman como líneas de la factura. Sin precio = van incluidos en la prenda
+  // base (o no se facturan por separado): salen en producción pero no aquí.
+  for (const c of (Array.isArray(p.componentes) ? p.componentes : [])) {
+    const nombre = (c.nombre || "").trim();
+    const qty = parseInt(c.cantidad) || 0;
+    const precio = c.precio != null && c.precio !== "" ? parseFloat(c.precio) : null;
+    if (!nombre || qty <= 0 || precio == null) continue;
+    const key = nombre + "|" + precio.toFixed(2);
+    if (!mapa.has(key)) mapa.set(key, { tipo: nombre, precio, qty: 0 });
+    mapa.get(key).qty += qty;
   }
   const lineas = [...mapa.values()]
     .map(l => ({ ...l, subtotal: l.precio != null ? +(l.precio * l.qty).toFixed(2) : null }))

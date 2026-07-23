@@ -912,7 +912,7 @@ export default function FormPedido({
                   style={{ border: "1.5px solid #f5c6cb", background: "#fff8f8", borderRadius: 10, padding: "0 12px", color: "#DC3545", cursor: "pointer", fontFamily: "inherit" }}
                 >✕</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 8, marginBottom: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 110px", gap: 8, marginBottom: 8 }}>
                 <input
                   style={{ padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
                   inputMode="numeric"
@@ -925,6 +925,14 @@ export default function FormPedido({
                   placeholder="Talla (ej. Única)"
                   value={c.talla ?? ""}
                   onChange={e => updC("talla", e.target.value)}
+                />
+                <input
+                  style={{ padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                  inputMode="decimal"
+                  placeholder="$ c/u"
+                  title="Precio unitario. Vacío = va incluido en la prenda base (no sale como línea aparte en la factura)."
+                  value={c.precio ?? ""}
+                  onChange={e => updC("precio", e.target.value)}
                 />
               </div>
               <input
