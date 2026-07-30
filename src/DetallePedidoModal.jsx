@@ -23,7 +23,7 @@ import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js"
 import { generarTokenCaptura, urlCaptura } from "./lib/captura.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import {
   facturasDePedido, prepararFacturaPedido, emitirFacturaPedido,
   tieneTokenPuente, loginPuente, ambienteDte,
@@ -461,22 +461,16 @@ function FacturaElectronica({ pedido }) {
   );
 }
 
-function Abonos({ abonos }) {
+function Abonos({ abonos, personas }) {
   if (!abonos || abonos.length === 0) return null;
-  return (
-    <div style={{ marginTop: 12 }}>
-      <div
-        style={{
-          fontSize: 10,
-          color: "#27AE60",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          marginBottom: 6,
-        }}
-      >
-        💵 Abonos registrados
-      </div>
-      {abonos.map((a, i) => (
+  // Cuando cada abono ya está atribuido a un beneficiario, la tabla de
+  // Beneficiarios lo muestra en su fila: repetir la lista completa acá sería
+  // la misma gente dos veces seguidas. En ese caso se colapsa a un resumen.
+  const nombres = new Set((personas || []).map(p => normNombre(p.nombre)).filter(Boolean));
+  const total = abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0);
+  const redundante = nombres.size > 0 && abonos.every(a => nombres.has(normNombre(a.nota)));
+
+  const lista = abonos.map((a, i) => (
         <div
           key={i}
           style={{
@@ -490,22 +484,51 @@ function Abonos({ abonos }) {
           <span style={{ fontSize: 13, fontWeight: 800, color: "#155724" }}>
             ${parseFloat(a.monto).toFixed(2)}
           </span>
-          <span
-            style={{
-              fontSize: 10,
-              background: "#d4edda",
-              color: "#155724",
-              padding: "1px 7px",
-              borderRadius: 10,
-              fontWeight: 700,
-            }}
-          >
-            {a.metodo}
-          </span>
+          {a.metodo && (
+            <span
+              style={{
+                fontSize: 10,
+                background: "#d4edda",
+                color: "#155724",
+                padding: "1px 7px",
+                borderRadius: 10,
+                fontWeight: 700,
+              }}
+            >
+              {a.metodo}
+            </span>
+          )}
           <span style={{ fontSize: 11, color: "#666", flex: 1 }}>{a.nota}</span>
           <span style={{ fontSize: 10, color: "#aaa" }}>{a.fecha}</span>
         </div>
-      ))}
+      ));
+
+  const titulo = {
+    fontSize: 10,
+    color: "#27AE60",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  };
+
+  if (redundante) {
+    return (
+      <details style={{ marginTop: 12 }}>
+        <summary style={{ ...titulo, cursor: "pointer", userSelect: "none", marginBottom: 0 }}>
+          💵 {abonos.length} abonos · {fmt$(total)}
+          <span style={{ color: "#bbb", fontWeight: 600, textTransform: "none", marginLeft: 6 }}>
+            — desglosados en cada beneficiario
+          </span>
+        </summary>
+        <div style={{ marginTop: 6 }}>{lista}</div>
+      </details>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={titulo}>💵 Abonos registrados</div>
+      {lista}
     </div>
   );
 }
@@ -596,7 +619,21 @@ function ComponentesKit({ componentes }) {
   );
 }
 
-function Personas({ personas }) {
+// Cada fila es un acordeón: se toca y despliega el detalle de esa persona
+// (prendas con talla y spec, medidas tomadas, abono). Antes las medidas
+// vivían en una tabla aparte debajo, así que la misma gente salía listada
+// dos veces; ahora el detalle cuelga de su propia fila.
+function Personas({ personas, abonos, esAdmin }) {
+  const [abiertos, setAbiertos] = useState(() => new Set());
+  const abonoPorNombre = useMemo(() => {
+    const m = new Map();
+    for (const a of abonos || []) {
+      const k = normNombre(a.nota);
+      if (!k) continue;
+      m.set(k, (m.get(k) || 0) + parseFloat(a.monto || 0));
+    }
+    return m;
+  }, [abonos]);
   if (!personas || personas.length === 0) return null;
   // Normaliza: si la persona no tiene prendas[], crea una virtual desde
   // su talla/precio sueltos (compat con shape viejo).
@@ -609,6 +646,18 @@ function Personas({ personas }) {
         : [],
     };
   });
+  const toggle = key => setAbiertos(prev => {
+    const n = new Set(prev);
+    n.has(key) ? n.delete(key) : n.add(key);
+    return n;
+  });
+  const abonoDe = p => {
+    const reg = abonoPorNombre.get(normNombre(p.nombre));
+    if (reg != null) return reg;
+    const m = p.medidas && p.medidas.abono;
+    return m != null && m !== "" ? parseFloat(m) : null;
+  };
+  const cols = 6 + (esAdmin ? 1 : 0);
   return (
     <div style={{ marginTop: 12 }}>
       <div
@@ -621,6 +670,9 @@ function Personas({ personas }) {
         }}
       >
         👥 Beneficiarios
+        <span style={{ color: "#9bb", fontWeight: 600, textTransform: "none", marginLeft: 6 }}>
+          · tocá una fila para ver su detalle
+        </span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table
@@ -632,12 +684,12 @@ function Personas({ personas }) {
         >
           <thead>
             <tr style={{ background: "#EBF5FB" }}>
-              {["#", "Nombre", "Cargo", "Talla taller", "Prendas"].map(h => (
+              {["#", "Nombre", "Cargo", "Talla taller", "Prendas", ...(esAdmin ? ["Abonado"] : []), ""].map((h, hi) => (
                 <th
-                  key={h}
+                  key={hi}
                   style={{
                     padding: "5px 8px",
-                    textAlign: "left",
+                    textAlign: h === "Abonado" ? "right" : "left",
                     fontSize: 10,
                     fontWeight: 700,
                     color: "#1A5276",
@@ -650,12 +702,18 @@ function Personas({ personas }) {
             </tr>
           </thead>
           <tbody>
-            {norm.map((p, i) => (
+            {norm.map((p, i) => {
+              const key = p.id || i;
+              const open = abiertos.has(key);
+              const abono = abonoDe(p);
+              return (
+              <Fragment key={key}>
               <tr
-                key={p.id || i}
+                onClick={() => toggle(key)}
                 style={{
                   borderBottom: "1px solid #f0f8ff",
-                  background: i % 2 === 0 ? "#fff" : "#f8fcff",
+                  background: open ? "#EBF5FB" : i % 2 === 0 ? "#fff" : "#f8fcff",
+                  cursor: "pointer",
                 }}
               >
                 <td style={{ padding: "5px 8px", color: "#aaa", verticalAlign: "top" }}>{i + 1}</td>
@@ -715,87 +773,113 @@ function Personas({ personas }) {
                     )
                   }
                 </td>
+                {esAdmin && (
+                  <td style={{ padding: "5px 8px", textAlign: "right", verticalAlign: "top", fontWeight: 800, color: abono ? "#155724" : "#ccc", fontVariantNumeric: "tabular-nums" }}>
+                    {abono != null ? fmt$(abono) : "—"}
+                  </td>
+                )}
+                <td style={{ padding: "5px 8px", textAlign: "right", verticalAlign: "top", color: "#1A5276", fontSize: 10 }}>
+                  {open ? "▲" : "▼"}
+                </td>
               </tr>
-            ))}
+              {open && (
+                <tr style={{ background: "#f8fbff" }}>
+                  <td colSpan={cols} style={{ padding: "2px 8px 10px 30px", borderBottom: "1px solid #e4ecf4" }}>
+                    <DetallePersona persona={p} abono={abono} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      <MedidasPersonas personas={norm} />
+    </div>
+  );
+}
+
+// Contenido desplegado de una fila de beneficiario: sus prendas con talla y
+// especificación, las medidas tomadas y lo que abonó.
+function DetallePersona({ persona, abono }) {
+  const prendas = agruparPrendas(persona.prendas || []);
+  const meds = persona.medidas || {};
+  const hayMeds = meds.pantalon || meds.chaqueta || meds.quepi;
+  const nada = prendas.length === 0 && !hayMeds && abono == null;
+  if (nada) {
+    return <span style={{ fontSize: 11, color: "#bbb", fontStyle: "italic" }}>Sin detalle capturado para esta persona.</span>;
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {prendas.length > 0 && (
+        <div>
+          <div style={SUBTIT}>Prendas</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {prendas.map((g, j) => (
+              <div key={j} style={{ fontSize: 11.5, color: "#444", display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 800, color: "#E67E22" }}>{g.qty}×</span>
+                <span>{g.tipo || "Prenda"}</span>
+                <span style={{ background: g.talla ? "#1A5276" : "#ddd", color: g.talla ? "#fff" : "#888", borderRadius: 10, padding: "1px 7px", fontWeight: 700, fontSize: 10 }}>
+                  {g.talla || "sin talla"}
+                </span>
+                {g.precio != null && g.precio !== "" && (
+                  <span style={{ color: "#27AE60", fontWeight: 700 }}>{fmt$(g.precio)} c/u</span>
+                )}
+                {g.spec && <span style={{ color: "#888", fontStyle: "italic" }}>{g.spec}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {hayMeds && (
+        <div>
+          <div style={SUBTIT}>📐 Medidas</div>
+          {seccionMedidas("Pantalón", "#7D6608", PANT_LABELS, meds.pantalon)}
+          {seccionMedidas("Chaqueta", "#6C3483", CHAQ_LABELS, meds.chaqueta)}
+          {meds.quepi?.contornoCabeza != null && (
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: "#1A5276", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 3 }}>Quepi</div>
+              {chipMedida("Contorno", `${meds.quepi.contornoCabeza} cm`)}
+            </div>
+          )}
+        </div>
+      )}
+      {abono != null && (
+        <div style={{ fontSize: 11.5, color: "#2e7d32", fontWeight: 700 }}>
+          💵 Abonó {fmt$(abono)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const SUBTIT = { fontSize: 9, fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 3 };
+
+const normNombre = s => String(s || "").trim().toUpperCase().replace(/\s+/g, " ");
+
+const chipMedida = (label, val) => (
+  <span key={label} style={{ display: "inline-flex", gap: 2, alignItems: "baseline", background: "#f0f4f8", borderRadius: 4, padding: "1px 5px", marginRight: 3, marginBottom: 3 }}>
+    <span style={{ fontSize: 8, color: "#999", fontWeight: 700 }}>{label}</span>
+    <span style={{ fontSize: 11, fontWeight: 800, color: "#1A5276" }}>{val}</span>
+  </span>
+);
+
+function seccionMedidas(titulo, color, labels, obj) {
+  if (!obj) return null;
+  const vals = labels.filter(([k]) => obj[k] != null && obj[k] !== "");
+  if (!vals.length) return null;
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ fontSize: 9, fontWeight: 800, color, textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 3 }}>{titulo}</div>
+      <div style={{ display: "flex", flexWrap: "wrap" }}>
+        {vals.map(([k, l]) => chipMedida(l, `${obj[k]} cm`))}
+      </div>
     </div>
   );
 }
 
 const PANT_LABELS = [["cintura","Cintura"],["base","Base"],["muslo","Muslo"],["largo","Largo"],["rodilla","Rodilla"],["ruedo","Ruedo"],["tiroD","Tiro D."],["tiroT","Tiro T."]];
 const CHAQ_LABELS = [["hombro","Hombro"],["pecho","Pecho"],["cintura","Cintura"],["cadera","Cadera"],["largo","Largo"],["sisa","Sisa"],["manga","Manga"],["puno","Puño"],["cuello","Cuello"],["escote","Escote"],["costado","Costado"],["alto","Alto"],["talle","Talle"],["sep","Sep."],["ctcodo","Ct.Codo"],["altcodo","Alt.Codo"]];
-
-function MedidasPersonas({ personas }) {
-  const [abierto, setAbierto] = useState(null);
-  const conMeds = personas.filter(p => p.medidas && (p.medidas.pantalon || p.medidas.chaqueta || p.medidas.quepi));
-  if (!conMeds.length) return null;
-
-  const chipMed = (label, val) => (
-    <span key={label} style={{ display: "inline-flex", gap: 2, alignItems: "baseline", background: "#f0f4f8", borderRadius: 4, padding: "1px 5px", marginRight: 3, marginBottom: 3 }}>
-      <span style={{ fontSize: 8, color: "#999", fontWeight: 700 }}>{label}</span>
-      <span style={{ fontSize: 11, fontWeight: 800, color: "#1A5276" }}>{val}</span>
-    </span>
-  );
-
-  const renderSec = (titulo, color, labels, obj) => {
-    if (!obj) return null;
-    const vals = labels.filter(([k]) => obj[k] != null && obj[k] !== "");
-    if (!vals.length) return null;
-    return (
-      <div style={{ marginBottom: 6 }}>
-        <div style={{ fontSize: 9, fontWeight: 800, color, textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 3 }}>{titulo}</div>
-        <div style={{ display: "flex", flexWrap: "wrap" }}>
-          {vals.map(([k, l]) => chipMed(l, `${obj[k]} cm`))}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 10, color: "#1A5276", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
-        📐 Medidas por persona
-      </div>
-      {conMeds.map((p, i) => {
-        const open = abierto === p.id;
-        return (
-          <div key={p.id || i} style={{ border: "1px solid #e4ecf4", borderRadius: 8, marginBottom: 6, overflow: "hidden" }}>
-            <button
-              onClick={() => setAbierto(open ? null : p.id)}
-              style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: open ? "#EBF5FB" : "#f8fbff", border: "none", cursor: "pointer", textAlign: "left" }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 800, color: "#2C1654" }}>
-                {p.nombre || `Persona ${i + 1}`}
-                {p.cargo ? <span style={{ fontSize: 10, color: "#888", fontWeight: 400, marginLeft: 6 }}>{p.cargo}</span> : null}
-              </span>
-              <span style={{ fontSize: 10, color: "#1A5276" }}>{open ? "▲" : "▼"}</span>
-            </button>
-            {open && (
-              <div style={{ padding: "8px 10px", background: "#fff" }}>
-                {renderSec("Pantalón", "#7D6608", PANT_LABELS, p.medidas?.pantalon)}
-                {renderSec("Chaqueta", "#6C3483", CHAQ_LABELS, p.medidas?.chaqueta)}
-                {p.medidas?.quepi?.contornoCabeza != null && (
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: "#1A5276", textTransform: "uppercase", letterSpacing: ".4px", marginBottom: 3 }}>Quepi</div>
-                    {chipMed("Contorno", `${p.medidas.quepi.contornoCabeza} cm`)}
-                  </div>
-                )}
-                {p.medidas?.abono != null && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: "#2e7d32", fontWeight: 700 }}>
-                    💵 Abono recibido: ${p.medidas.abono}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function VinculadoCard({ icono, label, color, vinc, prefijo, onVer, onCrear }) {
   if (vinc) {
@@ -1336,10 +1420,10 @@ export default function DetallePedidoModal({
       <InfoTabla pedido={pedido} esAdmin={esAdmin} />
       <EspecsDiseno disenos={pedido.disenos} onVerFoto={onVerFoto} />
       {esAdmin && <DetalleFactura pedido={pedido} />}
-      <Abonos abonos={pedido.abonos} />
+      <Abonos abonos={pedido.abonos} personas={pedido.personas} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
       <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
-      <Personas personas={pedido.personas} />
+      <Personas personas={pedido.personas} abonos={pedido.abonos} esAdmin={esAdmin} />
       <ComponentesKit componentes={pedido.componentes} />
 
       <div style={{ marginBottom: 8 }}>
