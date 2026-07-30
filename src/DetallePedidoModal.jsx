@@ -881,6 +881,84 @@ function seccionMedidas(titulo, color, labels, obj) {
 const PANT_LABELS = [["cintura","Cintura"],["base","Base"],["muslo","Muslo"],["largo","Largo"],["rodilla","Rodilla"],["ruedo","Ruedo"],["tiroD","Tiro D."],["tiroT","Tiro T."]];
 const CHAQ_LABELS = [["hombro","Hombro"],["pecho","Pecho"],["cintura","Cintura"],["cadera","Cadera"],["largo","Largo"],["sisa","Sisa"],["manga","Manga"],["puno","Puño"],["cuello","Cuello"],["escote","Escote"],["costado","Costado"],["alto","Alto"],["talle","Talle"],["sep","Sep."],["ctcodo","Ct.Codo"],["altcodo","Alt.Codo"]];
 
+// Cadena de un pedido: de dónde viene (origenRef) y qué salió de él. Deja
+// ver de un vistazo que la cotización con las medidas y el pedido con los
+// abonos son el mismo trabajo, aunque vivan en filas distintas.
+function CadenaPedido({ pedido, pedidos, onVerPedido }) {
+  const lista = pedidos || [];
+  const origen = pedido.origenRef
+    ? lista.find(p => String(p.id) === String(pedido.origenRef))
+    : null;
+  const derivados = lista.filter(p => String(p.origenRef || "") === String(pedido.id));
+  if (!origen && derivados.length === 0) return null;
+
+  const etiqueta = p => (p.esCotizacion ? "COT-" : "N°") + String(p.id).padStart(4, "0");
+  const resumen = p => {
+    const personas = (p.personas || []).length;
+    const partes = [];
+    if (personas) partes.push(`${personas} persona${personas === 1 ? "" : "s"}`);
+    const conMeds = (p.personas || []).filter(
+      x => x.medidas && (x.medidas.pantalon || x.medidas.chaqueta || x.medidas.quepi)
+    ).length;
+    if (conMeds) partes.push(`${conMeds} con medidas`);
+    const ab = (p.abonos || []).reduce((s, a) => s + parseFloat(a.monto || 0), 0);
+    if (ab > 0) partes.push(`${fmt$(ab)} abonado`);
+    return partes.join(" · ");
+  };
+
+  const tarjeta = (p, titulo) => (
+    <div
+      key={p.id}
+      style={{
+        background: "#F5F0FA",
+        border: "1.5px solid #9B59B6",
+        borderRadius: 10,
+        padding: "10px 14px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 8,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#6C3483" }}>
+          {titulo} — {etiqueta(p)}
+        </div>
+        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>
+          {p.cliente}
+          {resumen(p) ? " · " + resumen(p) : ""}
+        </div>
+      </div>
+      {onVerPedido && (
+        <button
+          onClick={() => onVerPedido(p)}
+          style={{
+            padding: "6px 12px",
+            borderRadius: 7,
+            border: "none",
+            background: "#9B59B6",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: 11,
+            flexShrink: 0,
+          }}
+        >
+          Ver →
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {origen && tarjeta(origen, "📋 Viene de")}
+      {derivados.map(p => tarjeta(p, "➡️ Derivó en"))}
+    </div>
+  );
+}
+
 function VinculadoCard({ icono, label, color, vinc, prefijo, onVer, onCrear }) {
   if (vinc) {
     return (
@@ -1242,10 +1320,12 @@ function VistaCarrito({ pedido }) {
 
 export default function DetallePedidoModal({
   pedido,
+  pedidos,
   catalogo,
   esAdmin,
   bordados,
   cuellos,
+  onVerPedido,
   onClose,
   onCambiarEstatus,
   onCambiarCosturera,
@@ -1425,6 +1505,8 @@ export default function DetallePedidoModal({
       <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
       <Personas personas={pedido.personas} abonos={pedido.abonos} esAdmin={esAdmin} />
       <ComponentesKit componentes={pedido.componentes} />
+
+      <CadenaPedido pedido={pedido} pedidos={pedidos} onVerPedido={onVerPedido} />
 
       <div style={{ marginBottom: 8 }}>
         <VinculadoCard

@@ -242,6 +242,11 @@ export const PEDIDO_BASE = {
   notas: "",
   disenos: [],
   catalogoRef: null,
+  // Id del pedido/cotización del que sale este registro. Mismo patrón que
+  // confRef en bordados/cuellos: texto con el id, sin FK, se resuelve en el
+  // cliente. Sirve para que una cotización y el pedido que salió de ella (o
+  // una carga desde Excel) no queden como historias separadas.
+  origenRef: "",
   tecnicaSeleccionada: "",
   medidas: medInit(),
   imagenes: [],

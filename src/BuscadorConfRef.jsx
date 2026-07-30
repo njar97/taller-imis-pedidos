@@ -24,6 +24,7 @@ export default function BuscadorConfRef({
   color = "#1A5F5A",
   colorBg = "#F1F8E9",
   colorBorder = "#8BC34A",
+  labelVacio = "— Pedido directo (no viene de confección) —",
 }) {
   const [busq, setBusq] = useState("");
   const lista = pedidosConf || [];
@@ -237,7 +238,7 @@ export default function BuscadorConfRef({
                 onChange(e.target.value, p || null);
               }}
             >
-              <option value="">— Pedido directo (no viene de confección) —</option>
+              <option value="">{labelVacio}</option>
               {lista.map(p => (
                 <option key={p.id} value={String(p.id)}>
                   N°{String(p.id).padStart(4, "0")} — {p.cliente} · {p.tipoPrenda}

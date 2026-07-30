@@ -1288,10 +1288,12 @@ function App() {
       {detalle && (
         <DetallePedidoModal
           pedido={detalle}
+          pedidos={pedidos}
           catalogo={catalogo}
           esAdmin={esAdmin}
           bordados={bordados}
           cuellos={cuellos}
+          onVerPedido={(p) => setDet(p)}
           onClose={() => setDet(null)}
           onCambiarEstatus={(nuevo) => {
             const actualizado = { ...detalle, estatus: nuevo };

@@ -17,6 +17,7 @@ import {
   chipActiveStyle,
 } from "./lib/ui.jsx";
 import { ListaPrendas } from "./ListaPrendas.jsx";
+import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import TablaMedidas from "./TablaMedidas.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 import { SelectorTallas } from "./SelectorTallas.jsx";
@@ -1125,6 +1126,29 @@ export default function FormPedido({
             <EditorDisenos value={f.disenos || []} onChange={v => s("disenos", v)} />
           </>
         )}
+      </SeccionOpcional>
+
+      {/* ── Origen: de qué cotización/pedido sale este ─── */}
+      <SeccionOpcional
+        id="sec-origen"
+        titulo="Viene de otra cotización o pedido"
+        icon="📋"
+        color="#9B59B6"
+        defaultOpen={!!f.origenRef}
+      >
+        <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>
+          Enlazalo cuando este trabajo continúa uno anterior — por ejemplo la cotización donde
+          se tomaron las medidas. Así los dos registros se ven como un mismo trabajo.
+        </div>
+        <BuscadorConfRef
+          pedidosConf={(pedidosExistentes || []).filter(p => !initial || p.id !== initial.id)}
+          value={f.origenRef || ""}
+          color="#6C3483"
+          colorBg="#F5F0FA"
+          colorBorder="#9B59B6"
+          labelVacio="— No viene de otro registro —"
+          onChange={val => s("origenRef", val)}
+        />
       </SeccionOpcional>
 
       {/* ── Pagos (no admin) ────────────────────────── */}

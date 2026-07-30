@@ -18,6 +18,10 @@ Producción: https://pedidos.imeltex.com.sv
 - **Soft-delete:** los borrados se marcan con `deleted_at`, no se eliminan físicamente. La papelera (admin) los recupera. Ver `SeccionPapelera.jsx`.
 - **Realtime:** suscripción WebSocket directa a Postgres para sincronizar cambios entre dispositivos. Sin SDK, ver `src/lib/realtime.js`.
 - **Project ID:** `kszdievqesveluzcnzsh` (`taller-imis-produccion`). Tablas relevantes: `pedidos`, `bordados`, `cuellos`, `clientes`, `catalogo`.
+- **Enlaces entre registros:** no hay FKs; las relaciones son texto con el id, resueltas en el cliente.
+  - `taller_bordados.conf_ref` / `taller_cuellos.conf_ref` → `taller_pedidos.id` (el bordado/cuello cuelga de una confección).
+  - `taller_pedidos.origen_ref` → `taller_pedidos.id` (de qué cotización/pedido sale este). Lo pinta `CadenaPedido` en el modal de detalle, en ambos sentidos.
+  - `personas[]` NO tiene identidad estable: se cruzan por nombre normalizado. Ojo que "Lindsay Romero" y "Lindsay Clarisa Romero" son la misma cadete y hoy no matchean.
 
 ### Fotos y archivos
 
@@ -136,6 +140,19 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
+**30 jul 2026 — Enlace entre pedidos + detalle por beneficiario (claude/cotizacion-prendas-u5q011)**
+- ALTER: `taller_pedidos.origen_ref text` (nullable, sin FK). `PEDIDO_BASE.origenRef = ""`.
+- `CadenaPedido` en `DetallePedidoModal`: tarjetas "📋 Viene de COT-XXXX" y "➡️ Derivó en N°XXXX",
+  con resumen (personas, cuántas con medidas, cuánto abonado) y botón "Ver →" que abre el otro
+  pedido en el mismo modal. Se resuelve en el cliente sobre el array `pedidos`.
+- `FormPedido`: sección "Viene de otra cotización o pedido" reusando `BuscadorConfRef`
+  (que ahora acepta `labelVacio`).
+- El modal de detalle listaba a la misma gente hasta tres veces (Abonos → Beneficiarios →
+  Medidas por persona). Ahora cada fila de Beneficiarios es un acordeón con sus prendas,
+  medidas y abono; se agrega columna "Abonado" (admin); "Abonos registrados" se colapsa a un
+  resumen cuando cada abono ya está atribuido a un beneficiario. Se eliminó `MedidasPersonas`.
+- Enlazado en producción: pedido 36 (Cadetes Cívicos INSO) → cotización 27 (INSO).
+
 **18 may 2026 — Captura de errores async (PR #60)**
 - `installGlobalErrorHandlers()` instala listeners de `window.error` y `unhandledrejection` que postean a la misma tabla `taller_errores` con `tipo='window.error'` o `'unhandledrejection'`.
 - Se llama desde `main.jsx` antes de `createRoot` para no perder errores del primer render.
@@ -222,7 +239,24 @@ main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App 
 
 ## Pendientes ordenados por valor/riesgo
 
-_Lista vacía por ahora._
+Salen de auditar el caso INSO (cotización 27 + pedido 36 = el mismo grupo de cadetes,
+partido en dos filas que no se conocían). El enlace `origen_ref` ya está; falta lo demás.
+
+1. **Precio en pedidos por persona.** Cuando `personas[].prendas[].precio` viene vacío y el
+   pedido tampoco tiene `precio`, `detalleFactura` da **total $0.00** y el saldo sale
+   negativo (pedido 36: $0.00 de precio contra $675.00 abonado = saldo −$675.00). Peor:
+   `descuadre` no salta, porque exige `sumaLineas != null` y sin precios es `null`. O sea,
+   el caso que más necesita alerta es justo el que pasa callado.
+2. **Fallback de medidas por persona.** `FormPedido` busca medidas en `p.medidas` (el juego
+   único a nivel de pedido, para órdenes de una sola persona) y nunca mira
+   `personas[].medidas`. En pedidos de grupo las medidas ya tomadas quedan invisibles aunque
+   los registros estén enlazados por `origen_ref`.
+3. **Identidad de persona.** Hoy una persona es un string de nombre. Con una llave estable
+   (carné del cadete, o nombre normalizado + cotejo al importar de Excel) las medidas,
+   tallas y abonos seguirían a la persona entre pedidos.
+4. **Unificar cliente.** INSO existe como `INSO`, `Banda INSO` y `Cadetes Cívicos INSO` en
+   tres filas distintas, y `taller_clientes` no tiene ninguna. Normalizarlo haría que
+   "todos los pedidos de INSO" sea una consulta real.
 
 ## Secrets
 
