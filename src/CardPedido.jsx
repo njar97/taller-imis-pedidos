@@ -2,7 +2,7 @@
 // Antes vivía como CardPedido compilado en main.js (~286 líneas).
 
 import { EC, ESTATUS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen, sumarAbonos } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, sumarAbonos, detalleFactura } from "./lib/dominio.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { copiarWA } from "./lib/whatsapp.js";
 import { TallasChips } from "./SelectorTallas.jsx";
@@ -20,7 +20,13 @@ export default function CardPedido({
   onImprimir,
   onVerFoto,
 }) {
-  const saldo = parseFloat(p.precio || 0) - sumarAbonos(p);
+  // Precio real del pedido: pedido.precio, o la suma de líneas cuando el
+  // precio vive en personas[].prendas[] (pedidos por persona). `incompleto`
+  // marca el caso sin precios en ningún lado, que antes ocultaba el bloque
+  // de dinero aunque hubiera abonos registrados.
+  const dFact = esAdmin ? detalleFactura(p) : null;
+  const abonado = sumarAbonos(p);
+  const saldo = (dFact ? dFact.total : parseFloat(p.precio || 0)) - abonado;
   const dias = p.fechaEntrega
     ? Math.ceil((new Date(p.fechaEntrega + "T12:00:00") - new Date()) / 86400000)
     : null;
@@ -218,7 +224,7 @@ export default function CardPedido({
       )}
 
       {/* Precio + saldo (solo admin) */}
-      {esAdmin && p.precio && (
+      {esAdmin && (dFact.total > 0 || abonado > 0) && (
         <div
           style={{
             marginTop: 7,
@@ -228,15 +234,23 @@ export default function CardPedido({
             flexWrap: "wrap",
           }}
         >
-          <span className="num" style={{ fontSize: 15, fontWeight: 700, color: "#2C1654" }}>
-            {fmt$(p.precio)}
-          </span>
-          {saldo > 0 ? (
-            <span className="num" style={{ fontSize: 12, color: "#E63946", fontWeight: 700 }}>
-              Resta {fmt$(saldo)}
+          {dFact.incompleto ? (
+            <span style={{ fontSize: 12, color: "#c0392b", fontWeight: 700 }}>
+              ⚠ Sin precio · {fmt$(abonado)} abonado
             </span>
           ) : (
-            <span style={{ fontSize: 12, color: "#28A745", fontWeight: 700 }}>✅ Pagado</span>
+            <>
+              <span className="num" style={{ fontSize: 15, fontWeight: 700, color: "#2C1654" }}>
+                {fmt$(dFact.total)}
+              </span>
+              {saldo > 0 ? (
+                <span className="num" style={{ fontSize: 12, color: "#E63946", fontWeight: 700 }}>
+                  Resta {fmt$(saldo)}
+                </span>
+              ) : (
+                <span style={{ fontSize: 12, color: "#28A745", fontWeight: 700 }}>✅ Pagado</span>
+              )}
+            </>
           )}
           {(p.abonos || []).length > 0 && (
             <span className="num" style={{ fontSize: 10, color: "#999" }}>

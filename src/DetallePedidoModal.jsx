@@ -141,6 +141,12 @@ function EspecsDiseno({ disenos, onVerFoto }) {
 }
 
 function InfoTabla({ pedido, esAdmin }) {
+  // Precio y saldo salen de detalleFactura, no de pedido.precio a secas:
+  // en pedidos por persona el precio suele vivir en personas[].prendas[] y
+  // pedido.precio queda vacío. Si además faltan precios (incompleto), avisar
+  // en vez de mostrar un saldo negativo callado.
+  const d = esAdmin ? detalleFactura(pedido) : null;
+  const abonado = esAdmin ? sumarAbonos(pedido) : 0;
   const filas = [
     ["Cliente",
       (pedido.tipoCliente === "escuela" ? "🏫 " :
@@ -159,9 +165,13 @@ function InfoTabla({ pedido, esAdmin }) {
     ["Tela", pedido.tela],
     esAdmin ? ["Facturación", pedido.tipoDocumento] : null,
     esAdmin && pedido.nit ? ["NIT", pedido.nit] : null,
-    esAdmin ? ["Precio", fmt$(pedido.precio)] : null,
-    esAdmin ? ["Abonado", fmt$(sumarAbonos(pedido))] : null,
-    esAdmin ? ["Saldo", fmt$(parseFloat(pedido.precio || 0) - sumarAbonos(pedido))] : null,
+    esAdmin ? ["Precio", d.incompleto
+      ? `⚠ ${d.qtySinPrecio} prenda${d.qtySinPrecio !== 1 ? "s" : ""} sin precio`
+      : fmt$(d.total)] : null,
+    esAdmin ? ["Abonado", fmt$(abonado)] : null,
+    esAdmin ? ["Saldo", d.incompleto
+      ? `⚠ Sin calcular — hay ${fmt$(abonado)} abonado y faltan precios`
+      : fmt$(d.total - abonado)] : null,
     // Intermediario (solo interno, nunca sale en cotización/recibo)
     ...(esAdmin && parseFloat(pedido.comisionUnit || 0) > 0 ? (() => {
       const pzs = itemsResumen(pedido).reduce((s, it) => s + (parseInt(it.qty) || 0), 0)
@@ -309,6 +319,14 @@ function DetalleFactura({ pedido }) {
         {d.descuadre && (
           <div style={{ marginTop: 6, fontSize: 11, color: "#b8860b" }}>
             ⚠ La suma de líneas ({fmt$(d.sumaLineas)}) no coincide con el precio del pedido ({fmt$(d.total)}).
+          </div>
+        )}
+        {d.qtySinPrecio > 0 && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "#c0392b", fontWeight: 700 }}>
+            ⚠ {d.qtySinPrecio} prenda{d.qtySinPrecio !== 1 ? "s" : ""} sin precio unitario
+            {d.incompleto
+              ? " y el pedido no tiene precio acordado — el total mostrado no es real."
+              : " — esas líneas no entran al total."}
           </div>
         )}
         <button

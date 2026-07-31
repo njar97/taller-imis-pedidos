@@ -8,7 +8,9 @@ import {
   rankTalla,
   medidaCuelloParaTalla,
   itemsResumen,
+  detalleFactura,
   carritoPedido,
+  tieneMedidas,
   normNombre,
   PEDIDO_BASE,
 } from "./dominio.js";
@@ -201,6 +203,60 @@ describe("medidaCuelloParaTalla", () => {
   });
 });
 
+describe("detalleFactura", () => {
+  it("marca `incompleto` cuando faltan precios en las prendas y en el pedido", () => {
+    // El caso real del pedido 36 (cadetes INSO): 16 personas con prendas sin
+    // precio y pedido.precio vacío → total $0.00 contra $675 abonado, y
+    // `descuadre` no salta porque sumaLineas es null. La alerta es `incompleto`.
+    const d = detalleFactura({
+      tipoPrenda: "Uniforme cadete",
+      precio: "",
+      personas: [
+        { nombre: "Ana", prendas: [{ tipo: "Chaqueta", talla: "M", precio: null }, { tipo: "Pantalón", talla: "M", precio: null }] },
+        { nombre: "Luis", prendas: [{ tipo: "Chaqueta", talla: "L", precio: null }] },
+      ],
+    });
+    expect(d.total).toBe(0);
+    expect(d.sumaLineas).toBe(null);
+    expect(d.descuadre).toBe(false);
+    expect(d.qtySinPrecio).toBe(3);
+    expect(d.incompleto).toBe(true);
+  });
+
+  it("NO marca incompleto si el pedido tiene precio acordado aunque las líneas no", () => {
+    const d = detalleFactura({
+      precio: "675",
+      personas: [{ nombre: "Ana", prendas: [{ tipo: "Chaqueta", talla: "M", precio: null }] }],
+    });
+    expect(d.total).toBe(675);
+    expect(d.qtySinPrecio).toBe(1);
+    expect(d.incompleto).toBe(false);
+  });
+
+  it("NO marca incompleto cuando todas las líneas tienen precio (total = suma)", () => {
+    const d = detalleFactura({
+      precio: "",
+      personas: [
+        { nombre: "Ana", prendas: [{ tipo: "Camiseta", talla: "M", precio: 4 }] },
+        { nombre: "Luis", prendas: [{ tipo: "Camiseta", talla: "L", precio: 4 }] },
+      ],
+    });
+    expect(d.sumaLineas).toBe(8);
+    expect(d.total).toBe(8);
+    expect(d.qtySinPrecio).toBe(0);
+    expect(d.incompleto).toBe(false);
+  });
+
+  it("descuadre sigue funcionando cuando hay precio y suma que no coinciden", () => {
+    const d = detalleFactura({
+      precio: "100",
+      personas: [{ nombre: "Ana", prendas: [{ tipo: "Camiseta", talla: "M", precio: 4 }] }],
+    });
+    expect(d.descuadre).toBe(true);
+    expect(d.incompleto).toBe(false);
+  });
+});
+
 describe("carritoPedido", () => {
   const pedido = {
     tipoPrenda: "Filipina",
@@ -237,6 +293,24 @@ describe("carritoPedido", () => {
     expect(c.factura.lineas).toHaveLength(0);
     expect(c.aparte.lineas).toHaveLength(0);
     expect(c.sinPrecio).toHaveLength(0);
+  });
+});
+
+describe("tieneMedidas", () => {
+  it("detecta valores en el shape plano", () => {
+    expect(tieneMedidas({ pecho: "98" })).toBe(true);
+    expect(tieneMedidas({ pecho: "" })).toBe(false);
+  });
+
+  it("detecta valores en el shape anidado por prenda", () => {
+    expect(tieneMedidas({ pantalon: { cintura: "83" } })).toBe(true);
+    expect(tieneMedidas({ pantalon: {}, chaqueta: {} })).toBe(false);
+  });
+
+  it("null/undefined/objeto vacío → false", () => {
+    expect(tieneMedidas(null)).toBe(false);
+    expect(tieneMedidas(undefined)).toBe(false);
+    expect(tieneMedidas({})).toBe(false);
   });
 });
 

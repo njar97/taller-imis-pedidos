@@ -285,9 +285,12 @@ export const PEDIDO_BASE = {
 //
 // Devuelve:
 //   lineas: [{ tipo, precio, qty, subtotal }]  (subtotal null si la línea no tiene precio)
-//   totalQty, sumaLineas (null si alguna línea no tiene precio),
+//   totalQty, qtySinPrecio (unidades en líneas sin precio),
+//   sumaLineas (null si alguna línea no tiene precio),
 //   total (precio acordado del pedido, o la suma si no hay precio),
-//   gravado, iva, descuadre (true si la suma de líneas ≠ total)
+//   gravado, iva, descuadre (true si la suma de líneas ≠ total),
+//   incompleto (true si hay prendas sin precio y el pedido tampoco tiene
+//   precio acordado → el total mostrado no es real)
 export function detalleFactura(p) {
   // Las personas marcadas `noFactura` (pago aparte, no entran al DTE del
   // cliente) se excluyen del cálculo facturable — pero siguen en la hoja de
@@ -323,6 +326,7 @@ export function detalleFactura(p) {
     .sort((a, b) => a.tipo.localeCompare(b.tipo) || (a.precio || 0) - (b.precio || 0));
 
   const totalQty = lineas.reduce((s, l) => s + l.qty, 0);
+  const qtySinPrecio = lineas.reduce((s, l) => s + (l.precio == null ? l.qty : 0), 0);
   const sumaLineas = lineas.length && lineas.every(l => l.subtotal != null)
     ? +lineas.reduce((s, l) => s + l.subtotal, 0).toFixed(2)
     : null;
@@ -330,7 +334,11 @@ export function detalleFactura(p) {
   const gravado = +(total / 1.13).toFixed(2);
   const iva = +(total - gravado).toFixed(2);
   const descuadre = sumaLineas != null && Math.abs(sumaLineas - total) > 0.01;
-  return { lineas, totalQty, sumaLineas, total, gravado, iva, descuadre };
+  // Hay prendas sin precio Y el pedido tampoco tiene precio acordado → el
+  // total sale $0.00 sin que descuadre salte (sumaLineas es null). Es el caso
+  // que más necesita alerta: abonos contra un total que no es real.
+  const incompleto = qtySinPrecio > 0 && !(parseFloat(p.precio) > 0);
+  return { lineas, totalQty, qtySinPrecio, incompleto, sumaLineas, total, gravado, iva, descuadre };
 }
 
 // Vista "carrito de supermercado" de un pedido: presenta TODO lo que lleva la
@@ -401,6 +409,14 @@ export function textoFactura(p) {
   L.push(`  IVA 13%: ${fmt$(d.iva)}`);
   return L.join("\n");
 }
+
+// ¿Hay algún valor real en un juego de medidas? Soporta el shape plano
+// ({ pecho: "98" }) y el anidado por prenda ({ pantalon: {...}, chaqueta: {...} }).
+export const tieneMedidas = m =>
+  !!m &&
+  Object.values(m).some(v =>
+    v != null && (typeof v === "object" ? Object.values(v).some(Boolean) : !!v)
+  );
 
 // Llave para cruzar personas por nombre entre registros. Hoy una persona no
 // tiene id estable: se la reconoce por cómo se escribe su nombre, y eso llega
