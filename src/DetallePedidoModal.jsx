@@ -9,7 +9,7 @@
 
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura, carritoPedido, normNombre } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura, carritoPedido, normNombre, otrosPedidosPorPersona } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { opcionesAgrupacion } from "./lib/imprimir.js";
@@ -641,7 +641,7 @@ function ComponentesKit({ componentes }) {
 // (prendas con talla y spec, medidas tomadas, abono). Antes las medidas
 // vivían en una tabla aparte debajo, así que la misma gente salía listada
 // dos veces; ahora el detalle cuelga de su propia fila.
-function Personas({ personas, abonos, esAdmin }) {
+function Personas({ personas, abonos, esAdmin, pedido, pedidos, onVerPedido }) {
   const [abiertos, setAbiertos] = useState(() => new Set());
   const abonoPorNombre = useMemo(() => {
     const m = new Map();
@@ -652,6 +652,13 @@ function Personas({ personas, abonos, esAdmin }) {
     }
     return m;
   }, [abonos]);
+  // La misma persona en otros pedidos del cliente (el cadete del 36 que
+  // también pidió camiseta en el 63). Solo lectura: no separa ni reagrupa
+  // los pedidos — cada uno sigue siendo un pedido del cliente.
+  const otrosPorNombre = useMemo(
+    () => (pedido ? otrosPedidosPorPersona(pedido, pedidos) : new Map()),
+    [pedido, pedidos]
+  );
   if (!personas || personas.length === 0) return null;
   // Normaliza: si la persona no tiene prendas[], crea una virtual desde
   // su talla/precio sueltos (compat con shape viejo).
@@ -724,6 +731,7 @@ function Personas({ personas, abonos, esAdmin }) {
               const key = p.id || i;
               const open = abiertos.has(key);
               const abono = abonoDe(p);
+              const otros = otrosPorNombre.get(normNombre(p.nombre)) || [];
               return (
               <Fragment key={key}>
               <tr
@@ -737,6 +745,24 @@ function Personas({ personas, abonos, esAdmin }) {
                 <td style={{ padding: "5px 8px", color: "#aaa", verticalAlign: "top" }}>{i + 1}</td>
                 <td style={{ padding: "5px 8px", fontWeight: 700, color: "#2C1654", verticalAlign: "top" }}>
                   {p.nombre || "—"}
+                  {otros.length > 0 && (
+                    <span
+                      title={`También pidió en ${otros.map(o => "N°" + o.pedidoId).join(", ")} — tocá la fila para ver qué`}
+                      style={{
+                        marginLeft: 5,
+                        background: "#EBF5FB",
+                        color: "#1A5276",
+                        border: "1px solid #aed6f1",
+                        borderRadius: 10,
+                        padding: "0 6px",
+                        fontSize: 9,
+                        fontWeight: 800,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      +{otros.length} pedido{otros.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </td>
                 <td style={{ padding: "5px 8px", color: "#555", verticalAlign: "top" }}>{p.cargo || "—"}</td>
                 <td style={{ padding: "5px 8px", textAlign: "center", color: "#555", verticalAlign: "top" }}>
@@ -803,7 +829,7 @@ function Personas({ personas, abonos, esAdmin }) {
               {open && (
                 <tr style={{ background: "#f8fbff" }}>
                   <td colSpan={cols} style={{ padding: "2px 8px 10px 30px", borderBottom: "1px solid #e4ecf4" }}>
-                    <DetallePersona persona={p} abono={abono} />
+                    <DetallePersona persona={p} abono={abono} otros={otros} pedidos={pedidos} onVerPedido={onVerPedido} />
                   </td>
                 </tr>
               )}
@@ -818,15 +844,21 @@ function Personas({ personas, abonos, esAdmin }) {
 }
 
 // Contenido desplegado de una fila de beneficiario: sus prendas con talla y
-// especificación, las medidas tomadas y lo que abonó.
-function DetallePersona({ persona, abono }) {
+// especificación, las medidas tomadas, lo que abonó, y qué más pidió en los
+// otros pedidos del cliente (`otros`, viene de otrosPedidosPorPersona).
+function DetallePersona({ persona, abono, otros = [], pedidos, onVerPedido }) {
   const prendas = agruparPrendas(persona.prendas || []);
   const meds = persona.medidas || {};
   const hayMeds = meds.pantalon || meds.chaqueta || meds.quepi;
-  const nada = prendas.length === 0 && !hayMeds && abono == null;
+  const nada = prendas.length === 0 && !hayMeds && abono == null && otros.length === 0;
   if (nada) {
     return <span style={{ fontSize: 11, color: "#bbb", fontStyle: "italic" }}>Sin detalle capturado para esta persona.</span>;
   }
+  const abrirPedido = o => {
+    if (!onVerPedido) return;
+    const obj = (pedidos || []).find(x => String(x.id) === String(o.pedidoId));
+    if (obj) onVerPedido(obj);
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {prendas.length > 0 && (
@@ -865,6 +897,46 @@ function DetallePersona({ persona, abono }) {
       {abono != null && (
         <div style={{ fontSize: 11.5, color: "#2e7d32", fontWeight: 700 }}>
           💵 Abonó {fmt$(abono)}
+        </div>
+      )}
+      {otros.length > 0 && (
+        <div>
+          <div style={SUBTIT}>🧾 También pidió en</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {otros.map((o, j) => (
+              <div key={j} style={{ fontSize: 11.5, color: "#444", display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                <span
+                  onClick={() => abrirPedido(o)}
+                  style={{
+                    fontWeight: 800,
+                    color: "#1A5276",
+                    cursor: onVerPedido ? "pointer" : "default",
+                    textDecoration: onVerPedido ? "underline" : "none",
+                  }}
+                >
+                  {(o.esCotizacion ? "COT-" : "N°") + String(o.pedidoId).padStart(4, "0")}
+                </span>
+                {agruparPrendas(o.prendas).map((g, m) => (
+                  <span key={m} style={{ display: "inline-flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 800, color: "#E67E22" }}>{g.qty}×</span>
+                    <span>{g.tipo || o.tipoPrenda || "Prenda"}</span>
+                    {g.talla && (
+                      <span style={{ background: "#1A5276", color: "#fff", borderRadius: 10, padding: "1px 7px", fontWeight: 700, fontSize: 10 }}>
+                        {g.talla}
+                      </span>
+                    )}
+                    {g.precio != null && g.precio !== "" && (
+                      <span style={{ color: "#27AE60", fontWeight: 700 }}>{fmt$(g.precio)} c/u</span>
+                    )}
+                  </span>
+                ))}
+                {o.prendas.length === 0 && <span style={{ color: "#bbb" }}>{o.tipoPrenda || "sin prendas detalladas"}</span>}
+                {o.abono != null && (
+                  <span style={{ color: "#2e7d32", fontWeight: 700 }}>💵 {fmt$(o.abono)}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -1519,7 +1591,14 @@ export default function DetallePedidoModal({
       <Abonos abonos={pedido.abonos} personas={pedido.personas} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
       <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
-      <Personas personas={pedido.personas} abonos={pedido.abonos} esAdmin={esAdmin} />
+      <Personas
+        personas={pedido.personas}
+        abonos={pedido.abonos}
+        esAdmin={esAdmin}
+        pedido={pedido}
+        pedidos={pedidos}
+        onVerPedido={onVerPedido}
+      />
       <ComponentesKit componentes={pedido.componentes} />
 
       <CadenaPedido pedido={pedido} pedidos={pedidos} onVerPedido={onVerPedido} />

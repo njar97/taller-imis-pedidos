@@ -148,6 +148,11 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 - Datos: USO dada de alta en `taller_clientes` (id 11), pedido 40 renombrado al nombre
   canónico, `origen_ref` 40→53 y 56/57/58→54 (kit, en papelera).
 - Tests: 155 (7 nuevos sobre `detalleFactura` y `tieneMedidas`).
+- Vista por beneficiario entre pedidos (pedido del dueño): `otrosPedidosPorPersona` en
+  `dominio.js` cruza por `normNombre` dentro del mismo cliente o la cadena `origenRef`.
+  En Beneficiarios, cada persona muestra badge "+N pedidos" y su acordeón lista qué pidió
+  en cada uno (N°/COT, prendas, precio, abono) con link al otro pedido. Solo lectura: no
+  separa los pedidos del cliente (el 36 y el 63 siguen siendo del INSO). Tests: 159.
 
 **31 jul 2026 — Verificación de la hoja física INSO + camisetas (solo datos, sin código)**
 - Pedido 36 (cadetes): los 16 tienen medidas completas — se copiaron las 10 de la cotización 27

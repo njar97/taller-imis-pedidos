@@ -11,6 +11,7 @@ import {
   detalleFactura,
   carritoPedido,
   tieneMedidas,
+  otrosPedidosPorPersona,
   normNombre,
   PEDIDO_BASE,
 } from "./dominio.js";
@@ -293,6 +294,69 @@ describe("carritoPedido", () => {
     expect(c.factura.lineas).toHaveLength(0);
     expect(c.aparte.lineas).toHaveLength(0);
     expect(c.sinPrecio).toHaveLength(0);
+  });
+});
+
+describe("otrosPedidosPorPersona", () => {
+  // El caso real: el cadete que está en el uniforme (36) también pidió
+  // camiseta (63). Mismo cliente INSO, nombres con tilde vs mayúsculas.
+  const p36 = {
+    id: 36,
+    cliente: "Instituto Nacional de Sonzacate (INSO)",
+    tipoPrenda: "Uniforme cadete",
+    personas: [
+      { nombre: "ISAAC HERNANDEZ", prendas: [{ id: 1, tipo: "Chaqueta", talla: "M", precio: null }] },
+      { nombre: "SOLO DEL 36", prendas: [{ id: 2, tipo: "Chaqueta", talla: "S", precio: null }] },
+    ],
+  };
+  const p63 = {
+    id: 63,
+    cliente: "Instituto Nacional de Sonzacate (INSO)",
+    tipoPrenda: "Camiseta negra",
+    origenRef: "36",
+    estatus: "Corte",
+    personas: [{ nombre: "Isaac Hernández", prendas: [{ id: 3, tipo: "Camiseta negra", talla: "M", precio: 4 }] }],
+    abonos: [{ monto: "4", nota: "Isaac Hernández" }],
+  };
+  const otroCliente = {
+    id: 99,
+    cliente: "Otra Escuela",
+    personas: [{ nombre: "Isaac Hernández", prendas: [{ id: 4, tipo: "Polo", talla: "L", precio: 9 }] }],
+  };
+
+  it("cruza al cadete del 36 con su camiseta del 63 y trae su abono", () => {
+    const m = otrosPedidosPorPersona(p36, [p36, p63, otroCliente]);
+    const otros = m.get(normNombre("Isaac Hernández"));
+    expect(otros).toHaveLength(1);
+    expect(otros[0].pedidoId).toBe(63);
+    expect(otros[0].prendas[0].tipo).toBe("Camiseta negra");
+    expect(otros[0].abono).toBe(4);
+    // El que solo está en el 36 no gana entradas
+    expect(m.has(normNombre("SOLO DEL 36"))).toBe(false);
+  });
+
+  it("NO cruza homónimos de clientes distintos sin enlace origenRef", () => {
+    const m = otrosPedidosPorPersona(p36, [p36, otroCliente]);
+    expect(m.has(normNombre("Isaac Hernández"))).toBe(false);
+  });
+
+  it("shape viejo: talla/precio sueltos generan prenda virtual con el tipo del pedido", () => {
+    const legacy = {
+      id: 70,
+      cliente: "Instituto Nacional de Sonzacate (INSO)",
+      tipoPrenda: "Gorra",
+      personas: [{ nombre: "Isaac Hernandez", talla: "M", precio: 6 }],
+    };
+    const m = otrosPedidosPorPersona(p36, [p36, legacy]);
+    const otros = m.get(normNombre("Isaac Hernández"));
+    expect(otros).toHaveLength(1);
+    expect(otros[0].prendas).toEqual([{ tipo: "Gorra", talla: "M", precio: 6 }]);
+  });
+
+  it("incluye pedidos enlazados por origenRef aunque el cliente esté escrito distinto", () => {
+    const conRef = { ...otroCliente, id: 80, origenRef: "36" };
+    const m = otrosPedidosPorPersona(p36, [p36, conRef]);
+    expect(m.get(normNombre("Isaac Hernández"))[0].pedidoId).toBe(80);
   });
 });
 

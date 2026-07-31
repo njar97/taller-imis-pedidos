@@ -410,6 +410,63 @@ export function textoFactura(p) {
   return L.join("\n");
 }
 
+// Qué más ha pedido cada beneficiario en OTROS pedidos relacionados: mismos
+// del cliente (igualdad exacta de nombre, como en el resto de la app) o
+// enlazados por origenRef en cualquier dirección. El cruce de personas es por
+// normNombre. Limitarlo al cliente/cadena evita emparejar homónimos de
+// clientes distintos — y mantiene la vista DENTRO del pedido: no reagrupa ni
+// mueve nada, solo muestra que el mismo cadete aparece en el 36 y en el 63.
+//
+// Devuelve Map: normNombre → [{ pedidoId, esCotizacion, tipoPrenda, estatus,
+// prendas, abono }] ordenado por número de pedido. `prendas` respeta el shape
+// nuevo (per.prendas[]) y el viejo (talla/precio sueltos → prenda virtual con
+// el tipoPrenda del pedido). `abono` sale de los abonos cuya nota nombra a la
+// persona, o de medidas.abono (captura tipo Excel); null si no hay.
+export function otrosPedidosPorPersona(pedido, pedidos) {
+  const cli = String(pedido.cliente || "").trim().toLowerCase();
+  const rel = (Array.isArray(pedidos) ? pedidos : []).filter(p =>
+    p.id !== pedido.id &&
+    ((cli && String(p.cliente || "").trim().toLowerCase() === cli) ||
+      String(p.origenRef || "") === String(pedido.id) ||
+      (pedido.origenRef && String(pedido.origenRef) === String(p.id)))
+  );
+  const mapa = new Map();
+  for (const p of rel) {
+    const abonosNombre = new Map();
+    for (const a of Array.isArray(p.abonos) ? p.abonos : []) {
+      const k = normNombre(a.nota);
+      if (!k) continue;
+      abonosNombre.set(k, (abonosNombre.get(k) || 0) + parseFloat(a.monto || 0));
+    }
+    for (const per of Array.isArray(p.personas) ? p.personas : []) {
+      const k = normNombre(per.nombre);
+      if (!k) continue;
+      const prendas = Array.isArray(per.prendas) && per.prendas.length
+        ? per.prendas
+        : per.talla || per.precio != null
+          ? [{ tipo: p.tipoPrenda || "", talla: per.talla || "", precio: per.precio != null ? per.precio : null }]
+          : [];
+      let abono = abonosNombre.get(k);
+      if (abono == null && per.medidas && per.medidas.abono != null && per.medidas.abono !== "") {
+        abono = parseFloat(per.medidas.abono);
+      }
+      if (!mapa.has(k)) mapa.set(k, []);
+      mapa.get(k).push({
+        pedidoId: p.id,
+        esCotizacion: !!p.esCotizacion,
+        tipoPrenda: p.tipoPrenda || "",
+        estatus: p.estatus || "",
+        prendas,
+        abono: abono != null ? abono : null,
+      });
+    }
+  }
+  for (const arr of mapa.values()) {
+    arr.sort((a, b) => (parseInt(a.pedidoId) || 0) - (parseInt(b.pedidoId) || 0));
+  }
+  return mapa;
+}
+
 // ¿Hay algún valor real en un juego de medidas? Soporta el shape plano
 // ({ pecho: "98" }) y el anidado por prenda ({ pantalon: {...}, chaqueta: {...} }).
 export const tieneMedidas = m =>
