@@ -8,7 +8,10 @@ import { comprimirImagen, imgSrc } from "./lib/imagenes.js";
 import { subirFotoSupabase } from "./supabaseStorage.js";
 import { imprimirFichaProducto, imprimirPlanillaTallas } from "./lib/documentosProducto.js";
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
+
+// Tabla maestra de medidas por talla — se carga sólo al abrirla
+const TablaMedidasEstandar = lazy(() => import("./TablaMedidasEstandar.jsx"));
 
 const INPS = {
   width: "100%",
@@ -370,6 +373,7 @@ function ChipsInput({ label, valor, input, setInput, onAdd, onRemove, placeholde
 export default function SeccionCatalogo({ catalogo, setCatalogo, esAdmin }) {
   const [modal, setModal] = useState(null); // null | "nuevo" | producto
   const [detalle, setDet] = useState(null);
+  const [verMedidas, setVerMedidas] = useState(false);
 
   function guardar(form) {
     const isNuevo = modal === "nuevo";
@@ -406,6 +410,12 @@ export default function SeccionCatalogo({ catalogo, setCatalogo, esAdmin }) {
             {catalogo.length} tipo{catalogo.length !== 1 ? "s" : ""} de prenda
           </div>
         </div>
+        <button
+          onClick={() => setVerMedidas(true)}
+          style={{ padding: "9px 12px", borderRadius: 8, border: "1.5px solid #2C165444", background: "#F4F0FA", color: "#2C1654", cursor: "pointer", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0, fontFamily: "inherit" }}
+        >
+          📐 Medidas
+        </button>
         {esAdmin && (
           <button
             onClick={() => setModal("nuevo")}
@@ -415,6 +425,12 @@ export default function SeccionCatalogo({ catalogo, setCatalogo, esAdmin }) {
           </button>
         )}
       </div>
+
+      {verMedidas && (
+        <Suspense fallback={null}>
+          <TablaMedidasEstandar onClose={() => setVerMedidas(false)} />
+        </Suspense>
+      )}
 
       <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>

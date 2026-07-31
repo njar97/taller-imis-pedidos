@@ -198,6 +198,26 @@ export const dbDisenoBorrar  = id => borrarPorId("taller_disenos", id);
 
 export const dbTejidosLeer   = () => leerTabla("taller_tejidos");
 
+// ── Medidas estándar (tabla maestra) ─────────────────────────
+//    taller_medidas_estandar = qué mide la PRENDA TERMINADA en cada talla.
+//    taller_moldes           = qué mide cada PIEZA de molde.
+//    taller_medidas_dicc     = el vocabulario (un nombre por medida).
+//    Las dos primeras no llevan deleted_at, así que no pasan por leerTabla.
+
+async function leerSimple(tabla, orden) {
+  try {
+    const rows = await rest(`/${tabla}?select=*&order=${orden}&limit=5000`);
+    return (rows || []).map(keysToCamel);
+  } catch (e) {
+    console.error(`db.leerSimple(${tabla}):`, e);
+    return [];
+  }
+}
+
+export const dbMedidasEstandarLeer = () => leerSimple("taller_medidas_estandar", "prenda.asc,talla.asc");
+export const dbMedidasDiccLeer     = () => leerSimple("taller_medidas_dicc", "orden.asc");
+export const dbMoldesLeer          = () => leerTabla("taller_moldes");
+
 // ── Cuellos ──────────────────────────────────────────────────
 
 export const dbCuelLeer      = () => leerTabla("taller_cuellos");
