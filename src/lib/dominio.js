@@ -401,3 +401,29 @@ export function textoFactura(p) {
   L.push(`  IVA 13%: ${fmt$(d.iva)}`);
   return L.join("\n");
 }
+
+// Llave para cruzar personas por nombre entre registros. Hoy una persona no
+// tiene id estable: se la reconoce por cómo se escribe su nombre, y eso llega
+// de fuentes que no coinciden — el formulario respeta las tildes ("Adonay
+// Alemán") y los Excel del taller vienen en mayúsculas y sin acentos ("ADONAY
+// ALEMAN"). Sin normalizar, esos dos son personas distintas para la app.
+//
+// Quita tildes, pasa a mayúsculas y colapsa espacios. NO intenta adivinar
+// nombres incompletos: "Lindsay Romero" y "Lindsay Clarisa Romero" siguen
+// siendo distintos a propósito — eso es un dato a corregir, no un formato.
+// Ojo con la \u00f1: es una letra propia del alfabeto, no una "n" con acento.
+// NFD la parte en "n" + tilde y el filtro de diacr\u00edticos se la comer\u00eda, con lo
+// que "Pe\u00f1a" y "Pena" pasar\u00edan a ser la misma persona. Por eso se aparta antes
+// de descomponer y se repone despu\u00e9s.
+export const normNombre = s =>
+  String(s || "")
+    .normalize("NFC")
+    .replace(/\u00f1/g, "\u0001")
+    .replace(/\u00d1/g, "\u0002")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0001/g, "\u00f1")
+    .replace(/\u0002/g, "\u00d1")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");

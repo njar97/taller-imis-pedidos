@@ -9,6 +9,7 @@ import {
   medidaCuelloParaTalla,
   itemsResumen,
   carritoPedido,
+  normNombre,
   PEDIDO_BASE,
 } from "./dominio.js";
 
@@ -236,5 +237,36 @@ describe("carritoPedido", () => {
     expect(c.factura.lineas).toHaveLength(0);
     expect(c.aparte.lineas).toHaveLength(0);
     expect(c.sinPrecio).toHaveLength(0);
+  });
+});
+
+describe("normNombre", () => {
+  it("cruza el nombre del formulario con el del Excel del taller", () => {
+    // El caso real de los cadetes INSO: la cotización se llenó a mano con
+    // tildes y el pedido entró por Excel en mayúsculas sin acentos.
+    expect(normNombre("Adonay Alemán")).toBe(normNombre("ADONAY ALEMAN"));
+    expect(normNombre("Alessandro Santamaría")).toBe(normNombre("ALESSANDRO SANTAMARIA"));
+    expect(normNombre("Andrés Ramírez")).toBe(normNombre("ANDRES RAMIREZ"));
+    expect(normNombre("Franklin Arévalo")).toBe(normNombre("FRANKLIN AREVALO"));
+    expect(normNombre("Isaac Hernández")).toBe(normNombre("ISAAC HERNANDEZ"));
+  });
+
+  it("colapsa espacios de sobra y recorta los extremos", () => {
+    expect(normNombre("  Andrea   Castro ")).toBe("ANDREA CASTRO");
+  });
+
+  it("respeta la ñ, que no es un acento", () => {
+    expect(normNombre("Peña")).toBe("PEÑA");
+    expect(normNombre("Peña")).not.toBe(normNombre("Pena"));
+  });
+
+  it("NO empareja nombres incompletos: eso es un dato a corregir", () => {
+    expect(normNombre("Lindsay Romero")).not.toBe(normNombre("Lindsay Clarisa Romero"));
+  });
+
+  it("tolera vacíos y nulos sin reventar", () => {
+    expect(normNombre(null)).toBe("");
+    expect(normNombre(undefined)).toBe("");
+    expect(normNombre("")).toBe("");
   });
 });
