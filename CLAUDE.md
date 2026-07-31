@@ -140,6 +140,23 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
+**31 jul 2026 — Verificación de la hoja física INSO + camisetas (solo datos, sin código)**
+- Pedido 36 (cadetes): los 16 tienen medidas completas — se copiaron las 10 de la cotización 27
+  y se cargaron de la hoja del cuaderno las de los 6 nuevos. `fecha_entrega = 2026-08-20`.
+- Corrección aplicada en 27 y 36: cintura de pantalón de Adonay Alemán 91→83 (corrección en
+  morado en la hoja).
+- Pedido 63 nuevo: **Camiseta negra** ($4 c/u), 7 cadetes del mismo grupo, `origen_ref = 36`.
+  Total $28, cobrado $14 (Isaac 4, Carlos 4, Marvin 4, Adonay Rivera 2).
+- Guantes: $1.50 extra por cadete, sin lista aún — anotado en notas del 36.
+- **POR CONFIRMAR con el dueño** (quedó también en las notas del pedido 36): muslo de Franklin
+  Arévalo (¿74 o 78?) y su camisa pecho/cintura (¿100/100 o 108/104?); hombro de Adonay Rivera
+  (¿43 o 47?); si los $2 de camiseta de Rivera son abono parcial o precio especial; columnas
+  finales de camisa de Sofía y Karina (ilegibles en la hoja).
+- ⚠️ Contexto: la sesión sufrió un bug de la UI de preguntas (AskUserQuestion no enviaba y
+  reaparecía). El usuario avisó que las respuestas dadas por esos cuadros NO son confiables.
+  Todo lo listado arriba salió de la hoja física y de la BD, no de esos cuadros — pero
+  reconfirmar los pendientes por mensaje de texto normal, sin usar preguntas emergentes.
+
 **30 jul 2026 — Enlace entre pedidos + detalle por beneficiario (claude/cotizacion-prendas-u5q011)**
 - ALTER: `taller_pedidos.origen_ref text` (nullable, sin FK). `PEDIDO_BASE.origenRef = ""`.
 - `CadenaPedido` en `DetallePedidoModal`: tarjetas "📋 Viene de COT-XXXX" y "➡️ Derivó en N°XXXX",
