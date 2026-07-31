@@ -140,6 +140,15 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
+**31 jul 2026 — Pendientes INSO 1 y 2 + cierre USO (claude/inso-pendientes-idepum)**
+- `detalleFactura` gana `qtySinPrecio` + `incompleto`; `DetallePedidoModal` y `CardPedido`
+  alertan pedidos con abonos y sin precios (el caso del pedido 36) en vez de saldo negativo.
+- Fallback de medidas por persona: índice por `normNombre` sobre `personas[].medidas` de
+  otros pedidos, botón "Usar del N°X" y banner "Copiar todas" en `FormPedido`/`ListaPrendas`.
+- Datos: USO dada de alta en `taller_clientes` (id 11), pedido 40 renombrado al nombre
+  canónico, `origen_ref` 40→53 y 56/57/58→54 (kit, en papelera).
+- Tests: 155 (7 nuevos sobre `detalleFactura` y `tieneMedidas`).
+
 **31 jul 2026 — Verificación de la hoja física INSO + camisetas (solo datos, sin código)**
 - Pedido 36 (cadetes): los 16 tienen medidas completas — se copiaron las 10 de la cotización 27
   y se cargaron de la hoja del cuaderno las de los 6 nuevos. `fecha_entrega = 2026-08-20`.
@@ -259,15 +268,16 @@ main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App 
 Salen de auditar el caso INSO (cotización 27 + pedido 36 = el mismo grupo de cadetes,
 partido en dos filas que no se conocían). El enlace `origen_ref` ya está; falta lo demás.
 
-1. **Precio en pedidos por persona.** Cuando `personas[].prendas[].precio` viene vacío y el
-   pedido tampoco tiene `precio`, `detalleFactura` da **total $0.00** y el saldo sale
-   negativo (pedido 36: $0.00 de precio contra $675.00 abonado = saldo −$675.00). Peor:
-   `descuadre` no salta, porque exige `sumaLineas != null` y sin precios es `null`. O sea,
-   el caso que más necesita alerta es justo el que pasa callado.
-2. **Fallback de medidas por persona.** `FormPedido` busca medidas en `p.medidas` (el juego
-   único a nivel de pedido, para órdenes de una sola persona) y nunca mira
-   `personas[].medidas`. En pedidos de grupo las medidas ya tomadas quedan invisibles aunque
-   los registros estén enlazados por `origen_ref`.
+1. ~~**Precio en pedidos por persona.**~~ ✅ Hecho (31 jul 2026,
+   `claude/inso-pendientes-idepum`). `detalleFactura` devuelve `qtySinPrecio` e
+   `incompleto` (prendas sin precio + pedido sin precio acordado). El detalle del pedido y
+   `CardPedido` usan el total real (precio del pedido o suma de líneas) y muestran "⚠ sin
+   precio · $X abonado" en vez del saldo negativo callado.
+2. ~~**Fallback de medidas por persona.**~~ ✅ Hecho (31 jul 2026, mismo branch).
+   `FormPedido` indexa `personas[].medidas` de los demás pedidos por nombre normalizado
+   (`normNombre`), priorizando la cadena `origenRef`. Botón por persona "📐 Usar del N°X"
+   en `ListaPrendas` + banner "Copiar todas" cuando varias personas ya tienen medidas en
+   otro pedido.
 3. **Identidad de persona.** Hoy una persona es un string de nombre. Con una llave estable
    (carné del cadete, o nombre normalizado + cotejo al importar de Excel) las medidas,
    tallas y abonos seguirían a la persona entre pedidos.
@@ -278,10 +288,13 @@ partido en dos filas que no se conocían). El enlace `origen_ref` ya está; falt
    12 pedidos bajo `Universidad de Sonsonate (USO)`. Los grupos se distinguen por
    `tipoPrenda` (uniforme de banda vs. uniforme cadete cívico).
 
-   Queda pendiente lo mismo para la USO: sus pedidos comparten nombre pero **tampoco está
-   en `taller_clientes`**, así que su historial no se abre desde la sección Clientes.
-   Y el kit USO (filipina #54 · bolso #56 · gabacha #57 · gorro #58) declara su parentesco
-   sólo como texto en `notas` — es candidato natural para `origenRef`.
+   ✅ USO también hecha (31 jul 2026): alta como cliente id 11 (`tipo = empresa`, mismo
+   modelo), y el pedido 40 pasó de `Universidad de Sonsonate (USO) - Educación Continua`
+   al nombre canónico para que el historial lo incluya (el cruce es por igualdad exacta).
+   Enlaces `origen_ref` puestos: 40 → 53 (delantales repetidos de 2022/2023) y 56/57/58 →
+   54 (el kit chef). Ojo: 55–58 están en la **papelera** desde el 22 jul — el kit se
+   consolidó en las notas del 54 (gabacha y gorro van dentro del 54; el bolso #56 quedó
+   cotizado pero borrado). El enlace queda listo por si se restauran.
 
 ## Secrets
 
