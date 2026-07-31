@@ -254,9 +254,17 @@ partido en dos filas que no se conocían). El enlace `origen_ref` ya está; falt
 3. **Identidad de persona.** Hoy una persona es un string de nombre. Con una llave estable
    (carné del cadete, o nombre normalizado + cotejo al importar de Excel) las medidas,
    tallas y abonos seguirían a la persona entre pedidos.
-4. **Unificar cliente.** INSO existe como `INSO`, `Banda INSO` y `Cadetes Cívicos INSO` en
-   tres filas distintas, y `taller_clientes` no tiene ninguna. Normalizarlo haría que
-   "todos los pedidos de INSO" sea una consulta real.
+4. ~~**Unificar cliente.**~~ ✅ Hecho (30 jul 2026). Los pedidos 27, 34 y 36 pasaron de
+   `INSO` / `Banda INSO` / `Cadetes Cívicos INSO` a **`Instituto Nacional de Sonzacate
+   (INSO)`** (ojo: Son**z**acate, no Sonsonate), con `tipo_cliente = escuela`, y se dio de
+   alta el cliente id 10 en `taller_clientes`. Modelo copiado de la USO, que ya tenía sus
+   12 pedidos bajo `Universidad de Sonsonate (USO)`. Los grupos se distinguen por
+   `tipoPrenda` (uniforme de banda vs. uniforme cadete cívico).
+
+   Queda pendiente lo mismo para la USO: sus pedidos comparten nombre pero **tampoco está
+   en `taller_clientes`**, así que su historial no se abre desde la sección Clientes.
+   Y el kit USO (filipina #54 · bolso #56 · gabacha #57 · gorro #58) declara su parentesco
+   sólo como texto en `notas` — es candidato natural para `origenRef`.
 
 ## Secrets
 
