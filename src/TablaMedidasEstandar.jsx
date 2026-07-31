@@ -179,10 +179,14 @@ export default function TablaMedidasEstandar({ onClose }) {
                     key={m.id}
                     nombre={m.pieza}
                     valor={m.anchoCm ? `${m.anchoCm} × ${m.altoCm} cm` : "—"}
-                    estado={m.origen === "interpolado" ? "derivado" : null}
-                    nota={m.origen === "interpolado"
-                      ? `Generado por interpolación ${m.generadoDesde} · sin probar en tela`
-                      : null}
+                    estado={m.origen === "trazado" ? null : "derivado"}
+                    nota={
+                      m.origen === "interpolado"
+                        ? `Generado por interpolación ${m.generadoDesde} · sin probar en tela`
+                        : m.origen === "externo"
+                          ? (m.nota || "Molde externo") + " · sin probar en tela"
+                          : null
+                    }
                   />
                 ))
               )}
