@@ -3,7 +3,7 @@
 // Antes vivía como FormPedido compilado en main.js (~748 líneas).
 
 import { COLABORADORAS, ESTATUS, TIPO_DOC } from "./lib/constants.js";
-import { PEDIDO_BASE, fmt$, medInit } from "./lib/dominio.js";
+import { PEDIDO_BASE, fmt$, medInit, normNombre, tieneMedidas } from "./lib/dominio.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { CATALOGO_BASE } from "./lib/catalogoBase.js";
@@ -322,6 +322,66 @@ export default function FormPedido({
       ? { meds: ultimo.medidas, pedidoId: ultimo.id, fecha: ultimo.fecha }
       : null;
   }, [f.cliente, pedidosExistentes, tieneMedsCliente, initial]);
+
+  // Medidas por PERSONA tomadas en otros pedidos: índice nombre normalizado →
+  // { medidas, pedidoId }. Antes el form solo miraba p.medidas (el juego único
+  // a nivel de pedido) y en pedidos de grupo las medidas ya tomadas quedaban
+  // invisibles. Prioriza los pedidos enlazados por origenRef (la cadena
+  // cotización → pedido) y después el más reciente.
+  const medidasPorNombre = useMemo(() => {
+    const idsCadena = new Set();
+    if (f.origenRef) idsCadena.add(String(f.origenRef));
+    for (const p of pedidosExistentes || []) {
+      if (initial && initial.id != null && String(p.origenRef || "") === String(initial.id)) {
+        idsCadena.add(String(p.id));
+      }
+    }
+    const mapa = new Map();
+    for (const p of pedidosExistentes || []) {
+      if (initial && p.id === initial.id) continue;
+      for (const per of Array.isArray(p.personas) ? p.personas : []) {
+        if (!tieneMedidas(per.medidas)) continue;
+        const key = normNombre(per.nombre);
+        if (!key) continue;
+        const cand = {
+          medidas: per.medidas,
+          pedidoId: p.id,
+          fecha: String(p.fecha || ""),
+          enCadena: idsCadena.has(String(p.id)),
+        };
+        const prev = mapa.get(key);
+        if (
+          !prev ||
+          (cand.enCadena && !prev.enCadena) ||
+          (cand.enCadena === prev.enCadena && cand.fecha > prev.fecha)
+        ) {
+          mapa.set(key, cand);
+        }
+      }
+    }
+    return mapa;
+  }, [pedidosExistentes, initial, f.origenRef]);
+
+  const buscarMedidasPrevias = nombre => medidasPorNombre.get(normNombre(nombre)) || null;
+
+  // Personas del form sin medidas que SÍ las tienen en otro pedido → banner
+  // "copiar todas" (el caso INSO: 10 cadetes de la cotización 27 se copiaron
+  // a mano una por una).
+  const personasConMedidasPrevias = (f.personas || []).filter(
+    per => per.nombre && !tieneMedidas(per.medidas) && medidasPorNombre.has(normNombre(per.nombre))
+  );
+
+  const copiarTodasMedidasPrevias = () => {
+    const n = personasConMedidasPrevias.length;
+    handlePersonas(
+      (f.personas || []).map(per => {
+        if (!per.nombre || tieneMedidas(per.medidas)) return per;
+        const hit = medidasPorNombre.get(normNombre(per.nombre));
+        return hit ? { ...per, medidas: JSON.parse(JSON.stringify(hit.medidas)) } : per;
+      })
+    );
+    pushToast(`Medidas copiadas para ${n} persona${n !== 1 ? "s" : ""} ✓`, "success");
+  };
 
   const [intentoGuardar, setIntentoGuardar] = useState(false);
   // Mapeo validez → ids de FormNav. Solo se muestran como error tras el
@@ -866,6 +926,43 @@ export default function FormPedido({
               </button>
             ))}
           </div>
+          {personasConMedidasPrevias.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                background: "#eaf3fa",
+                border: "1.5px solid #1A5276",
+                borderRadius: 10,
+                padding: "9px 12px",
+                marginBottom: 10,
+              }}
+            >
+              <span style={{ flex: 1, fontSize: 12, color: "#1A5276", fontWeight: 700 }}>
+                📐 {personasConMedidasPrevias.length} persona
+                {personasConMedidasPrevias.length !== 1 ? "s" : ""} ya tiene
+                {personasConMedidasPrevias.length !== 1 ? "n" : ""} medidas tomadas en otro pedido
+              </span>
+              <button
+                type="button"
+                onClick={copiarTodasMedidasPrevias}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#1A5276",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                Copiar todas
+              </button>
+            </div>
+          )}
           {vistaPersonas === "tabla" ? (
             <TablaMedidas personas={f.personas || []} onChange={handlePersonas} />
           ) : (
@@ -873,6 +970,7 @@ export default function FormPedido({
               items={f.personas || []}
               onChange={handlePersonas}
               tipoPrendaDefault={f.tipoPrenda || ""}
+              buscarMedidasPrevias={buscarMedidasPrevias}
             />
           )}
         </>

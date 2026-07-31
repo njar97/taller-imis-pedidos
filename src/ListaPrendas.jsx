@@ -9,6 +9,7 @@
 // funcionando.
 
 import { pushConfirm } from "./lib/feedback.js";
+import { tieneMedidas as hasMeds } from "./lib/dominio.js";
 
 import { useState } from "react";
 
@@ -50,14 +51,6 @@ const CHAQUETA_MEDS = [
 const QUEPI_MEDS = [
   { k: "contornoCabeza", l: "Contorno cabeza" },
 ];
-
-// ¿Algún valor real en medidas? Soporta estructura plana y anidada.
-const hasMeds = m => {
-  if (!m) return false;
-  return Object.values(m).some(v =>
-    v != null && (typeof v !== "object" ? !!v : Object.values(v).some(Boolean))
-  );
-};
 
 const MEDIDAS_PERS = ["Hombro", "Pecho", "Cintura", "Cadera", "Largo", "Manga"];
 
@@ -168,7 +161,10 @@ function persistible(p) {
   };
 }
 
-export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
+// `buscarMedidasPrevias(nombre)` (opcional) devuelve { medidas, pedidoId } si
+// esa persona ya tiene medidas tomadas en otro pedido (cruce por nombre
+// normalizado, lo arma FormPedido). Habilita el botón "Usar del N°X".
+export function ListaPrendas({ items, onChange, tipoPrendaDefault = "", buscarMedidasPrevias }) {
   const [expandida, setExp] = useState(null);
 
   // Normaliza al render — items pueden venir en shape viejo o nuevo.
@@ -290,6 +286,11 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
       lista.map(p => (p.id === id ? { ...p, medidas: JSON.parse(JSON.stringify(prev)) } : p))
     );
   };
+
+  const usarMedidasPrevias = (id, meds) =>
+    escribir(
+      lista.map(p => (p.id === id ? { ...p, medidas: JSON.parse(JSON.stringify(meds)) } : p))
+    );
 
   // Resumen agregado de todas las prendas de todas las personas
   const resumenTallas = {};
@@ -728,16 +729,32 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
                     </button>
 
                     {/* Medidas — flat para prendas genéricas, nested para uniformes */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 6, flexWrap: "wrap" }}>
                       <label style={MLAB}>📐 Medidas (cm)</label>
-                      {hayPrev && (
-                        <button
-                          onClick={() => copiarMedidas(p.id)}
-                          style={{ fontSize: 10, color: "#1A5276", background: "#fff", border: "1px solid #1A5276", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontWeight: 700 }}
-                        >
-                          Copiar de persona anterior
-                        </button>
-                      )}
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {/* Medidas de la misma persona en OTRO pedido (cruce por
+                            nombre normalizado) — solo si acá aún no tiene. */}
+                        {!tieneMeds && buscarMedidasPrevias && (() => {
+                          const hit = buscarMedidasPrevias(p.nombre);
+                          return hit ? (
+                            <button
+                              onClick={() => usarMedidasPrevias(p.id, hit.medidas)}
+                              title={`Copiar las medidas que ya se le tomaron en el pedido N°${hit.pedidoId}`}
+                              style={{ fontSize: 10, color: "#fff", background: "#1A5276", border: "1px solid #1A5276", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontWeight: 700 }}
+                            >
+                              📐 Usar del N°{String(hit.pedidoId).padStart(4, "0")}
+                            </button>
+                          ) : null;
+                        })()}
+                        {hayPrev && (
+                          <button
+                            onClick={() => copiarMedidas(p.id)}
+                            style={{ fontSize: 10, color: "#1A5276", background: "#fff", border: "1px solid #1A5276", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontWeight: 700 }}
+                          >
+                            Copiar de persona anterior
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {(() => {
                       const ms = p.medidas || {};
