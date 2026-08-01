@@ -12,6 +12,7 @@ import {
   carritoPedido,
   tieneMedidas,
   otrosPedidosPorPersona,
+  listaUnificadaGrupo,
   normNombre,
   PEDIDO_BASE,
 } from "./dominio.js";
@@ -357,6 +358,70 @@ describe("otrosPedidosPorPersona", () => {
     const conRef = { ...otroCliente, id: 80, origenRef: "36" };
     const m = otrosPedidosPorPersona(p36, [p36, conRef]);
     expect(m.get(normNombre("Isaac Hernández"))[0].pedidoId).toBe(80);
+  });
+});
+
+describe("listaUnificadaGrupo", () => {
+  const p36 = {
+    id: 36,
+    cliente: "Instituto Nacional de Sonzacate (INSO)",
+    tipoPrenda: "Uniforme cadete",
+    estatus: "Corte",
+    personas: [
+      { nombre: "ISAAC HERNANDEZ", prendas: [{ id: 1, tipo: "Chaqueta", talla: "M", precio: null }] },
+      { nombre: "MARVIN LOPEZ", prendas: [{ id: 2, tipo: "Chaqueta", talla: "L", precio: null }] },
+    ],
+    abonos: [{ monto: "40", nota: "Isaac Hernández" }],
+  };
+  const p63 = {
+    id: 63,
+    cliente: "Instituto Nacional de Sonzacate (INSO)",
+    tipoPrenda: "Camiseta negra",
+    origenRef: "36",
+    estatus: "Corte",
+    personas: [
+      { nombre: "Isaac Hernández", prendas: [{ id: 3, tipo: "Camiseta negra", talla: "M", precio: 4 }] },
+      { nombre: "Carlos Nuevo", prendas: [{ id: 4, tipo: "Camiseta negra", talla: "S", precio: 4 }] },
+    ],
+    abonos: [{ monto: "4", nota: "Isaac Hernández" }],
+  };
+  const cot27 = {
+    id: 27,
+    cliente: "Instituto Nacional de Sonzacate (INSO)",
+    tipoPrenda: "Uniforme cadete",
+    estatus: "Cotización",
+    personas: [{ nombre: "Isaac Hernández", prendas: [{ id: 5, tipo: "Chaqueta", talla: "M", precio: null }] }],
+  };
+  const banda34 = {
+    id: 34,
+    cliente: "Instituto Nacional de Sonzacate (INSO)",
+    tipoPrenda: "Uniforme de banda",
+    estatus: "Entregado",
+    personas: [{ nombre: "Otro Alumno", prendas: [{ id: 6, tipo: "Gala", talla: "M", precio: 50 }] }],
+  };
+
+  it("une por persona los pedidos que comparten gente y suma total/abonado/saldo", () => {
+    const g = listaUnificadaGrupo(p36, [p36, p63, cot27, banda34]);
+    // Incluye 36 y 63; excluye la cotización (duplicaría el uniforme) y la
+    // banda (mismo cliente pero sin personas en común).
+    expect(g.pedidosIncluidos.map(x => x.id)).toEqual([36, 63]);
+    const isaac = g.personas[0];
+    expect(isaac.nombre).toBe("ISAAC HERNANDEZ");
+    expect(isaac.filas.map(f => f.pedidoId)).toEqual([36, 63]);
+    expect(isaac.total).toBe(4); // solo la camiseta tiene precio
+    expect(isaac.sinPrecio).toBe(true); // la chaqueta no
+    expect(isaac.abonado).toBe(44); // $40 del 36 + $4 del 63
+    // Carlos solo está en el 63 → entra igual, al final
+    const carlos = g.personas.find(x => x.nombre === "Carlos Nuevo");
+    expect(carlos.filas).toHaveLength(1);
+    expect(carlos.saldo).toBe(4);
+    expect(g.totales.total).toBe(8);
+    expect(g.totales.abonado).toBe(44);
+  });
+
+  it("sin pedidos que compartan gente, el grupo es solo el pedido abierto", () => {
+    const g = listaUnificadaGrupo(p36, [p36, banda34]);
+    expect(g.pedidosIncluidos.map(x => x.id)).toEqual([36]);
   });
 });
 

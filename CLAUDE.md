@@ -153,6 +153,11 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
   En Beneficiarios, cada persona muestra badge "+N pedidos" y su acordeón lista qué pidió
   en cada uno (N°/COT, prendas, precio, abono) con link al otro pedido. Solo lectura: no
   separa los pedidos del cliente (el 36 y el 63 siguen siendo del INSO). Tests: 159.
+- Lista unificada del grupo en la vista 🛒 Carrito: `listaUnificadaGrupo` (dominio.js) une
+  el pedido abierto con los enlazados que comparten personas (excluye cotizaciones — se
+  duplicaría el trabajo — y cancelados) y arma un renglón por persona con todo lo que
+  pidió, total, abonado y saldo. Imprimible/PDF/WA con `imprimirListaGrupo` (imprimir.js).
+  Cada pedido sigue facturándose por su lado. Tests: 161.
 
 **31 jul 2026 — Verificación de la hoja física INSO + camisetas (solo datos, sin código)**
 - Pedido 36 (cadetes): los 16 tienen medidas completas — se copiaron las 10 de la cotización 27

@@ -9,7 +9,8 @@
 
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura, carritoPedido, normNombre, otrosPedidosPorPersona } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura, carritoPedido, normNombre, otrosPedidosPorPersona, listaUnificadaGrupo } from "./lib/dominio.js";
+import { imprimirListaGrupo } from "./lib/imprimir.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { opcionesAgrupacion } from "./lib/imprimir.js";
@@ -1302,9 +1303,13 @@ function DelCatalogo({ pedido, catalogo, onVerFoto }) {
 // Vista "🛒 Carrito": presenta el pedido como una boleta de supermercado —
 // una orden = varios renglones = 1 factura, con las canastas "pago aparte" y
 // "sin precio" separadas. Solo presenta; el guardado y el DTE no cambian.
-function VistaCarrito({ pedido }) {
+function VistaCarrito({ pedido, pedidos }) {
   const { factura, aparte, sinPrecio } = carritoPedido(pedido);
   const hayFactura = factura.lineas.length > 0 || parseFloat(pedido.precio || 0) > 0;
+  // Lista del grupo: este pedido + los enlazados que comparten personas
+  // (uniforme del 36 + camiseta del 63). Solo si de verdad une algo.
+  const grupo = useMemo(() => listaUnificadaGrupo(pedido, pedidos), [pedido, pedidos]);
+  const hayGrupo = grupo.pedidosIncluidos.length > 1;
 
   const wrap = { border: "1px solid #eee", borderRadius: 12, overflow: "hidden", marginBottom: 12 };
   const cab = (bg, color) => ({
@@ -1400,6 +1405,82 @@ function VistaCarrito({ pedido }) {
       {!hayFactura && aparte.lineas.length === 0 && sinPrecio.length === 0 && (
         <div style={{ padding: 20, textAlign: "center", color: "#999", fontSize: 13 }}>
           Este pedido todavía no tiene renglones con precio ni componentes.
+        </div>
+      )}
+
+      {/* Lista del grupo — une los pedidos enlazados POR PERSONA. Solo vista:
+          cada pedido sigue facturándose por su lado. */}
+      {hayGrupo && (
+        <div style={wrap}>
+          <div style={cab("#F5F0FA", "#6C3483")}>
+            <span>
+              🔗 Todo el grupo · {grupo.pedidosIncluidos.map(x => "N°" + x.id).join(" + ")}
+            </span>
+            <span>{fmt$(grupo.totales.total)}</span>
+          </div>
+          {grupo.personas.map((per, i) => (
+            <div key={i} style={{ ...fila, alignItems: "flex-start" }}>
+              <span style={{ ...qtyBadge, fontSize: 11, color: "#aaa" }}>{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#2C1654" }}>{per.nombre || "Sin nombre"}</div>
+                {per.filas.map((f, j) => (
+                  <div key={j} style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", fontSize: 11.5, color: "#555", marginTop: 2 }}>
+                    <span style={{ background: "#EBF5FB", color: "#1A5276", border: "1px solid #aed6f1", borderRadius: 8, padding: "0 5px", fontSize: 9, fontWeight: 800 }}>
+                      N°{f.pedidoId}
+                    </span>
+                    <span style={{ fontWeight: 800, color: "#E67E22" }}>{f.qty}×</span>
+                    <span>{f.tipo || "Prenda"}</span>
+                    {f.talla && (
+                      <span style={{ background: "#1A5276", color: "#fff", borderRadius: 10, padding: "1px 7px", fontWeight: 700, fontSize: 10 }}>{f.talla}</span>
+                    )}
+                    <span style={{ fontWeight: 700, color: f.subtotal != null ? "#27AE60" : "#b8860b" }}>
+                      {f.subtotal != null ? fmt$(f.subtotal) : "sin precio"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#2C1654" }}>
+                  {per.total > 0 ? fmt$(per.total) : "—"}{per.sinPrecio ? " ⚠" : ""}
+                </div>
+                {per.abonado > 0 && (
+                  <div style={{ fontSize: 10.5, color: "#27AE60", fontWeight: 700 }}>abonó {fmt$(per.abonado)}</div>
+                )}
+                {!per.sinPrecio && per.saldo > 0 && (
+                  <div style={{ fontSize: 10.5, color: "#E74C3C", fontWeight: 700 }}>resta {fmt$(per.saldo)}</div>
+                )}
+              </div>
+            </div>
+          ))}
+          <div style={{ borderTop: "1px solid #e8e8e8", padding: "8px 12px", fontSize: 12, color: "#555" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>{grupo.personas.length} persona{grupo.personas.length !== 1 ? "s" : ""}</span>
+              <span style={{ fontWeight: 800, color: "#2C1654" }}>{fmt$(grupo.totales.total)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Abonado</span><span style={{ color: "#27AE60", fontWeight: 700 }}>{fmt$(grupo.totales.abonado)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}>
+              <span>Saldo del grupo</span>
+              <span style={{ color: grupo.totales.saldo > 0 ? "#E74C3C" : "#27AE60" }}>{fmt$(grupo.totales.saldo)}</span>
+            </div>
+            {grupo.totales.conSinPrecio > 0 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: "#b8860b" }}>
+                ⚠ {grupo.totales.conSinPrecio} persona{grupo.totales.conSinPrecio !== 1 ? "s" : ""} con prendas sin precio — el total está incompleto.
+              </div>
+            )}
+          </div>
+          <div style={{ padding: "8px 12px", borderTop: "1px solid #f0f0f0", display: "flex", gap: 8 }}>
+            <button
+              onClick={() => imprimirListaGrupo(pedido, pedidos)}
+              style={{ flex: 1, padding: "9px 10px", borderRadius: 8, border: "none", background: "#6C3483", color: "#fff", fontWeight: 800, fontSize: 12, cursor: "pointer" }}
+            >
+              🖨 Imprimir / PDF de la lista
+            </button>
+          </div>
+          <div style={{ padding: "0 12px 8px", fontSize: 10.5, color: "#999" }}>
+            Cada pedido se factura por su lado — esta lista solo une la vista por persona.
+          </div>
         </div>
       )}
     </div>
@@ -1577,7 +1658,7 @@ export default function DetallePedidoModal({
       )}
 
       {vista === "carrito" ? (
-        <VistaCarrito pedido={pedido} />
+        <VistaCarrito pedido={pedido} pedidos={pedidos} />
       ) : (
        <>
       <StatusYCosturera

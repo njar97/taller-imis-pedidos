@@ -422,41 +422,65 @@ export function textoFactura(p) {
 // nuevo (per.prendas[]) y el viejo (talla/precio sueltos → prenda virtual con
 // el tipoPrenda del pedido). `abono` sale de los abonos cuya nota nombra a la
 // persona, o de medidas.abono (captura tipo Excel); null si no hay.
-export function otrosPedidosPorPersona(pedido, pedidos) {
+// Pedidos "familia" de uno dado: mismo cliente (igualdad exacta) o enlace
+// origenRef en cualquier dirección. Compartido por otrosPedidosPorPersona y
+// listaUnificadaGrupo.
+const _pedidosRelacionados = (pedido, pedidos) => {
   const cli = String(pedido.cliente || "").trim().toLowerCase();
-  const rel = (Array.isArray(pedidos) ? pedidos : []).filter(p =>
+  return (Array.isArray(pedidos) ? pedidos : []).filter(p =>
     p.id !== pedido.id &&
     ((cli && String(p.cliente || "").trim().toLowerCase() === cli) ||
       String(p.origenRef || "") === String(pedido.id) ||
       (pedido.origenRef && String(pedido.origenRef) === String(p.id)))
   );
+};
+
+// Abonos de un pedido sumados por persona (la nota del abono lleva el nombre).
+const _abonosPorNombre = p => {
+  const m = new Map();
+  for (const a of Array.isArray(p.abonos) ? p.abonos : []) {
+    const k = normNombre(a.nota);
+    if (!k) continue;
+    m.set(k, (m.get(k) || 0) + parseFloat(a.monto || 0));
+  }
+  return m;
+};
+
+// Prendas de una persona en un pedido, respetando el shape nuevo (prendas[])
+// y el viejo (talla/precio sueltos → prenda virtual con el tipo del pedido).
+const _prendasDe = (per, p) =>
+  Array.isArray(per.prendas) && per.prendas.length
+    ? per.prendas
+    : per.talla || per.precio != null
+      ? [{ tipo: p.tipoPrenda || "", talla: per.talla || "", precio: per.precio != null ? per.precio : null }]
+      : [];
+
+// Abono de una persona en un pedido: nota de abono con su nombre, o
+// medidas.abono (captura tipo Excel). null si no hay registro.
+const _abonoDe = (per, abonosNombre, k) => {
+  const reg = abonosNombre.get(k);
+  if (reg != null) return reg;
+  if (per.medidas && per.medidas.abono != null && per.medidas.abono !== "") {
+    return parseFloat(per.medidas.abono);
+  }
+  return null;
+};
+
+export function otrosPedidosPorPersona(pedido, pedidos) {
   const mapa = new Map();
-  for (const p of rel) {
-    const abonosNombre = new Map();
-    for (const a of Array.isArray(p.abonos) ? p.abonos : []) {
-      const k = normNombre(a.nota);
-      if (!k) continue;
-      abonosNombre.set(k, (abonosNombre.get(k) || 0) + parseFloat(a.monto || 0));
-    }
+  for (const p of _pedidosRelacionados(pedido, pedidos)) {
+    const abonosNombre = _abonosPorNombre(p);
     for (const per of Array.isArray(p.personas) ? p.personas : []) {
       const k = normNombre(per.nombre);
       if (!k) continue;
-      const prendas = Array.isArray(per.prendas) && per.prendas.length
-        ? per.prendas
-        : per.talla || per.precio != null
-          ? [{ tipo: p.tipoPrenda || "", talla: per.talla || "", precio: per.precio != null ? per.precio : null }]
-          : [];
-      let abono = abonosNombre.get(k);
-      if (abono == null && per.medidas && per.medidas.abono != null && per.medidas.abono !== "") {
-        abono = parseFloat(per.medidas.abono);
-      }
+      const abono = _abonoDe(per, abonosNombre, k);
       if (!mapa.has(k)) mapa.set(k, []);
       mapa.get(k).push({
         pedidoId: p.id,
         esCotizacion: !!p.esCotizacion,
         tipoPrenda: p.tipoPrenda || "",
         estatus: p.estatus || "",
-        prendas,
+        prendas: _prendasDe(per, p),
         abono: abono != null ? abono : null,
       });
     }
@@ -465,6 +489,86 @@ export function otrosPedidosPorPersona(pedido, pedidos) {
     arr.sort((a, b) => (parseInt(a.pedidoId) || 0) - (parseInt(b.pedidoId) || 0));
   }
   return mapa;
+}
+
+// Lista unificada del grupo: une ESTE pedido con los relacionados que
+// comparten al menos una persona (el uniforme del 36 + la camiseta del 63) y
+// arma un renglón por persona con TODO lo que pidió, su total, abonado y
+// saldo. Excluye cotizaciones (una COT que derivó en pedido es el mismo
+// trabajo — sumarla duplicaría las prendas) y cancelados. Es solo una vista:
+// cada pedido sigue siendo un pedido del cliente, con su factura aparte.
+//
+// Devuelve:
+//   pedidosIncluidos: [{ id, tipoPrenda, estatus }]   (ordenados por id)
+//   personas: [{ nombre, filas:[{ pedidoId, tipo, talla, spec, qty, precio,
+//                subtotal }], total, abonado, saldo, sinPrecio }]
+//   totales: { total, abonado, saldo, conSinPrecio }
+export function listaUnificadaGrupo(pedido, pedidos) {
+  const descartable = p =>
+    p.esCotizacion || p.estatus === "Cotización" || p.estatus === "Cancelado";
+  const nombresBase = new Set(
+    (Array.isArray(pedido.personas) ? pedido.personas : [])
+      .map(per => normNombre(per.nombre))
+      .filter(Boolean)
+  );
+  const rel = _pedidosRelacionados(pedido, pedidos)
+    .filter(p =>
+      !descartable(p) &&
+      (Array.isArray(p.personas) ? p.personas : []).some(per => nombresBase.has(normNombre(per.nombre)))
+    )
+    .sort((a, b) => (parseInt(a.id) || 0) - (parseInt(b.id) || 0));
+
+  const mapa = new Map();
+  const orden = [];
+  // El pedido abierto va primero: sus personas definen el orden y la grafía
+  // del nombre; los relacionados solo agregan renglones.
+  for (const p of [pedido, ...rel]) {
+    const abonosNombre = _abonosPorNombre(p);
+    for (const per of Array.isArray(p.personas) ? p.personas : []) {
+      const k = normNombre(per.nombre);
+      if (!k) continue;
+      if (!mapa.has(k)) {
+        mapa.set(k, { nombre: per.nombre, filas: [], total: 0, abonado: 0, sinPrecio: false });
+        orden.push(k);
+      }
+      const acc = mapa.get(k);
+      // Agrupar prendas idénticas de esta persona en este pedido
+      const grupos = new Map();
+      for (const pr of _prendasDe(per, p)) {
+        const precio = pr.precio != null && pr.precio !== "" ? parseFloat(pr.precio) : null;
+        const gk = JSON.stringify([pr.tipo || "", pr.talla || "", precio, pr.spec || ""]);
+        if (!grupos.has(gk)) {
+          grupos.set(gk, { tipo: pr.tipo || "", talla: pr.talla || "", spec: pr.spec || "", precio, qty: 0 });
+        }
+        grupos.get(gk).qty += 1;
+      }
+      for (const g of grupos.values()) {
+        const subtotal = g.precio != null ? +(g.precio * g.qty).toFixed(2) : null;
+        acc.filas.push({ pedidoId: p.id, ...g, subtotal });
+        if (subtotal != null) acc.total = +(acc.total + subtotal).toFixed(2);
+        else acc.sinPrecio = true;
+      }
+      const ab = _abonoDe(per, abonosNombre, k);
+      if (ab) acc.abonado = +(acc.abonado + ab).toFixed(2);
+    }
+  }
+  const personas = orden.map(k => {
+    const x = mapa.get(k);
+    x.filas.sort((a, b) => (parseInt(a.pedidoId) || 0) - (parseInt(b.pedidoId) || 0));
+    return { ...x, saldo: +(x.total - x.abonado).toFixed(2) };
+  });
+  const totales = {
+    total: +personas.reduce((s, x) => s + x.total, 0).toFixed(2),
+    abonado: +personas.reduce((s, x) => s + x.abonado, 0).toFixed(2),
+    conSinPrecio: personas.filter(x => x.sinPrecio).length,
+  };
+  totales.saldo = +(totales.total - totales.abonado).toFixed(2);
+  const incluidos = [pedido, ...rel].sort((a, b) => (parseInt(a.id) || 0) - (parseInt(b.id) || 0));
+  return {
+    pedidosIncluidos: incluidos.map(p => ({ id: p.id, tipoPrenda: p.tipoPrenda || "", estatus: p.estatus || "" })),
+    personas,
+    totales,
+  };
 }
 
 // ¿Hay algún valor real en un juego de medidas? Soporta el shape plano

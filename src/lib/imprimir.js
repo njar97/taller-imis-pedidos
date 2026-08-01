@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { agujasTejido, itemsResumen, medidaCuelloParaTalla, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { agujasTejido, itemsResumen, listaUnificadaGrupo, medidaCuelloParaTalla, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
@@ -861,6 +861,124 @@ export function imprimirRecibo(p) {
   </body></html>`);
   w.document.close();
 }
+// Lista unificada del grupo — una fila por persona con TODO lo que pidió
+// entre los pedidos enlazados (uniforme del 36 + camiseta del 63), con total,
+// abonado y saldo por cabeza. Los datos salen de listaUnificadaGrupo
+// (dominio.js); acá solo se maqueta e imprime.
+export function imprimirListaGrupo(pedido, pedidos) {
+  const grupo = listaUnificadaGrupo(pedido, pedidos);
+  const nums = grupo.pedidosIncluidos.map(x => "N°" + String(x.id).padStart(4, "0"));
+  const money = n => "$" + (parseFloat(n) || 0).toFixed(2);
+  const NUM = "font-variant-numeric:tabular-nums;white-space:nowrap;";
+  const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
+
+  const filas = grupo.personas.map((per, i) => {
+    const lineas = per.filas.map(f => `
+      <div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;">
+        <span>
+          <span style="background:#1A5276;color:#fff;border-radius:8px;padding:0 6px;font-size:10px;font-weight:700;">N°${String(f.pedidoId).padStart(4, "0")}</span>
+          <strong style="color:#1A5276;"> ${f.qty}×</strong> ${[f.tipo || "Prenda", f.talla].filter(Boolean).join(" ")}${f.spec ? ` <span style="color:#888;font-size:11px;">(${f.spec})</span>` : ""}
+        </span>
+        <span style="color:${f.subtotal != null ? "#27AE60" : "#b8860b"};font-weight:700;${NUM}">${f.subtotal != null ? money(f.subtotal) : "sin precio"}</span>
+      </div>`).join("");
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f9fa"};border-bottom:1px solid #eee;">
+      <td style="padding:8px 10px;color:#aaa;font-size:11px;width:24px;vertical-align:top;">${i + 1}</td>
+      <td style="padding:8px 10px;vertical-align:top;width:26%;font-weight:800;color:#2C1654;">${per.nombre || "Sin nombre"}</td>
+      <td style="padding:8px 10px;vertical-align:top;font-size:12px;">${lineas}</td>
+      <td style="padding:8px 10px;text-align:right;vertical-align:top;font-weight:800;color:#2C1654;${NUM}">${per.total > 0 ? money(per.total) : "—"}${per.sinPrecio ? " ⚠" : ""}</td>
+      <td style="padding:8px 10px;text-align:right;vertical-align:top;color:#27AE60;font-weight:700;${NUM}">${per.abonado > 0 ? money(per.abonado) : "—"}</td>
+      <td style="padding:8px 10px;text-align:right;vertical-align:top;font-weight:800;color:${per.sinPrecio ? "#b8860b" : per.saldo > 0 ? "#E74C3C" : "#27AE60"};${NUM}">${per.sinPrecio ? "?" : per.saldo > 0 ? money(per.saldo) : "✓"}</td>
+    </tr>`;
+  }).join("");
+
+  const waText = [
+    `🧾 *LISTA DEL GRUPO — ${pedido.cliente}*`,
+    `Pedidos ${nums.join(" + ")}`,
+    "",
+    ...grupo.personas.map((per, i) =>
+      `${i + 1}. ${per.nombre || "Sin nombre"} — ${per.sinPrecio ? "⚠ falta precio" : money(per.total)}` +
+      (per.abonado > 0 ? ` · abonó ${money(per.abonado)}` : "") +
+      (!per.sinPrecio && per.saldo > 0 ? ` · resta ${money(per.saldo)}` : "")),
+    "",
+    `TOTAL ${money(grupo.totales.total)} · Abonado ${money(grupo.totales.abonado)} · Saldo ${money(grupo.totales.saldo)}`,
+  ].join("\n");
+
+  const titulo = nombrePDF("ListaGrupo", pedido.id, pedido.cliente);
+  const w = nuevaVentanaImpresion(titulo);
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${titulo}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
+    @media print{body{padding:0;}.no-print{display:none!important;}@page{margin:14mm 15mm;size:A4;}thead{display:table-header-group}tr,img{page-break-inside:avoid}}
+    table{border-collapse:collapse;width:100%;}
+  </style></head><body>
+
+  <div class="no-print" style="margin-bottom:20px;">
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button id="wa-pdf-btn" onclick="enviarPorWA()" style="padding:11px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar PDF por WA</button>
+      <button onclick="_print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
+      <button onclick="window.close()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1A5276;padding-bottom:14px;margin-bottom:16px;">
+    <div>
+      <div style="font-size:24px;font-weight:900;color:#2C1654;font-family:Georgia,serif;">${TALLER}</div>
+      <div style="font-size:12px;color:#888;margin-top:2px;">Lista del grupo — quién pidió qué</div>
+      <div style="font-size:11px;color:#aaa;margin-top:2px;">Fecha: ${fecha}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Pedidos</div>
+      <div style="font-size:22px;font-weight:900;color:#1A5276;line-height:1.2;">${nums.join(" + ")}</div>
+      <div style="font-size:13px;font-weight:800;color:#2C1654;margin-top:4px;">${pedido.cliente || ""}</div>
+    </div>
+  </div>
+
+  <div style="font-size:11px;color:#888;margin-bottom:8px;">
+    ${grupo.pedidosIncluidos.map(x => `<span style="margin-right:12px;"><strong style="color:#1A5276;">N°${String(x.id).padStart(4, "0")}</strong> ${x.tipoPrenda || ""}</span>`).join("")}
+  </div>
+
+  <table style="font-size:12px;border:1px solid #eee;">
+    <thead><tr style="background:#1A5276;color:#fff;">
+      <th style="padding:7px 10px;text-align:left;width:24px;">#</th>
+      <th style="padding:7px 10px;text-align:left;">Persona</th>
+      <th style="padding:7px 10px;text-align:left;">Pidió</th>
+      <th style="padding:7px 10px;text-align:right;width:80px;">Total</th>
+      <th style="padding:7px 10px;text-align:right;width:80px;">Abonado</th>
+      <th style="padding:7px 10px;text-align:right;width:70px;">Resta</th>
+    </tr></thead>
+    <tbody>${filas}</tbody>
+    <tfoot><tr style="background:#f0f0f0;font-weight:800;border-top:2px solid #1A5276;">
+      <td colspan="3" style="padding:8px 10px;color:#1A5276;">TOTAL · ${grupo.personas.length} persona${grupo.personas.length !== 1 ? "s" : ""}</td>
+      <td style="padding:8px 10px;text-align:right;color:#2C1654;${NUM}">${money(grupo.totales.total)}</td>
+      <td style="padding:8px 10px;text-align:right;color:#27AE60;${NUM}">${money(grupo.totales.abonado)}</td>
+      <td style="padding:8px 10px;text-align:right;color:${grupo.totales.saldo > 0 ? "#E74C3C" : "#27AE60"};${NUM}">${money(grupo.totales.saldo)}</td>
+    </tr></tfoot>
+  </table>
+
+  ${grupo.totales.conSinPrecio > 0 ? `<div style="margin-top:8px;font-size:11px;color:#b8860b;font-weight:700;">⚠ ${grupo.totales.conSinPrecio} persona${grupo.totales.conSinPrecio !== 1 ? "s" : ""} con prendas sin precio — su total y resta están incompletos.</div>` : ""}
+
+  <div style="margin-top:24px;text-align:center;font-size:10px;color:#ccc;border-top:1px solid #f0f0f0;padding-top:12px;">
+    ${TALLER} · Lista del grupo ${nums.join(" + ")} · Generado el ${fecha}
+  </div>
+  <script>
+  const _waMsg=${JSON.stringify(waText)};
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){
+    try{window.parent.document.title=document.title;}catch(e){}
+    window.print();
+    window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});
+    setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);
+  }
+  async function enviarPorWA(){
+    await window.parent.__shareWithPDF__(document.title,_waMsg);
+  }
+  </script>
+  </body></html>`);
+  w.document.close();
+}
+
 // Hoja de entrega — documento para llevar al entregar las prendas al
 // cliente. El formato se decide solo, con el mismo criterio que
 // itemsResumen en dominio.js:
