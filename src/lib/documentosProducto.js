@@ -9,7 +9,7 @@
 
 import { nuevaVentanaImpresion } from "./imprimir.js";
 import { MEDIDAS_DEF } from "./constants.js";
-import { rankTalla } from "./dominio.js";
+import { rankTalla, cantidadComponente } from "./dominio.js";
 
 // Paleta pensada para impresión en BLANCO Y NEGRO: todo lo que se imprime usa
 // negro + grises con buen contraste; nada depende del color para distinguirse.
@@ -399,16 +399,29 @@ export function imprimirHojaTaller(p) {
   // única que NO se toman por persona pero SÍ hay que cortar/coser. Sin este
   // bloque, la costurera no ve que el pedido lleva más que la prenda base.
   const comps = (Array.isArray(p.componentes) ? p.componentes : [])
-    .filter(c => c && (c.nombre || c.cantidad));
+    .filter(c => c && (c.nombre || c.cantidad || c.tallasQty));
   const seccionComps = comps.length ? `<section class="tsec">
-      <div class="thd comp">➕ OTRAS PRENDAS DEL KIT</div>
-      ${comps.map(c => `<div class="prow">
+      <div class="thd comp">➕ OTRAS PRENDAS DEL PEDIDO</div>
+      ${comps.map(c => {
+        const tq = c.tallasQty && typeof c.tallasQty === "object" ? c.tallasQty : null;
+        const porTalla = tq ? Object.entries(tq).filter(([, v]) => parseInt(v, 10) > 0) : [];
+        const total = cantidadComponente(c);
+        return `<div class="prow">
         <span class="ck"></span>
         <div class="who"><div class="nm">${esc(c.nombre || "Prenda")}${
-          c.talla ? ` <span class="tu">${/[úu]nica/i.test(String(c.talla)) ? "Talla única" : "Talla " + esc(c.talla)}</span>` : ""
-        }</div>${c.nota ? `<div class="nota">📌 ${esc(c.nota)}</div>` : ""}</div>
-        ${c.cantidad ? `<span class="qcomp">${esc(c.cantidad)}</span>` : ""}
-      </div>`).join("")}
+          !porTalla.length && c.talla
+            ? ` <span class="tu">${/[úu]nica/i.test(String(c.talla)) ? "Talla única" : "Talla " + esc(c.talla)}</span>`
+            : ""
+        }</div>${
+          // el desglose va en la hoja: sin esto la costurera ve el total pero no
+          // cuántas cortar de cada talla
+          porTalla.length
+            ? `<div class="nota">${porTalla.map(([t, v]) => `<b>${esc(t)}</b>&nbsp;${esc(v)}`).join(" &nbsp;·&nbsp; ")}</div>`
+            : ""
+        }${c.nota ? `<div class="nota">📌 ${esc(c.nota)}</div>` : ""}</div>
+        ${total ? `<span class="qcomp">${total}</span>` : ""}
+      </div>`;
+      }).join("")}
     </section>` : "";
 
   // Resumen (tabla general compacta) — vinculado: mismos números que las secciones.

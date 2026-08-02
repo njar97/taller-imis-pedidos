@@ -3,6 +3,7 @@ import {
   fmt$,
   hoy,
   tallasTexto,
+  cantidadComponente,
   tallasItemsTexto,
   resumenTallas,
   rankTalla,
@@ -237,6 +238,29 @@ describe("carritoPedido", () => {
     expect(c.factura.lineas).toHaveLength(0);
     expect(c.aparte.lineas).toHaveLength(0);
     expect(c.sinPrecio).toHaveLength(0);
+  });
+
+  // Una prenda con desglose por talla deja `cantidad` vacío. Si se leyera ese
+  // campo directo daría 0 y la prenda no se produciría ni se facturaría.
+  it("cuenta las prendas con desglose por talla", () => {
+    expect(cantidadComponente({ cantidad: "17" })).toBe(17);
+    expect(cantidadComponente({ tallasQty: { "6": "12", "8": "20", "10": "24" } })).toBe(56);
+    expect(cantidadComponente({ cantidad: "", tallasQty: { M: "3", L: "4" } })).toBe(7);
+    expect(cantidadComponente({ tallasQty: {} })).toBe(0);
+    expect(cantidadComponente(null)).toBe(0);
+  });
+
+  it("factura y produce una prenda con tallas propias", () => {
+    const c = carritoPedido({
+      personas: [],
+      componentes: [
+        { nombre: "Pantalón", tallasQty: { "8": "20", "10": "24" }, precio: 12 },
+        { nombre: "Corbata", tallasQty: { "8": "10", "10": "10" } }, // sin precio
+      ],
+    });
+    const pant = c.factura.lineas.find(l => l.tipo === "Pantalón");
+    expect(pant.qty).toBe(44);
+    expect(c.sinPrecio.find(x => x.nombre === "Corbata").qty).toBe(20);
   });
 });
 

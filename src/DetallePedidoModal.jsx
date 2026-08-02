@@ -591,29 +591,72 @@ function Imagenes({ pedido, onVerFoto }) {
   );
 }
 
-function ComponentesKit({ componentes }) {
+export function ComponentesKit({ componentes, catalogo }) {
   const comps = (Array.isArray(componentes) ? componentes : []).filter(c => c && (c.nombre || c.cantidad));
   if (comps.length === 0) return null;
+  const buscar = ref => (Array.isArray(catalogo) ? catalogo : []).find(p => String(p.id) === String(ref));
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ fontSize: 12, fontWeight: 800, color: "#565656", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>
-        ➕ Componentes del kit (talla única)
+        ➕ Otras prendas del pedido
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {comps.map((c, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1.5px solid #eee", borderRadius: 10, padding: "9px 12px" }}>
-            {c.cantidad != null && c.cantidad !== "" && (
-              <span style={{ minWidth: 34, textAlign: "center", fontWeight: 800, fontSize: 15, color: "#333", fontVariantNumeric: "tabular-nums" }}>{c.cantidad}</span>
-            )}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#2C1654" }}>
-                {c.nombre || "Prenda"}
-                {c.talla && <span style={{ marginLeft: 6, fontSize: 11, color: "#777", fontWeight: 600 }}>· {/[úu]nica/i.test(String(c.talla)) ? "talla única" : "talla " + c.talla}</span>}
+        {comps.map((c, i) => {
+          const tq = c.tallasQty && typeof c.tallasQty === "object" ? c.tallasQty : null;
+          const tallas = tq ? Object.entries(tq).filter(([, v]) => parseInt(v, 10) > 0) : [];
+          const total = tallas.length
+            ? tallas.reduce((a, [, v]) => a + (parseInt(v, 10) || 0), 0)
+            : c.cantidad;
+          const prod = buscar(c.catalogoRef);
+          const img = prod && (prod.imagenes || []).find(x => imgSrc(x));
+          const bordados = prod
+            ? (prod.tecnicas || []).flatMap(t => (t.disenos || []).map(d => ({ ...d, tecnica: t.tipo })))
+            : [];
+          return (
+            <div key={i} style={{ background: "#fff", border: "1.5px solid #eee", borderRadius: 10, padding: "9px 12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {total != null && total !== "" && (
+                  <span style={{ minWidth: 34, textAlign: "center", fontWeight: 800, fontSize: 15, color: "#333", fontVariantNumeric: "tabular-nums" }}>{total}</span>
+                )}
+                {img && (
+                  // `contain`, no `cover`: varias fichas del catálogo son
+                  // láminas con la prenda al borde, y recortando al centro la
+                  // miniatura salía en blanco. Si la imagen no carga, se oculta.
+                  <img src={imgSrc(img)} alt="" loading="lazy"
+                       onError={e => { e.currentTarget.style.display = "none"; }}
+                       style={{ width: 34, height: 34, objectFit: "contain", background: "#fafafa", borderRadius: 7, border: "1px solid #eee", flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#2C1654" }}>
+                    {c.nombre || (prod ? prod.nombre : "Prenda")}
+                    {!tallas.length && c.talla && (
+                      <span style={{ marginLeft: 6, fontSize: 11, color: "#777", fontWeight: 600 }}>
+                        · {/[úu]nica/i.test(String(c.talla)) ? "talla única" : "talla " + c.talla}
+                      </span>
+                    )}
+                  </div>
+                  {c.nota && <div style={{ fontSize: 11.5, color: "#888", marginTop: 2 }}>{c.nota}</div>}
+                  {prod && (
+                    <div style={{ fontSize: 10.5, color: "#9B59B6", marginTop: 2 }}>
+                      {prod.icono || "📖"} ficha de «{prod.nombre}»
+                      {bordados.length ? ` · ${bordados.length} bordado${bordados.length !== 1 ? "s" : ""}` : ""}
+                    </div>
+                  )}
+                </div>
               </div>
-              {c.nota && <div style={{ fontSize: 11.5, color: "#888", marginTop: 2 }}>{c.nota}</div>}
+
+              {tallas.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8, paddingTop: 8, borderTop: "1px solid #f4f4f4" }}>
+                  {tallas.map(([t, v]) => (
+                    <span key={t} style={{ fontSize: 11.5, fontWeight: 700, background: "#f4f0fa", color: "#2C1654", borderRadius: 6, padding: "3px 8px", fontVariantNumeric: "tabular-nums" }}>
+                      {t} <span style={{ color: "#9B59B6" }}>{v}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -1502,7 +1545,7 @@ export default function DetallePedidoModal({
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
       <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
       <Personas personas={pedido.personas} abonos={pedido.abonos} esAdmin={esAdmin} />
-      <ComponentesKit componentes={pedido.componentes} />
+      <ComponentesKit componentes={pedido.componentes} catalogo={catalogo} />
 
       <CadenaPedido pedido={pedido} pedidos={pedidos} onVerPedido={onVerPedido} />
 

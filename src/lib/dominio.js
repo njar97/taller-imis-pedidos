@@ -252,8 +252,11 @@ export const PEDIDO_BASE = {
   imagenes: [],
   abonos: [],
   personas: [],
-  // Prendas adicionales del kit de TALLA ÚNICA (gabacha, gorro, etc.) que no
-  // se toman por persona pero sí hay que producir. [{nombre, cantidad, talla, nota}]
+  // Otras prendas del pedido, además de la principal. Dos formas:
+  //   · talla única (gabacha, gorro) → {nombre, cantidad, talla, nota}
+  //   · con tallas (pantalón junto a la camisa) → {nombre, tallasQty:{talla:qty}}
+  // Además pueden apuntar a un producto del catálogo con `catalogoRef` para
+  // heredar su ficha. La cantidad se lee siempre con cantidadComponente().
   componentes: [],
   modoRegistro: "tallas",
   // Condiciones formales para cotización (todos opcionales). Si tienen
@@ -311,7 +314,7 @@ export function detalleFactura(p) {
   // base (o no se facturan por separado): salen en producción pero no aquí.
   for (const c of (Array.isArray(p.componentes) ? p.componentes : [])) {
     const nombre = (c.nombre || "").trim();
-    const qty = parseInt(c.cantidad) || 0;
+    const qty = cantidadComponente(c);
     const precio = c.precio != null && c.precio !== "" ? parseFloat(c.precio) : null;
     if (!nombre || qty <= 0 || precio == null) continue;
     const key = nombre + "|" + precio.toFixed(2);
@@ -338,6 +341,20 @@ export function detalleFactura(p) {
 // guardado ni el DTE — es solo presentación. Reusa detalleFactura (canasta 1)
 // y itemsResumen (canasta 2) para no duplicar la lógica de precios.
 //
+// Cuántas prendas son un componente del pedido. Si trae desglose por talla
+// manda la suma del desglose; si no, el campo cantidad. Un componente con
+// tallas deja `cantidad` vacío, así que leerlo directo daría 0 y la prenda
+// no se produciría ni se facturaría.
+export function cantidadComponente(c) {
+  if (!c) return 0;
+  const tq = c.tallasQty;
+  if (tq && typeof tq === "object") {
+    const suma = Object.values(tq).reduce((a, v) => a + (parseInt(v, 10) || 0), 0);
+    if (suma > 0) return suma;
+  }
+  return parseInt(c.cantidad, 10) || 0;
+}
+
 // Devuelve:
 //   factura   : { lineas, gravado, iva, total, ... }  → lo que va a UN DTE
 //   aparte    : { lineas:[{tipo,talla,precio,qty,subtotal}], total }  → personas
@@ -369,9 +386,9 @@ export function carritoPedido(p) {
 
   // Canasta 3: componentes del kit sin precio → se producen pero no facturan.
   const sinPrecio = (Array.isArray(p.componentes) ? p.componentes : [])
-    .filter(c => c && (c.nombre || c.cantidad))
+    .filter(c => c && (c.nombre || c.cantidad || c.tallasQty))
     .filter(c => c.precio == null || c.precio === "" || parseFloat(c.precio) <= 0)
-    .map(c => ({ nombre: (c.nombre || "Prenda").trim(), talla: c.talla || "", qty: parseInt(c.cantidad) || 0 }));
+    .map(c => ({ nombre: (c.nombre || "Prenda").trim(), talla: c.talla || "", qty: cantidadComponente(c) }));
 
   return { factura, aparte: { lineas: lineasAparte, total: +totalAparte.toFixed(2) }, sinPrecio };
 }

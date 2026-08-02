@@ -3,6 +3,14 @@
 // Antes vivía como FormPedido compilado en main.js (~748 líneas).
 
 import { COLABORADORAS, ESTATUS, TIPO_DOC } from "./lib/constants.js";
+
+// Tallas del desglose de "otras prendas del pedido". Letras y numéricas de
+// niño, que son las que se usan en el taller; no incluye "A medida" porque acá
+// se cuentan cantidades, no personas.
+const TODAS_TALLAS_COMP = [
+  "XS", "S", "M", "L", "XL", "2XL", "3XL",
+  "2", "4", "6", "8", "10", "12", "14", "16",
+];
 import { PEDIDO_BASE, fmt$, medInit } from "./lib/dominio.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
@@ -887,17 +895,21 @@ export default function FormPedido({
           se pierda de cortarlas. */}
       <SeccionOpcional
         id="sec-componentes"
-        titulo="Componentes del kit (talla única)"
+        titulo="Otras prendas del pedido"
         icon="➕"
         color="#565656"
         defaultOpen={(f.componentes || []).length > 0}
       >
         <div style={{ fontSize: 11.5, color: "#888", marginBottom: 10, lineHeight: 1.45 }}>
-          Prendas extra de talla única que van con la principal (gabacha, gorro…).
-          No se toman por persona; salen en la hoja de producción con su cantidad.
+          Las que van con la principal. Si son de talla única (gabacha, gorro) basta
+          la cantidad; si llevan tallas (pantalón junto a la camisa) se desglosan acá.
+          Podés apuntarlas a un producto del catálogo para que hereden su ficha.
         </div>
         {(f.componentes || []).map((c, i) => {
           const updC = (campo, v) => s("componentes", (f.componentes || []).map((x, j) => j === i ? { ...x, [campo]: v } : x));
+          const tq = c.tallasQty || {};
+          const totalTallas = Object.values(tq).reduce((a, b) => a + (parseInt(b, 10) || 0), 0);
+          const prodC = catlist.find(p => String(p.id) === String(c.catalogoRef));
           return (
             <div key={i} style={{ background: "#fff", border: "1.5px solid #eee9f6", borderRadius: 12, padding: 12, marginBottom: 8 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -913,6 +925,30 @@ export default function FormPedido({
                   style={{ border: "1.5px solid #f5c6cb", background: "#fff8f8", borderRadius: 10, padding: "0 12px", color: "#DC3545", cursor: "pointer", fontFamily: "inherit" }}
                 >✕</button>
               </div>
+
+              {/* Producto del catálogo: al elegirlo hereda ficha, bordados y specs
+                  en el detalle del pedido, sin copiar nada a mano. */}
+              <select
+                value={c.catalogoRef || ""}
+                onChange={e => {
+                  const id = e.target.value;
+                  const p = catlist.find(x => String(x.id) === String(id));
+                  s("componentes", (f.componentes || []).map((x, j) => j === i
+                    ? { ...x, catalogoRef: id || null, nombre: x.nombre || (p ? p.nombre : "") }
+                    : x));
+                }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 14, fontFamily: "inherit", marginBottom: 8, background: c.catalogoRef ? "#faf6ff" : "#fff", boxSizing: "border-box" }}
+              >
+                <option value="">— sin producto del catálogo —</option>
+                {catlist.map(p => (
+                  <option key={p.id} value={p.id}>{(p.icono || "") + " " + p.nombre}</option>
+                ))}
+              </select>
+              {prodC && (
+                <div style={{ fontSize: 10.5, color: "#6B2D8B", background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 8, padding: "5px 9px", marginBottom: 8 }}>
+                  Hereda la ficha de «{prodC.nombre}»: imagen, bordados y specs.
+                </div>
+              )}
               <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 110px", gap: 8, marginBottom: 8 }}>
                 <input
                   style={{ padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
@@ -937,11 +973,58 @@ export default function FormPedido({
                 />
               </div>
               <input
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #ddd6ec", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box", marginBottom: 8 }}
                 placeholder="Nota para el taller (opcional): logo, ubicación del bordado…"
                 value={c.nota || ""}
                 onChange={e => updC("nota", e.target.value)}
               />
+
+              {/* Desglose por talla. Sin esto el componente es de talla única y
+                  basta la cantidad de arriba; con esto, la cantidad la manda
+                  la suma del desglose. */}
+              {!c.tallasQty ? (
+                <button
+                  type="button"
+                  onClick={() => updC("tallasQty", {})}
+                  style={{ width: "100%", padding: "8px", borderRadius: 9, border: "1.5px dashed #ddd6ec", background: "#fcfbff", color: "#6B2D8B", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  📏 Esta prenda lleva tallas
+                </button>
+              ) : (
+                <div style={{ border: "1.5px solid #e8d5f5", borderRadius: 10, padding: 10, background: "#fcfbff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: "#6B2D8B", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                      Cantidad por talla
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => updC("tallasQty", null)}
+                      style={{ border: "none", background: "none", color: "#aaa", fontSize: 11, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}
+                    >es talla única</button>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(64px,1fr))", gap: 6 }}>
+                    {TODAS_TALLAS_COMP.map(t => (
+                      <div key={t}>
+                        <label style={{ fontSize: 9.5, fontWeight: 700, color: "#999", display: "block", textAlign: "center" }}>{t}</label>
+                        <input
+                          inputMode="numeric"
+                          value={tq[t] ?? ""}
+                          onChange={e => {
+                            const v = e.target.value.replace(/[^\d]/g, "");
+                            const next = { ...tq };
+                            if (v) next[t] = v; else delete next[t];
+                            updC("tallasQty", next);
+                          }}
+                          style={{ width: "100%", padding: "6px 4px", borderRadius: 7, border: "1.5px solid #ddd6ec", fontSize: 14, textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: totalTallas ? "#2C1654" : "#bbb", fontWeight: 700, marginTop: 8, textAlign: "right" }}>
+                    Total: {totalTallas} {totalTallas === 1 ? "prenda" : "prendas"}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
