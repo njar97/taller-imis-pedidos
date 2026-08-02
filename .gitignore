@@ -8,3 +8,6 @@ dist
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Respaldos de datos de producción (traen nombres y medidas de clientes)
+respaldos/

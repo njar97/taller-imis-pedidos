@@ -99,22 +99,30 @@ export const TALLAS_A = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
 export const TALLAS_N = ["2", "4", "6", "8", "10", "12", "14", "16"];
 export const TALLAS_NUM = ["34", "36", "38", "40", "42", "44", "46", "48"];
 
-// ── Medidas para toma a la medida ────────────────────────
+// ── Medidas del cliente (toma a la medida) ───────────────
+//
+// Mismo vocabulario que usan las medidas por persona de un pedido
+// (PANTALON_MEDS / CHAQUETA_MEDS en ListaPrendas) y el importador de Excel.
+// Antes esta lista usaba nombres propios —`rodillo`, `pierna`, `lManga`,
+// `tiro`— que no coincidían con ninguno de los otros dos, así que lo capturado
+// acá no se podía cruzar con lo de un pedido.
 export const MEDIDAS_DEF = [
   { k: "hombro", l: "Hombro" },
   { k: "pecho", l: "Pecho" },
   { k: "cintura", l: "Cintura" },
-  { k: "base", l: "Base" },
+  { k: "cadera", l: "Cadera" },
   { k: "largo", l: "Largo" },
-  { k: "lManga", l: "L. Manga" },
+  { k: "manga", l: "Manga" },
   { k: "sisa", l: "Sisa" },
-  { k: "pinsa", l: "Pinsa" },
+  { k: "puno", l: "Puño" },
+  { k: "cuello", l: "Cuello" },
   { k: "escote", l: "Escote" },
-  { k: "lAtras", l: "L. Atrás" },
-  { k: "pierna", l: "Pierna" },
-  { k: "rodillo", l: "Rodillo" },
+  { k: "costado", l: "Costado" },
+  { k: "muslo", l: "Muslo" },
+  { k: "rodilla", l: "Rodilla" },
   { k: "ruedo", l: "Ruedo" },
-  { k: "tiro", l: "Tiro" },
+  { k: "tiroD", l: "Tiro Del." },
+  { k: "tiroT", l: "Tiro Tras." },
 ];
 
 // ── Categorías de inventario ─────────────────────────────

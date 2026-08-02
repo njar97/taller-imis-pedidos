@@ -47,6 +47,24 @@ describe("parsearLibroMedidas", () => {
     expect(res.titulo).toMatch(/CADETE/);
   });
 
+  // Los Excel del taller no se ponen de acuerdo en cómo llamar al contorno de
+  // cadera: el de Salomón (arriba) usa BASE en la tabla de pantalón y CADERA en
+  // la de camisa; el de los cadetes de INSO lo hace justo al revés. El bucket
+  // tiene que salir de la TABLA, no de la palabra, o las dos medidas se cruzan
+  // de prenda.
+  it("CADERA en pantalón y BASE en camisa caen en la prenda correcta", () => {
+    const invertido = parsearLibroMedidas([{ name: "Hoja1", rows: [
+      ["", "CADETES INSO", "", "", "", "", "", "", "", ""],
+      ["", "PANTALON", "", "", "", "", "CAMISA", "", "", ""],
+      ["ITEM", "NOMBRE", "CINTURA", "CADERA", "LARGO", "ITEM", "NOMBRE", "HOMBRO", "PECHO", "BASE"],
+      ["1", "KARLA FRAYLE", "94", "112", "96", "1", "KARLA FRAYLE", "39", "103", "114"],
+    ] }]);
+    const k = invertido.personas.find(p => /KARLA/.test(p.nombre));
+    // 112 es la cadera del PANTALÓN, 114 la de la CAMISA — no al revés
+    expect(k.medidas.pantalon).toMatchObject({ cintura: "94", base: "112", largo: "96" });
+    expect(k.medidas.chaqueta).toMatchObject({ hombro: "39", pecho: "103", cadera: "114" });
+  });
+
   it("formato en blanco (sin nombres) no crea personas", () => {
     const vacio = parsearLibroMedidas([{ name: "Hoja1", rows: [
       ["", "CAMISA POLO"], ["CAMISA/BLUSA"],

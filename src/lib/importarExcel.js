@@ -26,7 +26,6 @@ const MAPA_MEDIDAS = {
   "PECHO": ["chaqueta", "pecho"],
   "PECHO/BUSTO": ["chaqueta", "pecho"],
   "BUSTO": ["chaqueta", "pecho"],
-  "CADERA": ["chaqueta", "cadera"],
   "CUELLO": ["chaqueta", "cuello"],
   "SISA": ["chaqueta", "sisa"],
   "LARGO DE MANGA": ["chaqueta", "manga"],
@@ -40,7 +39,6 @@ const MAPA_MEDIDAS = {
   "ALTO DE CODO": ["chaqueta", "altcodo"],
   "CONTORNO DE CODO": ["chaqueta", "ctcodo"],
   // pantalón / falda
-  "BASE": ["pantalon", "base"],
   "MUSLO": ["pantalon", "muslo"],
   "RODILLA": ["pantalon", "rodilla"],
   "RUEDO": ["pantalon", "ruedo"],
@@ -53,10 +51,18 @@ const MAPA_MEDIDAS = {
   "CONTORNO DE CABEZA": ["quepi", "contornoCabeza"],
   "CONTORNO": ["quepi", "contornoCabeza"],
 };
-// Ambiguas: dependen del tipo de tabla
+// Ambiguas: dependen del tipo de tabla.
+//
+// CADERA y BASE son la misma medida (el contorno de cadera) con distinto nombre
+// según la prenda: los Excel del taller la llaman CADERA en la tabla de pantalón
+// y BASE en la de camisa. Antes estaban en MAPA_MEDIDAS con el bucket fijo, así
+// que la CADERA del pantalón terminaba en `chaqueta` y la BASE de la camisa en
+// `pantalon` — cruzadas. Acá el bucket lo decide la tabla de la que vienen.
 const MAPA_POR_TIPO = {
   "CINTURA": { pantalon: ["pantalon", "cintura"], chaqueta: ["chaqueta", "cintura"] },
   "LARGO": { pantalon: ["pantalon", "largo"], chaqueta: ["chaqueta", "largo"] },
+  "CADERA": { pantalon: ["pantalon", "base"], chaqueta: ["chaqueta", "cadera"] },
+  "BASE": { pantalon: ["pantalon", "base"], chaqueta: ["chaqueta", "cadera"] },
 };
 
 const tipoDeTexto = txt => {

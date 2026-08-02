@@ -49,8 +49,9 @@ function tecnicasDe(prod) {
   return out;
 }
 
-// Medidas relevantes para prendas superiores (excluye pierna/tiro de pantalón).
-const MED_SUP = ["hombro", "pecho", "cintura", "base", "largo", "lManga", "sisa", "escote", "lAtras"];
+// Medidas relevantes para prendas superiores (excluye las de pantalón).
+const MED_SUP = ["hombro", "pecho", "cintura", "cadera", "largo", "manga",
+                 "sisa", "puno", "cuello", "escote", "costado"];
 function medidasSuperior() {
   return MEDIDAS_DEF.filter(m => MED_SUP.includes(m.k));
 }
