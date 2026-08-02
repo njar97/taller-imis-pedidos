@@ -224,6 +224,16 @@ export default function FormPedido({
   const llenoPrenda    = !!(f.tipoPrenda || "").trim();
   const llenoTallas    = tieneCantidad;
   const llenoTela      = !!(f.tela || "").trim() || !!(f.color || "").trim();
+
+  // Un pedido con personas cargadas se edita como lista aunque `modoRegistro`
+  // diga otra cosa. Había pedidos guardados con "tallas" (o sin el campo)
+  // teniendo personas: al abrirlos a editar salía el selector de tallas vacío y
+  // las personas quedaban invisibles. Mismo criterio que itemsResumen().
+  const esListaEfectiva =
+    f.modoRegistro === "lista" ||
+    (Array.isArray(f.personas) && f.personas.length > 0 &&
+     !(f.tallasItems || []).length &&
+     !Object.values(f.tallasQty || {}).some(v => parseInt(v, 10) > 0));
   const llenoFecha     = !!f.fechaEntrega;
   const llenoCosturera = !!f.costurera && f.costurera !== "(Sin asignar)";
   const llenoDesc      = !!(f.descripcion || "").trim() || !!f.tieneBordado;
@@ -815,8 +825,7 @@ export default function FormPedido({
         }}
       >
         {MODOS_REGISTRO.map(([modo, label, desc]) => {
-          const activo =
-            (!f.modoRegistro && modo === "tallas") || f.modoRegistro === modo;
+          const activo = modo === (esListaEfectiva ? "lista" : "tallas");
           return (
             <button
               key={modo}
@@ -842,14 +851,14 @@ export default function FormPedido({
           );
         })}
       </div>
-      {(!f.modoRegistro || f.modoRegistro === "tallas") && (
+      {!esListaEfectiva && (
         <SelectorTallas
           items={f.tallasItems}
           onChange={v => s("tallasItems", v)}
           tipoPrendaDefault={f.tipoPrenda || ""}
         />
       )}
-      {f.modoRegistro === "lista" && (
+      {esListaEfectiva && (
         <>
           {/* Vista de captura: tarjetas (la clásica) o tabla tipo Excel
               (para quien viene de los libros de medidas). Misma data. */}
