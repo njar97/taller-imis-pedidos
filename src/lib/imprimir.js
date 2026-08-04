@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { agujasTejido, itemsResumen, medidaCuelloParaTalla, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { agujasTejido, conjuntosResueltos, itemsResumen, medidaCuelloParaTalla, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
@@ -449,6 +449,40 @@ ${prodDesc ? `<div style="font-size:11.5px;font-weight:800;color:#111;margin-bot
 <div style="font-size:10px;color:#888;text-align:right;margin-bottom:10px;">
   Total piezas: <strong>${totPzas}</strong>
 </div>
+
+<!-- UNIFORMES COMPLETOS — agrupa las prendas de arriba en kits (uniforme de
+     chef, de mesero, traje de banda...). Es informativo: los precios salen de
+     las mismas prendas y NO se suman al total del documento. -->
+${(() => {
+  const kits = conjuntosResueltos(p);
+  if (!kits.length) return "";
+  const filas = kits.map((k, i) => {
+    const detalle = k.piezas
+      .map(pz => (pz.qty > 1 ? `${pz.qty}× ` : "") + pz.nombre)
+      .join(" + ");
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f5f5f5"};">
+      <td style="padding:7px 9px;border:1px solid #ddd;font-weight:800;color:#111;">${k.nombre}</td>
+      <td style="padding:7px 9px;border:1px solid #ddd;color:#555;font-size:10.5px;">${detalle}</td>
+      <td style="padding:7px 9px;border:1px solid #ddd;text-align:right;font-weight:900;">$${k.total.toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+  return `
+<div style="font-size:11.5px;font-weight:800;color:#111;margin-bottom:4px;padding-bottom:3px;border-bottom:2px solid #333;">
+  Precio por uniforme completo
+</div>
+<table style="border-collapse:collapse;width:100%;font-size:11.5px;margin-bottom:4px;">
+  <thead><tr style="background:#333;color:#fff;">
+    <th style="padding:6px 9px;text-align:left;border:1px solid #555;">Uniforme</th>
+    <th style="padding:6px 9px;text-align:left;border:1px solid #555;">Prendas que incluye</th>
+    <th style="padding:6px 9px;text-align:right;width:100px;border:1px solid #555;">Total</th>
+  </tr></thead>
+  <tbody>${filas}</tbody>
+</table>
+<div style="font-size:10px;color:#888;margin-bottom:10px;">
+  Precio de un uniforme para una persona, calculado con las prendas del detalle anterior.
+  No se suma al total de esta cotización.
+</div>`;
+})()}
 
 <!-- TOTALES -->
 ${p.cotizacionAbierta ? (() => {

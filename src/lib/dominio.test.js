@@ -9,6 +9,8 @@ import {
   rankTalla,
   medidaCuelloParaTalla,
   itemsResumen,
+  resolverConjunto,
+  conjuntosResueltos,
   carritoPedido,
   normNombre,
   PEDIDO_BASE,
@@ -292,5 +294,57 @@ describe("normNombre", () => {
     expect(normNombre(null)).toBe("");
     expect(normNombre(undefined)).toBe("");
     expect(normNombre("")).toBe("");
+  });
+});
+
+describe("conjuntos (uniformes completos)", () => {
+  const pedido = {
+    modoRegistro: "tallas",
+    tallasItems: [
+      { tipo: "Camisa manga corta", talla: "M", qty: 12, precio: "20.00" },
+      { tipo: "Pantalón", talla: "32", qty: 12, precio: "21.00" },
+      { tipo: "Cinturón", talla: "", qty: 12, precio: "9.00" },
+      { tipo: "Gorro", talla: "", qty: 4, precio: "" },
+    ],
+    conjuntos: [
+      { id: 1, nombre: "Recepción", piezas: [{ nombre: "Camisa manga corta" }, { nombre: "Pantalón" }, { nombre: "Cinturón" }] },
+    ],
+  };
+
+  it("suma el precio de las prendas que componen el uniforme", () => {
+    const [kit] = conjuntosResueltos(pedido);
+    expect(kit.nombre).toBe("Recepción");
+    expect(kit.total).toBe(50);
+    expect(kit.faltantes).toEqual([]);
+  });
+
+  it("multiplica por la cantidad cuando la pieza va repetida", () => {
+    const kit = resolverConjunto(
+      { nombre: "Mesero", piezas: [{ nombre: "Camisa manga corta", qty: 2 }, { nombre: "Pantalón" }] },
+      itemsResumen(pedido)
+    );
+    expect(kit.total).toBe(61);
+  });
+
+  it("cruza el nombre sin importar mayúsculas ni espacios sobrantes", () => {
+    const kit = resolverConjunto(
+      { nombre: "X", piezas: [{ nombre: "  camisa MANGA corta " }] },
+      itemsResumen(pedido)
+    );
+    expect(kit.total).toBe(20);
+  });
+
+  it("lista como faltante la pieza sin precio en vez de contarla como cero callado", () => {
+    const kit = resolverConjunto(
+      { nombre: "Chef", piezas: [{ nombre: "Pantalón" }, { nombre: "Gorro" }, { nombre: "Delantal" }] },
+      itemsResumen(pedido)
+    );
+    expect(kit.total).toBe(21);
+    expect(kit.faltantes).toEqual(["Gorro", "Delantal"]);
+  });
+
+  it("descarta conjuntos vacíos y tolera un pedido sin conjuntos", () => {
+    expect(conjuntosResueltos({ ...pedido, conjuntos: [{ nombre: "Vacío", piezas: [] }] })).toEqual([]);
+    expect(conjuntosResueltos({ tallasItems: [] })).toEqual([]);
   });
 });

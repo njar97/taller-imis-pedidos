@@ -9,7 +9,7 @@
 
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen, detalleFactura, textoFactura, carritoPedido, normNombre } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, conjuntosResueltos, detalleFactura, textoFactura, carritoPedido, normNombre } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { opcionesAgrupacion } from "./lib/imprimir.js";
@@ -582,6 +582,39 @@ function Imagenes({ pedido, onVerFoto }) {
                 }}
               >
                 ☁️
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Uniformes completos: qué cuesta vestir a una persona de cada puesto. Los
+// precios salen de las prendas del pedido, así que esto solo agrupa — no suma
+// nada al total.
+export function UniformesCompletos({ pedido }) {
+  const kits = conjuntosResueltos(pedido);
+  if (!kits.length) return null;
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: "#565656", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>
+        🧑‍🍳 Uniformes completos
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {kits.map((k, i) => (
+          <div key={i} style={{ background: "#fff", border: "1.5px solid #eee", borderRadius: 10, padding: "9px 12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#2C1654" }}>{k.nombre || "Uniforme"}</span>
+              <span style={{ fontSize: 15, fontWeight: 900, color: "#6E2B39", fontVariantNumeric: "tabular-nums" }}>{fmt$(k.total)}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: "#888", marginTop: 3 }}>
+              {k.piezas.map(pz => (pz.qty > 1 ? `${pz.qty}× ` : "") + pz.nombre).join(" + ")}
+            </div>
+            {k.faltantes.length > 0 && (
+              <div style={{ fontSize: 11, color: "#B3392F", marginTop: 3 }}>
+                Sin precio en el pedido: {k.faltantes.join(", ")}
               </div>
             )}
           </div>
@@ -1546,6 +1579,7 @@ export default function DetallePedidoModal({
       <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
       <Personas personas={pedido.personas} abonos={pedido.abonos} esAdmin={esAdmin} />
       <ComponentesKit componentes={pedido.componentes} catalogo={catalogo} />
+      <UniformesCompletos pedido={pedido} />
 
       <CadenaPedido pedido={pedido} pedidos={pedidos} onVerPedido={onVerPedido} />
 

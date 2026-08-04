@@ -165,6 +165,41 @@ export const disenoTejidoParaTalla = t => {
 // Ordena por tipo de prenda (alfabético) y luego por talla (lógico).
 // Si tallasItems viene de un pedido legacy sin `tipo`, devuelve los items
 // igual (el chip simplemente no muestra el tipo encima).
+// Precio unitario de una pieza del conjunto: busca entre los items del pedido
+// el que tenga el mismo `tipo` y devuelve su precio. Si hay varios con ese tipo
+// (misma prenda en distintas tallas) toma el primero con precio — el precio de
+// una prenda no varía por talla salvo recargo, que se cobra aparte.
+const precioPieza = (nombre, items) => {
+  const clave = String(nombre || "").trim().toLowerCase();
+  if (!clave) return null;
+  const hit = items.find(it =>
+    String(it.tipo || "").trim().toLowerCase() === clave && parseFloat(it.precio) > 0);
+  return hit ? parseFloat(hit.precio) : null;
+};
+
+// Resuelve un conjunto contra los items del pedido: devuelve sus piezas con
+// precio y el total. `faltantes` lista las piezas que no cruzaron con ningún
+// item — se muestran para que el descuadre sea visible en vez de silencioso.
+export const resolverConjunto = (conjunto, items) => {
+  const piezas = (conjunto?.piezas || []).map(pz => {
+    const qty = parseInt(pz.qty) > 0 ? parseInt(pz.qty) : 1;
+    const precio = precioPieza(pz.nombre, items);
+    return { nombre: pz.nombre, qty, precio, subtotal: precio == null ? null : precio * qty };
+  });
+  const faltantes = piezas.filter(pz => pz.precio == null).map(pz => pz.nombre);
+  const total = piezas.reduce((s, pz) => s + (pz.subtotal || 0), 0);
+  return { nombre: conjunto?.nombre || "", piezas, total, faltantes };
+};
+
+// Todos los conjuntos del pedido ya resueltos. Los que no tienen ninguna pieza
+// con precio se descartan: no aportan nada al documento.
+export const conjuntosResueltos = p => {
+  const items = itemsResumen(p);
+  return (Array.isArray(p.conjuntos) ? p.conjuntos : [])
+    .map(c => resolverConjunto(c, items))
+    .filter(c => c.piezas.length > 0);
+};
+
 export const itemsResumen = p => {
   const personas = Array.isArray(p.personas) ? p.personas : [];
   // Cuenta como "lista" si el modo lo dice, o si hay personas con talla/prendas
@@ -258,6 +293,11 @@ export const PEDIDO_BASE = {
   // Además pueden apuntar a un producto del catálogo con `catalogoRef` para
   // heredar su ficha. La cantidad se lee siempre con cantidadComponente().
   componentes: [],
+  // Uniformes/kits armados con las prendas del pedido: {id, nombre, piezas:[{nombre, qty}]}.
+  // Cada pieza cruza por `nombre` con el `tipo` de los items para resolver su precio, así
+  // el total del conjunto nunca se descuadra de las prendas. Solo agrupa para presentar
+  // ("un uniforme de chef cuesta X"): el total del pedido lo siguen dando las prendas.
+  conjuntos: [],
   modoRegistro: "tallas",
   // Condiciones formales para cotización (todos opcionales). Si tienen
   // contenido se renderizan como secciones en el PDF de cotización.
