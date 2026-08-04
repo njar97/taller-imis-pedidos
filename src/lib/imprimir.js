@@ -522,6 +522,23 @@ ${p.descripcion ? `
   </div>` : ""}
 </div>`}
 
+<!-- REFERENCIA VISUAL — las mismas fotos del pedido, para que el cliente
+     vea lo que está cotizando (láminas de diseño, muestras, mockups). -->
+${(() => {
+  const imgs = (p.imagenes || []).filter(img => imgSrc(img));
+  if (!imgs.length) return "";
+  return `
+<div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;margin-bottom:10px;page-break-inside:avoid;">
+  <div class="sec-title">Referencia visual</div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">
+    ${imgs.map(img => `<div style="text-align:center;max-width:170px;">
+      <img src="${imgSrc(img)}" style="max-width:170px;max-height:200px;border-radius:6px;border:1px solid #ddd;display:block;" alt="${img.nombre || ""}" />
+      ${img.nombre ? `<div style="font-size:9px;color:#888;margin-top:3px;">${img.nombre}</div>` : ""}
+    </div>`).join("")}
+  </div>
+</div>`;
+})()}
+
 <!-- CONDICIONES FORMALES (solo plazo/lugar, sin forma de pago — ya está arriba) -->
 ${(p.plazoEntrega || p.lugarEntrega) ? `
 <div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;margin-bottom:10px;font-size:11.5px;color:#333;line-height:1.5;">
