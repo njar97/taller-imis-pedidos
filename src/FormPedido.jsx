@@ -11,7 +11,7 @@ const TODAS_TALLAS_COMP = [
   "XS", "S", "M", "L", "XL", "2XL", "3XL",
   "2", "4", "6", "8", "10", "12", "14", "16",
 ];
-import { PEDIDO_BASE, fmt$, medInit } from "./lib/dominio.js";
+import { PEDIDO_BASE, fmt$, itemsResumen, medInit, resolverConjunto } from "./lib/dominio.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { CATALOGO_BASE } from "./lib/catalogoBase.js";
@@ -157,6 +157,7 @@ export default function FormPedido({
       abonos: [...((initial || {}).abonos || [])],
       personas: [...((initial || {}).personas || [])],
       componentes: [...((initial || {}).componentes || [])],
+      conjuntos: [...((initial || {}).conjuntos || [])],
       modoRegistro: (initial || {}).modoRegistro || "tallas",
       tipoCliente: (initial || {}).tipoCliente || "persona",
       nombreContacto: (initial || {}).nombreContacto || "",
@@ -197,6 +198,15 @@ export default function FormPedido({
     .filter(it => it.precio != null && it.precio !== "")
     .reduce((s, it) => s + parseFloat(it.precio || 0) * it.qty, 0);
   const totalPzasAuto = (f.tallasItems || []).reduce((s, it) => s + it.qty, 0);
+
+  // Prendas del pedido resueltas igual que en la impresión, para que los
+  // uniformes completos se armen con los mismos nombres y precios que salen
+  // en la cotización.
+  const itemsPedido = useMemo(() => itemsResumen(f), [f.tallasItems, f.personas, f.modoRegistro, f.tipoPrenda]);
+  const prendasDisponibles = useMemo(() => [...new Set(
+    itemsPedido.filter(it => parseFloat(it.precio) > 0 && (it.tipo || "").trim())
+      .map(it => it.tipo.trim())
+  )], [itemsPedido]);
 
   useEffect(() => {
     if (totalTallasAuto > 0) s("precio", totalTallasAuto.toFixed(2));
@@ -1043,6 +1053,93 @@ export default function FormPedido({
           style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px dashed #bdbdbd", background: "#fafafa", color: "#565656", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}
         >
           ➕ Agregar componente
+        </button>
+      </SeccionOpcional>
+
+      {/* ── Uniformes completos ─────────────────────── */}
+      <SeccionOpcional
+        id="sec-conjuntos"
+        titulo="Uniformes completos"
+        icon="🧑‍🍳"
+        color="#6E2B39"
+        defaultOpen={(f.conjuntos || []).length > 0}
+      >
+        <div style={{ fontSize: 11.5, color: "#777", marginBottom: 10, lineHeight: 1.5 }}>
+          Agrupá las prendas de arriba en uniformes por puesto (chef, mesero, recepción…).
+          En la cotización sale una tabla con lo que cuesta vestir a una persona de cada área.
+          No cambia el total del pedido.
+        </div>
+
+        {(f.conjuntos || []).length > 0 && prendasDisponibles.length === 0 && (
+          <div style={{ fontSize: 12, color: "#B3392F", background: "#fdf2f1", border: "1px solid #f2d4d0", borderRadius: 10, padding: "8px 11px", marginBottom: 10 }}>
+            Todavía no hay prendas con precio en el pedido. Agregalas arriba para poder armar los uniformes.
+          </div>
+        )}
+
+        {(f.conjuntos || []).map((c, i) => {
+          const updC = (campo, v) => s("conjuntos", (f.conjuntos || []).map((x, j) => j === i ? { ...x, [campo]: v } : x));
+          const resuelto = resolverConjunto(c, itemsPedido);
+          return (
+            <div key={c.id || i} style={{ border: "1.5px solid #e0d6c8", borderRadius: 12, padding: 12, marginBottom: 10, background: "#fffdfa" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <input
+                  value={c.nombre || ""}
+                  onChange={e => updC("nombre", e.target.value)}
+                  placeholder="Nombre del uniforme (ej. Chef)"
+                  style={{ flex: 1, padding: "9px 11px", borderRadius: 9, border: "1.5px solid #ddd", fontSize: 14, fontFamily: "inherit" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => s("conjuntos", (f.conjuntos || []).filter((_, j) => j !== i))}
+                  style={{ padding: "9px 12px", borderRadius: 9, border: "none", background: "#fdecea", color: "#B3392F", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {prendasDisponibles.map(nombre => {
+                  const puesta = (c.piezas || []).some(pz => pz.nombre === nombre);
+                  return (
+                    <button
+                      key={nombre}
+                      type="button"
+                      onClick={() => updC("piezas", puesta
+                        ? (c.piezas || []).filter(pz => pz.nombre !== nombre)
+                        : [...(c.piezas || []), { nombre, qty: 1 }])}
+                      style={{
+                        padding: "7px 11px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
+                        cursor: "pointer", fontFamily: "inherit",
+                        border: puesta ? "1.5px solid #6E2B39" : "1.5px solid #ddd",
+                        background: puesta ? "#6E2B39" : "#fff",
+                        color: puesta ? "#fff" : "#555",
+                      }}
+                    >
+                      {puesta ? "✓ " : "+ "}{nombre}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid #eee", paddingTop: 7 }}>
+                <span style={{ fontSize: 11.5, color: "#888" }}>
+                  {resuelto.piezas.length} {resuelto.piezas.length === 1 ? "prenda" : "prendas"}
+                  {resuelto.faltantes.length > 0 && (
+                    <span style={{ color: "#B3392F" }}> · sin precio: {resuelto.faltantes.join(", ")}</span>
+                  )}
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 900, color: "#6E2B39" }}>{fmt$(resuelto.total)}</span>
+              </div>
+            </div>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => s("conjuntos", [...(f.conjuntos || []), { id: Date.now(), nombre: "", piezas: [] }])}
+          style={{ width: "100%", padding: "12px", borderRadius: 12, border: "2px dashed #bdbdbd", background: "#fafafa", color: "#565656", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}
+        >
+          ➕ Agregar uniforme
         </button>
       </SeccionOpcional>
 
