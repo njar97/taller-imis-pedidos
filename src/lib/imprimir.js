@@ -313,6 +313,9 @@ export async function imprimirCotizacion(p) {
   vence.setDate(vence.getDate() + validez);
   const venceStr = vence.toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
   const items = itemsResumen(p);
+  // Código corto por renglón (P-01, P-02…). Va en la tabla y en las fotos, para
+  // que el cliente sepa a qué prenda corresponde cada imagen sin adivinar.
+  const codigoDe = i => "P-" + String(i + 1).padStart(2, "0");
   const tot = items.reduce((s, it) => {
     const pr = parseFloat(it.precio) || 0;
     return s + pr * it.qty;
@@ -401,7 +404,7 @@ ${items.length ? (() => {
     if (multiTipo) {
       const descripcion = it.tipo || p.tipoPrenda || "—";
       return `<tr style="background:${i%2===0?"#fff":"#f5f5f5"};border-bottom:1px solid #ddd;">
-        <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;">${i+1}</td>
+        <td style="padding:7px 7px;text-align:center;font-weight:800;color:#555;white-space:nowrap;">${codigoDe(i)}</td>
         <td style="padding:7px 9px;color:#111;">${descripcion}</td>
         <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;">${medida}</td>
         <td style="padding:7px 7px;text-align:center;font-weight:800;">${it.qty}</td>
@@ -410,7 +413,7 @@ ${items.length ? (() => {
       </tr>`;
     }
     return `<tr style="background:${i%2===0?"#fff":"#f5f5f5"};">
-      <td style="padding:7px 7px;text-align:center;font-weight:700;color:#777;border:1px solid #ddd;">${i+1}</td>
+      <td style="padding:7px 7px;text-align:center;font-weight:800;color:#555;border:1px solid #ddd;white-space:nowrap;">${codigoDe(i)}</td>
       <td style="padding:7px 7px;text-align:center;font-weight:800;color:#111;border:1px solid #ddd;">${medida}</td>
       <td style="padding:7px 7px;text-align:center;font-weight:800;border:1px solid #ddd;">${it.qty}</td>
       <td style="padding:7px 9px;text-align:right;font-weight:700;border:1px solid #ddd;">${pr>0?"$"+pr.toFixed(2):"—"}</td>
@@ -422,7 +425,7 @@ ${items.length ? (() => {
     return `
 <table style="border:1.5px solid #333;font-size:11.5px;margin-bottom:4px;">
   <thead><tr style="background:#111;color:#fff;">
-    <th style="padding:6px 7px;text-align:center;width:32px;">N°</th>
+    <th style="padding:6px 7px;text-align:center;width:48px;">Cód.</th>
     <th style="padding:6px 9px;text-align:left;">Descripción</th>
     <th style="padding:6px 7px;text-align:center;width:75px;">Talla</th>
     <th style="padding:6px 7px;text-align:center;width:55px;">Cant.</th>
@@ -437,7 +440,7 @@ ${items.length ? (() => {
 ${prodDesc ? `<div style="font-size:11.5px;font-weight:800;color:#111;margin-bottom:4px;padding-bottom:3px;border-bottom:2px solid #333;">${prodDesc}</div>` : ""}
 <table style="border-collapse:collapse;width:100%;font-size:11.5px;margin-bottom:4px;">
   <thead><tr style="background:#333;color:#fff;">
-    <th style="padding:6px 7px;text-align:center;width:32px;border:1px solid #555;">N°</th>
+    <th style="padding:6px 7px;text-align:center;width:48px;border:1px solid #555;">Cód.</th>
     <th style="padding:6px 7px;text-align:center;width:90px;border:1px solid #555;">Talla</th>
     <th style="padding:6px 7px;text-align:center;width:65px;border:1px solid #555;">Cantidad</th>
     <th style="padding:6px 9px;text-align:right;width:95px;border:1px solid #555;">Precio U.</th>
@@ -556,19 +559,61 @@ ${p.descripcion ? `
   </div>` : ""}
 </div>`}
 
-<!-- REFERENCIA VISUAL — las mismas fotos del pedido, para que el cliente
-     vea lo que está cotizando (láminas de diseño, muestras, mockups). -->
+<!-- REFERENCIA VISUAL — las mismas fotos del pedido, con el código del renglón
+     al que corresponde cada una (P-01, P-02…) para que el cliente sepa qué
+     prenda está viendo. El bloque fluye entre páginas: el page-break-inside va
+     en cada foto, no en el contenedor, si no una galería larga empuja una
+     página entera en blanco antes de empezar. -->
 ${(() => {
   const imgs = (p.imagenes || []).filter(img => imgSrc(img));
   if (!imgs.length) return "";
+  // Cruza cada foto con su renglón por nombre. La foto suele llamarse más
+  // corto que la descripción de la tabla ("Pantalón" vs "Pantalón verde oliva
+  // (gabardina...)"), así que basta con que uno contenga al otro.
+  const norm = s => String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9ñ ]+/g, " ").replace(/\s+/g, " ").trim();
+  const codigoDeImagen = img => {
+    const n = norm(img.nombre);
+    if (!n) return "";
+    // 1) Uno contiene al otro — resuelve la mayoría y no confunde variantes
+    //    cercanas ("Camisa manga corta" vs "…manga larga"), porque el nombre
+    //    completo de la foto solo cabe dentro de su propio renglón.
+    const directo = items.findIndex(it => {
+      const t = norm(it.tipo);
+      return t && (t.includes(n) || n.includes(t));
+    });
+    if (directo >= 0) return codigoDe(directo);
+    // 2) Si no, por palabras compartidas: la foto puede llamarse "Camiseta con
+    //    logo" y el renglón "Camiseta beige con logo bordado". Pide 70% de las
+    //    palabras de la foto para no pegar cualquier cosa.
+    const palabras = n.split(" ").filter(w => w.length > 2);
+    if (!palabras.length) return "";
+    let mejor = -1, mejorPunt = 0;
+    items.forEach((it, i) => {
+      const t = norm(it.tipo);
+      if (!t) return;
+      const suyas = new Set(t.split(" "));
+      const punt = palabras.filter(w => suyas.has(w)).length / palabras.length;
+      if (punt > mejorPunt) { mejorPunt = punt; mejor = i; }
+    });
+    return mejorPunt >= 0.7 ? codigoDe(mejor) : "";
+  };
   return `
-<div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;margin-bottom:10px;page-break-inside:avoid;">
+<div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;margin-bottom:10px;">
   <div class="sec-title">Referencia visual</div>
+  <div style="font-size:9.5px;color:#888;margin-bottom:6px;">
+    El código de cada foto corresponde al renglón del detalle.
+  </div>
   <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">
-    ${imgs.map(img => `<div style="text-align:center;max-width:170px;">
+    ${imgs.map(img => {
+      const cod = codigoDeImagen(img);
+      return `<div style="text-align:center;max-width:170px;page-break-inside:avoid;">
       <img src="${imgSrc(img)}" style="max-width:170px;max-height:200px;border-radius:6px;border:1px solid #ddd;display:block;" alt="${img.nombre || ""}" />
-      ${img.nombre ? `<div style="font-size:9px;color:#888;margin-top:3px;">${img.nombre}</div>` : ""}
-    </div>`).join("")}
+      ${cod ? `<div style="font-size:9.5px;font-weight:800;color:#111;margin-top:3px;">${cod}</div>` : ""}
+      ${img.nombre ? `<div style="font-size:9px;color:#888;margin-top:${cod ? 1 : 3}px;">${img.nombre}</div>` : ""}
+    </div>`;
+    }).join("")}
   </div>
 </div>`;
 })()}
