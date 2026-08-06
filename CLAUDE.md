@@ -140,6 +140,40 @@ Push a `main` dispara GitHub Actions → `npm ci && npm run build` → publica `
 
 ## Historial reciente
 
+**4-5 ago 2026 — Cotización de uniformes Mizata + camisetas EPAL (PRs #178, #179, #180)**
+
+Código, todo en `main` y desplegado:
+- **#178** — `imprimirCotizacion` no renderizaba `p.imagenes` (solo `imprimirPedido` lo hacía).
+  Sección "Referencia visual" después de los totales.
+- **#179** — `conjuntos` en el pedido: agrupa las prendas en uniformes por puesto
+  (`{id, nombre, piezas:[{nombre, qty}]}`; cada pieza cruza por nombre con el `tipo` de los
+  items para resolver el precio). Sale en la cotización impresa, en `FormPedido` y en
+  `DetallePedidoModal`. **No suma al total del pedido**, solo agrupa.
+  ALTER: `taller_pedidos.conjuntos jsonb not null default '[]'`.
+- **#180** — código por renglón (`P-01`, `P-02`…) en la columna "Cód." del detalle y debajo
+  de cada foto; el cruce foto↔renglón es por contención de nombre con respaldo por palabras
+  compartidas (70%). El `page-break-inside:avoid` pasó del contenedor de la galería a cada
+  foto: antes una galería larga empujaba media página en blanco.
+
+Datos en producción:
+- **Cliente 12 Mizata Native Resort** · **COT-0064** (polos $16) · **COT-0065** (uniformes por
+  área): 17 prendas, 13 conjuntos, 17 fotos, costos en `desglose_estimador`. Total $403.41
+  ($357.00 + IVA).
+- **Catálogo ids 9-25**: las 17 prendas de uniforme con precio, costo verificado, telas,
+  colores y tiempo. **Sin imágenes** — se van a generar con Gemini (ghost mannequin, fondo
+  gris claro; ya está cargada la id 9). Las fotos viejas de Mizata NO se reusan: llevan su
+  logo bordado.
+- **Pedido 60 EPAL**: 58 camisetas cargadas en `personas[]` con nombre, talla y color en
+  `prendas[].spec`. Verde 22 · Celeste 18 · Amarillo 18.
+
+Decisiones de negocio que valen para futuras cotizaciones:
+- **Costeo:** `(tela $/yd × yardas) + (pago del día ÷ prendas por día) + bordado + insumos`,
+  por margen. Confundir la hechura con la ganancia fue lo que inflaba los precios.
+- **IVA aparte, no incluido.** El cliente empresa recupera el crédito fiscal, así que no le
+  encarece; absorberlo cuesta ~13 puntos de margen. La app asume que `precio` YA lleva IVA
+  (`imprimirCotizacion` hace `subtotal = precio / 1.13`), así que se guarda el total con IVA
+  y los precios unitarios netos.
+
 **31 jul 2026 — Verificación de la hoja física INSO + camisetas (solo datos, sin código)**
 - Pedido 36 (cadetes): los 16 tienen medidas completas — se copiaron las 10 de la cotización 27
   y se cargaron de la hoja del cuaderno las de los 6 nuevos. `fecha_entrega = 2026-08-20`.
@@ -258,6 +292,37 @@ main.js: 3 521 → ~1 640 líneas (-53% en una sesión, -89% acumulado). El App 
 
 Salen de auditar el caso INSO (cotización 27 + pedido 36 = el mismo grupo de cadetes,
 partido en dos filas que no se conocían). El enlace `origen_ref` ya está; falta lo demás.
+
+0. **Contornos reales de los moldes (lo que sigue ahora mismo, se retoma desde la PC).**
+   `taller_moldes` guarda solo la **caja** de cada pieza: `ancho_cm` × `alto_cm`. Las columnas
+   `perimetro_cm`, `ancho_25`, `ancho_50` y `ancho_75` están **NULL en las 125 filas de
+   camiseta**, así que no hay silueta: un trazo dibujado con estos datos son rectángulos, y
+   el metraje sale sobreestimado (seguro para comprar, malo para optimizar).
+
+   Los contornos están en los PDF de cada pieza (`taller_moldes.archivo_pdf`, ej.
+   `camiseta-T6-cuerpo-fila5-36.9x50.2.pdf`), todos extraídos de
+   **`Camisetas Masculinas en COREL.pdf`**. Esos archivos viven en la PC
+   (`My Embroidery\...`), NO en Supabase Storage — se verificó, el bucket no los tiene.
+
+   Plan: (a) extraer el path vectorial de cada PDF; (b) `ALTER TABLE taller_moldes ADD COLUMN
+   contorno jsonb` con el polígono en cm relativo a la caja; (c) redibujar el trazo encajando
+   la manga en el hueco de la sisa. Se espera recuperar 8-15% de tela contra el cálculo por
+   cajas.
+
+   Sin bloquear: **la compra de EPAL ya se puede hacer** con el cálculo por cajas —
+   a 180 cm de ancho, 13 yd verde · 11 celeste · 10 amarillo (58 camisetas, 10% de merma
+   incluido). A 150 cm son 14.5 / 13 / 11; en tubular de 90 se dispara a 22.5 / 19.5 / 17.5.
+
+   Pendientes de datos del pedido 60 (EPAL): confirmar la lectura de cinco nombres para los
+   transfers de manga (**Salehk, Daviela, Reinita, Anggely, Kadir**); el pack de moldes trae
+   **seis variantes de cuerpo por talla sin marcar cuál es delantera y cuál espalda**;
+   **Alisson** va a la medida (hombro 37 · busto 96 · largo 52 · cadera 101 · sisa 45 ·
+   escote 40 · LMD 16 · puño 34) y no entra en el conteo de tela; la maestra **Carmen va sin
+   nombre** en la manga → 57 transfers, no 58. Sigue sin definirse quién pone la camiseta y
+   el precio de venta.
+
+   Mizata (COT-0065): el **saco forrado quedó en $77 como supuesto** — el resumen de precios
+   traía solo "Saco $52", que se tomó como la sacola sin forro. Falta confirmarlo.
 
 1. **Precio en pedidos por persona.** Cuando `personas[].prendas[].precio` viene vacío y el
    pedido tampoco tiene `precio`, `detalleFactura` da **total $0.00** y el saldo sale
