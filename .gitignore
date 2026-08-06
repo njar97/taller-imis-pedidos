@@ -11,3 +11,6 @@ skills-lock.json
 
 # Respaldos de datos de producción (traen nombres y medidas de clientes)
 respaldos/
+
+# cache de los scripts de moldes
+scripts/moldes/__pycache__/
