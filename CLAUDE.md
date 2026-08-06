@@ -301,8 +301,8 @@ partido en dos filas que no se conocían). El enlace `origen_ref` ya está; falt
 
    Los contornos están en los PDF de cada pieza (`taller_moldes.archivo_pdf`, ej.
    `camiseta-T6-cuerpo-fila5-36.9x50.2.pdf`), todos extraídos de
-   **`Camisetas Masculinas en COREL.pdf`**. Esos archivos viven en la PC
-   (`My Embroidery\...`), NO en Supabase Storage — se verificó, el bucket no los tiene.
+   **`Camisetas Masculinas en COREL.pdf`**. Esos archivos viven en la PC, donde ya se
+   trabajó con ellos; NO están en Supabase Storage — se verificó, el bucket no los tiene.
 
    Plan: (a) extraer el path vectorial de cada PDF; (b) `ALTER TABLE taller_moldes ADD COLUMN
    contorno jsonb` con el polígono en cm relativo a la caja; (c) redibujar el trazo encajando
