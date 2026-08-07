@@ -37,12 +37,17 @@ NUMERICAS = set('2 4 6 8 10 12 14'.split())
 RECETA_NUM = [('cuerpo-fila1', 1), ('cuerpo-fila4', 1), ('manga-2', 2), ('tira-cuello', 1)]
 RECETA_LET = [('cuerpo-fila1', 1), ('cuerpo-fila3', 1), ('manga-1', 2), ('tira-cuello', 1)]
 
-# pedido 60 (EPAL): seccion -> color, y las tallas de cada seccion.
-# Alisson va a la medida y no entra en el trazo.
+# pedido 60 (EPAL): color -> tallas. Actualizado 7-ago tras confirmar la lista
+# con las maestras. Alison va a la medida y no entra en el trazo.
+#
+# Las directoras NO pertenecen a ninguna seccion pero si llevan color:
+# Mercy verde, Carmen celeste. Lean quedo fuera de las tres secciones hasta
+# que la directora confirme, y por eso verde baja de 6 a 5 en talla 6 y
+# amarillo de 3 a 2: antes se contaba un Lean en cada una.
 PEDIDO_60 = {
-    'verde':    {'4': 7, '6': 6, '8': 5, '10': 1, '12': 1, 'M': 2},
-    'celeste':  {'4': 1, '6': 8, '8': 3, '10': 2, '14': 1, 'M': 2},
-    'amarillo': {'4': 11, '6': 3, '10': 2, '12': 1, 'XXL': 1},
+    'verde':    {'4': 7, '6': 5, '8': 5, '10': 1, '12': 1, 'M': 2},   # 21
+    'celeste':  {'4': 1, '6': 8, '8': 3, '10': 2, '14': 1, 'M': 2},   # 17 + Alison a la medida
+    'amarillo': {'4': 11, '6': 2, '10': 2, '12': 1, '2XL': 1},        # 17
 }
 TELA = {'verde': (120, 175, 120), 'celeste': (140, 190, 220),
         'amarillo': (235, 220, 130)}

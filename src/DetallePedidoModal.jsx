@@ -12,7 +12,7 @@ import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen, conjuntosResueltos, detalleFactura, textoFactura, carritoPedido, normNombre } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
-import { opcionesAgrupacion } from "./lib/imprimir.js";
+import { imprimirCorte, opcionesAgrupacion } from "./lib/imprimir.js";
 import { imprimirHojaTaller } from "./lib/documentosProducto.js";
 import { exportarExcelMedidas } from "./lib/exportarExcelMedidas.js";
 import { imgSrc } from "./lib/imagenes.js";
@@ -1702,6 +1702,15 @@ export default function DetallePedidoModal({
               </button>
             ));
           })()}
+          {esAdmin && (
+            <button
+              onClick={() => imprimirCorte(pedido)}
+              title="Hoja de corte para la mesa: piezas a cortar por talla y por color, sacadas de los moldes"
+              style={btnExport("#0E7490")}
+            >
+              ✂️ Corte
+            </button>
+          )}
           {esAdmin && onImprimirEntrega && (
             <button
               onClick={onImprimirEntrega}
