@@ -17,3 +17,5 @@ scripts/moldes/__pycache__/
 
 # trazos generados por marcada.py
 scripts/moldes/trazo_*.png
+scripts/moldes/ubicacion-artes_*.png
+scripts/moldes/opciones-tamano_*.png
