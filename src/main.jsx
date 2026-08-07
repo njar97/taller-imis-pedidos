@@ -78,6 +78,7 @@ import { useDebouncedCallback } from "./lib/hooks.js";
 
 const SeccionBordados = lazy(() => import("./SeccionBordados.jsx"));
 const SeccionCuellos  = lazy(() => import("./SeccionCuellos.jsx"));
+const SeccionImpresos = lazy(() => import("./SeccionImpresos.jsx"));
 
 // Indicador offline + prompt de nueva versión (PWA)
 import ConexionStatus from "./ConexionStatus.jsx";
@@ -946,6 +947,9 @@ function App() {
             upsertClienteLocal={upsertClienteLocal}
             exportarPedidoPDF={exportarPedidoPDF}
           />
+        )}
+        {seccion === "impresos" && esAdmin && (
+          <SeccionImpresos esAdmin={esAdmin} />
         )}
         {seccion === "catalogo" && (
           <SeccionCatalogo

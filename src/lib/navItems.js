@@ -10,6 +10,7 @@ const ADMIN_NAV = [
   { id: "cotizaciones", label: "Cotizaciones", icon: "🧮", soloAdmin: true },
   { id: "bordados",     label: "Bordados",     icon: "🪡" },
   { id: "cuellos",      label: "Cuellos",      icon: "🧶" },
+  { id: "impresos",     label: "Impresos",     icon: "🖨️", soloAdmin: true },
   { id: "inventario",   label: "Inventario",   icon: "📦", soloAdmin: true },
   { id: "catalogo",     label: "Catálogo",     icon: "🧵" },
   { id: "clientes",     label: "Clientes",     icon: "👥" },
