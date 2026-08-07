@@ -1571,18 +1571,58 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     /parvulari/i.test(s || "") ? "🧒 " :
     /b[aá]sica/i.test(s || "") ? "🎒 " :
     /bachillerato|t[eé]cnic/i.test(s || "") ? "🎓 " : "";
-  const casillas = n => {
+  const caja = lado =>
+    `<span style="display:inline-block;width:${lado}px;height:${lado}px;border:1.5px solid #888;border-radius:3px;margin-right:5px;vertical-align:middle;flex:none;"></span>`;
+  const casillas = (n, grande = false) => {
     const q = parseInt(n) || 0;
     if (q <= 0 || q > 40) return "";
-    return `<span style="line-height:1.9;">${`<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #888;border-radius:3px;margin:0 3px 0 0;vertical-align:middle;"></span>`.repeat(q)}</span>`;
+    return `<span style="line-height:1.9;">${caja(grande ? 19 : 14).repeat(q)}</span>`;
   };
+  // Si el pedido se registró por lista, cada prenda tiene dueño. Poner el
+  // nombre al lado de su casilla aprovecha el espacio que sobraba en la fila
+  // y hace la hoja mas util: se tacha POR NIÑO, no contando cuadritos. Solo
+  // se usa cuando los nombres encontrados son exactamente los de esa fila;
+  // si no cuadran se vuelve a las casillas sueltas, que nunca mienten.
+  const nombresDeItem = it => {
+    const dueños = [];
+    for (const per of p.personas || []) {
+      for (const pr of per.prendas || []) {
+        if ((pr.talla || "") === (it.talla || "") &&
+            (pr.spec || "") === (it.spec || "") &&
+            (pr.tipo || "") === (it.tipo || "")) dueños.push(per.nombre || "");
+      }
+    }
+    return dueños.length === (parseInt(it.qty) || 0) && dueños.every(Boolean) ? dueños : null;
+  };
+  const casillasConNombre = it => {
+    const nombres = nombresDeItem(it);
+    if (!nombres) return casillas(it.qty, true);
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px 16px;">${nombres.map(n =>
+      `<span style="display:inline-flex;align-items:center;font-size:13px;font-weight:700;color:#333;white-space:nowrap;">${caja(17)}${n}</span>`
+    ).join("")}</div>`;
+  };
+  // La columna "De qué es" repetía la misma frase en todas las filas del
+  // bloque ("Camiseta Intramuros — Amarillo", cinco veces seguidas) y dejaba
+  // media fila en blanco, con las casillas apretadas en un rincón. Si dentro
+  // de cada bloque la descripción no cambia, se dice UNA vez en el encabezado
+  // y la fila queda para lo único que el taller usa ahí: tachar.
+  const descDe = it => `${iconoSpec(it.spec)}${[it.tipo, it.spec].filter(Boolean).join(" — ") || "—"}`;
+  const descBloque = b => {
+    const s = new Set(b.items.map(descDe));
+    return s.size === 1 ? [...s][0] : null;
+  };
+  const colapsarDesc = bloques.every(b => descBloque(b) !== null);
+  const NCOLS = colapsarDesc ? 3 : 4;
+  // Sin bloques no hay encabezado donde ponerla, así que va sobre la tabla.
+  const descGlobal = colapsarDesc && !porGrupo ? descBloque(bloques[0]) : null;
   const tablaPrendasHTML = ordenados.length ? `
+    ${descGlobal ? `<div style="font-size:14px;font-weight:800;color:#333;margin-bottom:6px;">${descGlobal}</div>` : ""}
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
         <th style="padding:9px 12px;text-align:center;width:90px;">TALLA</th>
         <th style="padding:9px 12px;text-align:center;width:70px;">CUÁNTOS</th>
-        <th style="padding:9px 12px;text-align:left;">De qué es</th>
-        <th style="padding:9px 12px;text-align:left;width:180px;">Tache al terminar ✔</th>
+        ${colapsarDesc ? "" : `<th style="padding:9px 12px;text-align:left;">De qué es</th>`}
+        <th style="padding:9px 12px;text-align:left;${colapsarDesc ? "" : "width:180px;"}">Tache al terminar ✔</th>
       </tr></thead>
       <tbody>
         ${bloques.map(b => {
@@ -1592,9 +1632,10 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
           const dot = css ? `<span style="display:inline-block;width:15px;height:15px;border-radius:50%;background:${css};border:1px solid rgba(0,0,0,.25);vertical-align:middle;margin-right:8px;"></span>` : "";
           const header = porGrupo ? `
             <tr style="background:#EAF2F8;">
-              <td colspan="4" style="padding:9px 12px;border-top:3px solid #1A5276;">
+              <td colspan="${NCOLS}" style="padding:9px 12px;border-top:3px solid #1A5276;">
                 ${dot}<span style="font-size:17px;font-weight:900;color:#1A5276;text-transform:uppercase;letter-spacing:.5px;">${b.nombre || "Sin especificar"}</span>
                 <span style="font-size:11px;font-weight:800;color:#888;margin-left:9px;">${subtotal} piezas</span>
+                ${colapsarDesc ? `<span style="font-size:13px;font-weight:700;color:#555;margin-left:12px;">${descBloque(b)}</span>` : ""}
               </td>
             </tr>` : "";
           return header + grupos.map((g, gi) => {
@@ -1607,14 +1648,14 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
                 ${g.items.length > 1 ? `<div style="font-size:10px;font-weight:800;color:#888;margin-top:3px;">${totalTalla} en total</div>` : ""}
               </td>` : ""}
               <td style="padding:10px 12px;text-align:center;font-weight:900;font-size:24px;color:#1A5276;">${it.qty}</td>
-              <td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${iconoSpec(it.spec)}${[it.tipo, it.spec].filter(Boolean).join(" — ") || "—"}</td>
-              <td style="padding:10px 12px;">${casillas(it.qty)}</td>
+              ${colapsarDesc ? "" : `<td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${descDe(it)}</td>`}
+              <td style="padding:10px 12px;">${colapsarDesc ? casillasConNombre(it) : casillas(it.qty)}</td>
             </tr>`).join("");
           }).join("");
         }).join("")}
         <tr style="background:#1A5276;color:#fff;font-weight:800;">
           <td colspan="2" style="padding:11px 12px;text-align:right;font-size:14px;">TOTAL</td>
-          <td colspan="2" style="padding:11px 12px;font-size:22px;">${totalPzas} piezas</td>
+          <td colspan="${NCOLS - 2}" style="padding:11px 12px;font-size:22px;">${totalPzas} piezas</td>
         </tr>
       </tbody>
     </table>` : tallasTxt ? `<div style="font-size:14px;color:#E67E22;font-weight:700;margin-top:6px;">📦 ${tallasTxt}</div>` : `<div style="color:#aaa;font-style:italic;">(sin prendas especificadas)</div>`;
