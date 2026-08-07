@@ -145,25 +145,33 @@ def main():
     ch = max(f[2].size[1] for f in filas)
     pad_x, pad_y, cab = 70, 60, 150
     W = 160 + 2*cw + pad_x
-    H = cab + len(filas)*(ch+pad_y) + 90
+    H = cab + len(filas)*(ch+pad_y) + 250
     out = Image.new('RGB', (W, H), FONDO)
     d = ImageDraw.Draw(out)
     d.text((60, 44), 'Camisetas Intramuros 2026', font=fnt('arialbd.ttf', 46), fill=NEGRO)
     d.text((60, 100), 'Escuela Parvularia "Albino Luciani"  ·  propuesta para aprobacion',
-           font=fnt('arial.ttf', 26), fill=GRIS)
+           font=fnt('arial.ttf', 30), fill=GRIS)
 
     for i, (nombre, cant, frente, atras) in enumerate(filas):
         y = cab + i*(ch+pad_y)
         d.text((60, y+ch//2-40), nombre, font=fnt('arialbd.ttf', 32), fill=NEGRO)
-        d.text((60, y+ch//2+2), '%d camisetas' % cant, font=fnt('arial.ttf', 24), fill=GRIS)
+        d.text((60, y+ch//2+4), '%d camisetas' % cant, font=fnt('arial.ttf', 28), fill=GRIS)
         out.paste(frente, (170, y), frente)
         out.paste(atras, (170+cw+pad_x//2, y), atras)
 
     y = cab + len(filas)*(ch+pad_y) - 20
-    d.text((170, y), 'frente', font=fnt('arialbd.ttf', 24), fill=GRIS)
-    d.text((170+cw+pad_x//2, y), 'espalda', font=fnt('arialbd.ttf', 24), fill=GRIS)
-    d.text((60, y+42), 'El nombre de cada alumno va estampado en la manga.',
-           font=fnt('arial.ttf', 24), fill=GRIS)
+    d.text((170, y), 'frente', font=fnt('arialbd.ttf', 30), fill=GRIS)
+    d.text((170+cw+pad_x//2, y), 'espalda', font=fnt('arialbd.ttf', 30), fill=GRIS)
+
+    # La manga no se dibuja, se menciona: dibujarla obligaria a agrandar el
+    # nombre para que se lea y quedaria fuera de escala contra el resto.
+    y += 62
+    d.line([(60, y), (W-60, y)], fill=(214, 214, 224), width=2)
+    d.text((60, y+26), 'Ademas, en la manga:', font=fnt('arialbd.ttf', 34), fill=NEGRO)
+    for i, t in enumerate([
+            'el NOMBRE DE CADA ALUMNO, estampado, en letra de 1 cm de alto;',
+            'cada camiseta lleva el suyo, asi que ninguna se repite.']):
+        d.text((60, y+76+i*44), t, font=fnt('arial.ttf', 32), fill=GRIS)
     out.save('MOCKUP-CLIENTE_EPAL-Intramuros-2026.png')
     print('-> MOCKUP-CLIENTE_EPAL-Intramuros-2026.png  %s' % (out.size,))
 
