@@ -18,13 +18,19 @@ cortada:
   * `centro`           — el eje vertical de la pieza.
   * `ruedo`            — la orilla de abajo (en la manga).
 
-De ahi salen 5 cotas por arte, que es lo que se pone en la ficha de taller:
+De ahi salen 6 cotas por arte, que es lo que se pone en la ficha de taller:
 
-  A  hombro  -> borde superior del arte
-  B  escote  -> borde superior del arte
-  C  centro  -> centro del arte (horizontal; 0 = centrado)
+  A  hombro  -> filo superior del arte      (en la manga, desde el ruedo)
+  B  escote  -> filo superior del arte
+  F  escote  -> EJE del arte                (en la manga, desde el ruedo)
+  C  centro  -> eje del arte (horizontal; 0 = centrado)
   D  ancho del arte
   E  alto del arte
+
+**F es la que se usa al planchar**: el operario alinea por el eje del arte, no
+por su filo de arriba. A y B quedan de control cruzado. La ficha dibuja el eje
+como una linea punteada roja que cruza toda la pieza, con una cruz en el centro
+del arte.
 
 # Las dos reglas posibles para B
 
@@ -133,7 +139,7 @@ def punteada(d, p0, p1, color=AUX, paso=12):
                 (x0+(x1-x0)*b, y0+(y1-y0)*b)], fill=color, width=1)
 
 
-def cota_v(d, x, y0, y1, texto, f, lado=1):
+def cota_v(d, x, y0, y1, texto, f, lado=1, dy=0):
     if abs(y1-y0) < 2:
         return
     d.line([(x, y0), (x, y1)], fill=COTA, width=2)
@@ -141,7 +147,7 @@ def cota_v(d, x, y0, y1, texto, f, lado=1):
         d.line([(x-6, y), (x+6, y)], fill=COTA, width=2)
     ancho = d.textlength(texto, font=f)
     tx = x+10 if lado > 0 else x-10-ancho
-    d.text((tx, (y0+y1)/2-9), texto, font=f, fill=COTA)
+    d.text((tx, (y0+y1)/2-9+dy), texto, font=f, fill=COTA)
 
 
 def cota_h(d, y, x0, x1, texto, f, arriba=True):
@@ -160,7 +166,7 @@ def panel(pieza, titulo, arte, fs):
     w_cm, h_cm = pieza['bbox_cm']
     W, H = int(w_cm*ESC), int(h_cm*ESC)
     ox, oy = 150, 108
-    marg_der, marg_bot = 250, 210
+    marg_der, marg_bot = 340, 232
     img = Image.new('RGB', (W+ox+marg_der, H+oy+marg_bot), (255, 255, 255))
     d = ImageDraw.Draw(img)
 
@@ -201,18 +207,23 @@ def panel(pieza, titulo, arte, fs):
     esc_im = im.resize((aw, ah), Image.LANCZOS)
     img.paste(esc_im, (ax, ay), esc_im)
     d.rectangle([ax, ay, ax+aw, ay+ah], outline=COTA, width=2)
-    # cruz en el centro del arte
     mx, my = ax+aw//2, ay+ah//2
-    d.line([(mx-11, my), (mx+11, my)], fill=COTA, width=1)
-    d.line([(mx, my-11), (mx, my+11)], fill=COTA, width=1)
+
+    # el eje horizontal del arte, que es por donde se alinea al planchar
+    punteada(d, (ox-40, my), (ox+W+40, my), color=COTA, paso=10)
+    d.text((ox-146, my-9), 'eje arte', font=f_cota, fill=COTA)
+    d.line([(mx-13, my), (mx+13, my)], fill=COTA, width=2)
+    d.line([(mx, my-13), (mx, my+13)], fill=COTA, width=2)
 
     # cotas
     if arte.get('desde_ruedo') is None:
         cota_v(d, ox+W+38, oy, ay, 'A %.1f' % ((ay-oy)/ESC), f_cota)
-        cota_v(d, ox+W+120, esc_y, ay, 'B %.1f' % ((ay-esc_y)/ESC), f_cota)
+        cota_v(d, ox+W+124, esc_y, ay, 'B %.1f' % ((ay-esc_y)/ESC), f_cota)
+        cota_v(d, ox+W+228, esc_y, my, 'F %.1f' % ((my-esc_y)/ESC), f_cota)
     else:
         cota_v(d, ox+W+38, ay+ah, oy+H, 'A %.1f' % arte['desde_ruedo'], f_cota)
-    cota_v(d, ax-22, ay, ay+ah, 'E %.2f' % alto, f_cota, lado=-1)
+        cota_v(d, ox+W+124, my, oy+H, 'F %.1f' % ((oy+H-my)/ESC), f_cota)
+    cota_v(d, ax-22, ay, ay+ah, 'E %.2f' % alto, f_cota, lado=-1, dy=-26)
     cota_h(d, ay-18, ax, ax+aw, 'D %.2f' % ancho, f_cota)
     if abs(arte.get('c', 0.0)) > 0.05:
         # va debajo del arte para no encimarse con la cota del alto
@@ -224,13 +235,15 @@ def panel(pieza, titulo, arte, fs):
     filas = [('D  ancho del arte', '%.2f cm' % ancho),
              ('E  alto del arte', '%.2f cm' % alto)]
     if arte.get('desde_ruedo') is None:
-        filas = [('A  hombro -> arte', '%.1f cm' % ((ay-oy)/ESC)),
-                 ('B  escote -> arte', '%.1f cm' % ((ay-esc_y)/ESC)),
-                 ('C  centro -> arte', 'centrado' if abs(arte.get('c', 0)) < 0.05
+        filas = [('A  hombro -> filo', '%.1f cm' % ((ay-oy)/ESC)),
+                 ('B  escote -> filo', '%.1f cm' % ((ay-esc_y)/ESC)),
+                 ('F  escote -> EJE', '%.1f cm' % ((my-esc_y)/ESC)),
+                 ('C  centro -> eje', 'centrado' if abs(arte.get('c', 0)) < 0.05
                   else '%.1f cm' % abs(arte['c']))] + filas
     else:
-        filas = [('A  ruedo -> arte', '%.1f cm' % arte['desde_ruedo']),
-                 ('C  centro -> arte', 'centrado')] + filas
+        filas = [('A  ruedo -> filo', '%.1f cm' % arte['desde_ruedo']),
+                 ('F  ruedo -> EJE', '%.1f cm' % ((oy+H-my)/ESC)),
+                 ('C  centro -> eje', 'centrado')] + filas
     for i, (k, v) in enumerate(filas):
         d.text((ox, ty+i*22), k, font=f_mono, fill=(70, 70, 82))
         d.text((ox+230, ty+i*22), v, font=f_mono, fill=TINTA)
@@ -269,8 +282,9 @@ def ficha(talla, piezas, regla):
     d = ImageDraw.Draw(out)
     d.text((24, 18), 'EPAL · Intramuros 2026 · UBICACION DE ARTES · talla %s' % talla,
            font=f_tit, fill=TINTA)
-    d.text((24, 48), 'A=desde el hombro · B=desde el filo del escote · C=desde el '
-                     'centro · D=ancho · E=alto.   Regla de altura: %s.' % regla.upper(),
+    d.text((24, 48), 'A=hombro al filo · B=escote al filo · F=escote al EJE del arte '
+                     '(es por donde se alinea al planchar) · C=del centro · D=ancho · '
+                     'E=alto.   Regla de altura: %s.' % regla.upper(),
            font=f_txt, fill=(120, 120, 130))
     d.text((24, 72), 'La pieza se ve POR FUERA: el pecho izquierdo de quien la usa '
                      'cae a la derecha del dibujo.', font=f_txt, fill=(170, 90, 60))
