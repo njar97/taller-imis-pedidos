@@ -215,6 +215,68 @@ def pagina2(regla):
     return img
 
 
+CARTA_H = (CARTA[1], CARTA[0])          # horizontal, para las paginas graficas
+
+
+def cuantas(talla):
+    """(total, detalle por color) de una talla."""
+    det = [(c.split()[0], t[talla]) for c, t in PEDIDO.items() if t.get(talla)]
+    return sum(n for _, n in det), det
+
+
+def recortar(im, borde=12):
+    """Quita el blanco de alrededor, que es lo que hacia chico el dibujo."""
+    from PIL import ImageChops
+    fondo = Image.new(im.mode, im.size, (255, 255, 255))
+    caja = ImageChops.difference(im, fondo).getbbox()
+    if not caja:
+        return im
+    x0, y0, x1, y1 = caja
+    return im.crop((max(0, x0-borde), max(0, y0-borde),
+                    min(im.size[0], x1+borde), min(im.size[1], y1+borde)))
+
+
+def pagina_talla(talla, piezas, regla):
+    """Una hoja horizontal por talla, con las 3 piezas y el arte puesto.
+
+    Los paneles van 2 arriba y 1 abajo en vez de los 3 en fila: en fila la
+    imagen queda tan ancha que al meterla en la carta las piezas salen chicas
+    y sobra media hoja en blanco.
+    """
+    paneles = [recortar(p.convert('RGB')) for p in
+               UA.paneles_de(talla, piezas, regla)]
+
+    hueco = (CARTA_H[0]-2*MARG, CARTA_H[1]-290)
+    sup_w = paneles[0].size[0] + paneles[1].size[0] + 40
+    sup_h = max(paneles[0].size[1], paneles[1].size[1])
+    total_w = max(sup_w, paneles[2].size[0])
+    total_h = sup_h + 40 + paneles[2].size[1]
+    esc = min(hueco[0]/float(total_w), hueco[1]/float(total_h))
+
+    lienzo = Image.new('RGB', (total_w, total_h), (255, 255, 255))
+    lienzo.paste(paneles[0], (0, 0))
+    lienzo.paste(paneles[1], (paneles[0].size[0]+40, 0))
+    lienzo.paste(paneles[2], (0, sup_h+40))
+    lienzo = lienzo.resize((max(1, int(total_w*esc)), max(1, int(total_h*esc))),
+                           Image.LANCZOS)
+
+    img = Image.new('RGB', CARTA_H, (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    total, det = cuantas(talla)
+    d.text((MARG, 56), 'TALLA %s' % talla, font=fnt('arialbd.ttf', 58), fill=NEGRO)
+    d.text((MARG+430, 76), '%d camisetas' % total, font=fnt('arialbd.ttf', 34), fill=ROJO)
+    d.text((MARG+430, 120), '   ·   '.join('%s %d' % (c.lower(), n) for c, n in det),
+           font=fnt('arial.ttf', 26), fill=GRIS)
+    d.line([(MARG, 168), (CARTA_H[0]-MARG, 168)], fill=NEGRO, width=3)
+    img.paste(lienzo, (MARG+(hueco[0]-lienzo.size[0])//2, 196))
+
+    d.text((MARG, CARTA_H[1]-72),
+           'F = del filo del escote (del ruedo en la manga) al EJE del arte, '
+           'que es la linea punteada roja.   El pecho izquierdo es el de quien '
+           'usa la camiseta.', font=fnt('arial.ttf', 22), fill=GRIS)
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--regla', choices=['fija', 'proporcional'],
@@ -223,14 +285,20 @@ def main():
     piezas = UA.cargar()
     p1 = pagina1(piezas, args.regla)
     p2 = pagina2(args.regla)
+    graficas = [pagina_talla(t, piezas[t], args.regla)
+                for t in TALLAS if t in piezas]
     # PdfImagePlugin lee Image.SAVE["JPEG"] directo y Pillow carga los plugins
     # de forma perezosa: sin este init() el guardado del PDF revienta con
     # KeyError: 'JPEG'.
     Image.init()
     salida = 'HOJA-ESTAMPADO_EPAL-pedido60_%s.pdf' % args.regla
-    p1.save(salida, save_all=True, append_images=[p2], resolution=DPI)
+    paginas = [p2] + graficas
+    p1.save(salida, save_all=True, append_images=paginas, resolution=DPI)
     p1.save(salida.replace('.pdf', '_p1.png'))
-    print('-> %s  (2 paginas, carta, %d dpi)' % (salida, DPI))
+    graficas[0].save(salida.replace('.pdf', '_talla4.png'))
+    print('-> %s  (%d paginas, carta, %d dpi)' % (salida, 1+len(paginas), DPI))
+    print('   1 resumen · 1 como se mide · %d graficas, una por talla'
+          % len(graficas))
 
 
 if __name__ == '__main__':

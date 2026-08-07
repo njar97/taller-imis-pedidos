@@ -250,7 +250,8 @@ def panel(pieza, titulo, arte, fs):
     return img
 
 
-def ficha(talla, piezas, regla):
+def paneles_de(talla, piezas, regla):
+    """Los 3 paneles ya dibujados. Lo usa la ficha y tambien hoja_estampado."""
     fs = fuentes()
     lados = LADOS_NUM if talla in NUMERICAS else LADOS_LET
     delantera = piezas[lados['delantera']]
@@ -261,7 +262,7 @@ def ficha(talla, piezas, regla):
     # el monograma va a media distancia entre el centro y la sisa
     c_mono = (x_der - w_del/2.0)/2.0
 
-    paneles = [
+    return [
         panel(delantera, 'DELANTERA — monograma, pecho izquierdo',
               {'ruta': os.path.join(ARTES, MONOGRAMA_PNG), 'ancho': ANCHO_MONOGRAMA,
                'b': b_mono, 'c': c_mono}, fs),
@@ -274,6 +275,12 @@ def ficha(talla, piezas, regla):
                                         ARTES, 'nombres-manga', 'canva')))[0]),
                'ancho': ANCHO_NOMBRE, 'desde_ruedo': NOMBRE_DEL_RUEDO, 'c': 0.0}, fs),
     ]
+
+
+def ficha(talla, piezas, regla):
+    fs = fuentes()
+    paneles = paneles_de(talla, piezas, regla)
+    lados = LADOS_NUM if talla in NUMERICAS else LADOS_LET
 
     f_tit, f_txt, _, _ = fs
     Wt = sum(p.size[0] for p in paneles) + 60
