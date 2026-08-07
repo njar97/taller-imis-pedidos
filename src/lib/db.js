@@ -42,6 +42,7 @@ function keysToCamel(o) {
 // Campos jsonb que vienen del DB ya parseados — no tocar
 const JSONB_KEYS = new Set([
   "tallasQty", "tallasItems", "imagenes", "abonos", "medidas", "personas", "piezas",
+  "archivos",
 ]);
 
 // ── fetch wrapper ────────────────────────────────────────────
@@ -197,6 +198,17 @@ export const dbDisenoBorrar  = id => borrarPorId("taller_disenos", id);
 //    la app; se alimenta desde D:\TEJIDOS con el pipeline de análisis .pds ──
 
 export const dbTejidosLeer   = () => leerTabla("taller_tejidos");
+
+// ── Impresos (recuerdos fúnebres, palancas, invitaciones) ────
+//    Línea de trabajo aparte de la confección: la app solo los archiva
+//    para poder reimprimir cuando el cliente pide más. Los PDF viven en
+//    el bucket público "impresos".
+
+export const dbImpresosLeer     = () => leerTabla("taller_impresos");
+export const dbImpresoGuardar   = i  => upsertTabla("taller_impresos", i);
+export const dbImpresoBorrar    = id => borrarPorId("taller_impresos", id);
+export const dbImpresosPapelera = () => leerPapelera("taller_impresos");
+export const dbImpresoRestaurar = id => restaurarPorId("taller_impresos", id);
 
 // ── Medidas estándar (tabla maestra) ─────────────────────────
 //    taller_medidas_estandar = qué mide la PRENDA TERMINADA en cada talla.
