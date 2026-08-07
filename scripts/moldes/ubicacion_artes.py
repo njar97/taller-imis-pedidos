@@ -73,7 +73,9 @@ REGLAS = {
 }
 NOMBRE_DEL_RUEDO = 4.0         # pedido por el usuario el 6-ago (era 3.0)
 
-ESPALDA_PNG = 'Arte_Albino-Luciani_ESPALDA_ninos.png'
+# ilustracion 21.37 x 17.20 + arco INTRAMUROS 20.95 x 4.43, separados 0.5 cm.
+# En Canva son DOS elementos: al imprimir siguen siendo dos transfers.
+ESPALDA_PNG = 'Arte_Albino-Luciani_ESPALDA_ninos-intramuros.png'
 MONOGRAMA_PNG = 'Logo_Albino-Luciani_escudo-EPAL_recortado.png'
 
 TINTA = (35, 35, 45)
