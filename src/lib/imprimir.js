@@ -5,7 +5,7 @@ import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { agujasTejido, conjuntosResueltos, itemsResumen, medidaCuelloParaTalla, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
-import { dbTejidosLeer } from "./db.js";
+import { dbMoldesLeer, dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
@@ -1171,6 +1171,224 @@ export function imprimirEntrega(p) {
   w.document.close();
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// HOJA DE CORTE
+//
+// La hoja de producción dice QUIÉN lleva cada prenda. Esta dice QUÉ PIEZAS
+// hay que cortar y de qué tela: es la que se lleva a la mesa de corte.
+//
+// Las piezas salen de `taller_moldes`, no de una receta escrita a mano. Cada
+// molde trae una `nota` que dice qué es realmente ("cuello redondo",
+// "trasera", "NO es cuerpo: por forma y medidas es una manga larga"), porque
+// el pack comprado numera las filas del PDF sin decir cuál es cuál. Eso ya se
+// midió y se anotó una vez; acá solo se lee.
+// ─────────────────────────────────────────────────────────────────────────
+
+const sinTildes = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+// Del "Camiseta Intramuros 2026 (DTF)" del pedido al `prenda` de taller_moldes.
+// Se busca cuál de las prendas con molde aparece nombrada en el tipo de prenda.
+const prendaConMolde = (tipoPrenda, moldes) => {
+  const t = sinTildes(tipoPrenda);
+  const nombres = [...new Set(moldes.map(m => m.prenda).filter(Boolean))];
+  return nombres.find(n => t.includes(sinTildes(n))) || "";
+};
+
+// Qué cortar para UNA prenda de esta talla. Devuelve [] si no hay molde.
+// El pack trae varias variantes por talla (cuello redondo, cuello en V, manga
+// larga); acá se elige la que corresponde a la camiseta de cuello redondo con
+// manga, que es lo que se produce.
+const recetaTalla = (moldes, prenda, talla) => {
+  const dela = moldes.filter(m => m.prenda === prenda && m.talla === talla);
+  if (!dela.length) return [];
+  const busca = (re, enNota) => dela.find(m =>
+    re.test(m.pieza || "") && (!enNota || enNota.test(sinTildes(m.nota || ""))));
+  const partes = [
+    ["Delantera", busca(/^cuerpo/, /cuello redondo/) || busca(/^delantera/), 1],
+    ["Espalda",   busca(/^cuerpo/, /trasera/)        || busca(/^trasera/),   1],
+    ["Manga",     busca(/^manga-/, /con manga/),                             2],
+    ["Tira cuello", dela.find(m => /^tira-cuello/.test(m.pieza || "")),      1],
+  ];
+  return partes.filter(([, m]) => m).map(([rotulo, m, veces]) => ({
+    rotulo, veces,
+    medida: m.ancho_cm != null && m.alto_cm != null
+      ? `${Math.round(m.ancho_cm)}×${Math.round(m.alto_cm)}` : "",
+  }));
+};
+
+// Arma el documento completo. Se separa de imprimirCorte para poder probarla
+// y previsualizarla sin abrir la app (la app pide login por codigo de correo).
+export function hojaCorteHTML(p, moldesTodos = []) {
+  const moldes = (moldesTodos || []).filter(m => !m.deleted_at);
+  const prenda = prendaConMolde(p.tipoPrenda, moldes);
+
+  // Personas agrupadas por color y talla. `color` es campo propio de la
+  // persona; si no lo trae se cae al color del pedido, y si tampoco, a un
+  // único bloque sin nombre de color.
+  const personas = (p.personas || []).filter(per => per.talla || per.nombre);
+  const colorDe = per => (per.color || "").trim() || (personas.some(x => x.color) ? "sin color" : (p.color || ""));
+  const bloques = new Map();
+  const nombresSinColor = [];
+  const aMedida = [];
+  for (const per of personas) {
+    const talla = (per.talla || "").trim();
+    if (!talla) continue;
+    if (/medida/i.test(talla)) { aMedida.push(per); continue; }
+    const c = colorDe(per);
+    // Si a alguien no se le sabe el color hay que poder identificarlo: un
+    // bloque "sin color" con solo un numero no le dice nada a quien corta.
+    if (c === "sin color" && per.nombre) nombresSinColor.push(per.nombre);
+    if (!bloques.has(c)) bloques.set(c, new Map());
+    const t = bloques.get(c);
+    t.set(talla, (t.get(talla) || 0) + 1);
+  }
+
+  const th = "padding:7px 8px;border:1px solid #bbb;font-size:11px;font-weight:800;";
+  const td = "padding:6px 8px;border:1px solid #ccc;font-size:12.5px;";
+  const faltanMolde = new Set();
+
+  const bloqueHTML = (color, tallas) => {
+    const orden = [...tallas.keys()].sort((a, b) => rankTalla(a) - rankTalla(b));
+    const prendasColor = orden.reduce((s, t) => s + tallas.get(t), 0);
+    // Las columnas de pieza salen de la primera talla que tenga molde, para
+    // que todas las filas del bloque compartan encabezado.
+    const cols = orden.map(t => recetaTalla(moldes, prenda, t)).find(r => r.length) || [];
+    const filas = orden.map(t => {
+      const r = recetaTalla(moldes, prenda, t);
+      const n = tallas.get(t);
+      if (!r.length) faltanMolde.add(t);
+      const celdas = cols.map(c => {
+        const mia = r.find(x => x.rotulo === c.rotulo);
+        if (!mia) return `<td style="${td}text-align:center;color:#C0392B;font-weight:800;">sin molde</td>`;
+        return `<td style="${td}text-align:center;">
+          <span style="font-size:17px;font-weight:900;color:#1A5276;">${n * mia.veces}</span>
+          ${mia.medida ? `<div style="font-size:9px;color:#999;">${mia.medida} cm</div>` : ""}
+        </td>`;
+      }).join("");
+      return `<tr>
+        <td style="${td}text-align:center;font-size:19px;font-weight:900;color:#2C1654;">${t}</td>
+        <td style="${td}text-align:center;font-size:17px;font-weight:900;">${n}</td>
+        ${celdas}
+        <td style="${td}text-align:center;font-size:20px;color:#bbb;">☐</td>
+      </tr>`;
+    }).join("");
+    const totales = cols.map(c => {
+      const n = orden.reduce((s, t) =>
+        s + (recetaTalla(moldes, prenda, t).some(x => x.rotulo === c.rotulo) ? tallas.get(t) * c.veces : 0), 0);
+      return `<td style="${td}text-align:center;font-weight:900;color:#2C1654;">${n}</td>`;
+    }).join("");
+    return `
+    <div style="page-break-inside:avoid;margin-bottom:18px;">
+      <div style="display:flex;align-items:baseline;gap:10px;border-bottom:2px solid #2C1654;padding-bottom:5px;margin-bottom:7px;">
+        <span style="font-size:16px;font-weight:900;color:${color === "sin color" ? "#C0392B" : "#2C1654"};text-transform:uppercase;">${color || "Tela"}</span>
+        <span style="font-size:13px;color:#666;">${prendasColor} prenda(s)</span>
+        ${color === "sin color" && nombresSinColor.length
+          ? `<span style="font-size:12px;color:#C0392B;font-weight:700;">${nombresSinColor.join(", ")} — falta decir de qué color va</span>` : ""}
+      </div>
+      <table>
+        <thead><tr style="background:#2C1654;color:#fff;">
+          <th style="${th}text-align:center;width:64px;">Talla</th>
+          <th style="${th}text-align:center;width:70px;">Prendas</th>
+          ${cols.map(c => `<th style="${th}text-align:center;">${c.rotulo}${c.veces > 1 ? ` <span style="font-weight:600;opacity:.75;">×${c.veces}</span>` : ""}</th>`).join("")}
+          <th style="${th}text-align:center;width:60px;">Listo</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+        <tfoot><tr style="background:#f0f0f0;font-weight:800;">
+          <td style="${td}text-align:center;color:#2C1654;">TOTAL</td>
+          <td style="${td}text-align:center;color:#2C1654;">${prendasColor}</td>
+          ${totales}
+          <td style="${td}"></td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+  };
+
+  const cuerpo = [...bloques.entries()].map(([c, t]) => bloqueHTML(c, t)).join("");
+  const totalPrendas = [...bloques.values()].reduce((s, t) => s + [...t.values()].reduce((a, b) => a + b, 0), 0);
+
+  const avisoMolde = faltanMolde.size ? `
+    <div style="border:2px solid #C0392B;background:#fdf2f0;border-radius:6px;padding:9px 12px;margin-bottom:14px;font-size:12px;line-height:1.6;">
+      <strong style="color:#C0392B;">Sin molde digitalizado:</strong>
+      talla${faltanMolde.size > 1 ? "s" : ""} ${[...faltanMolde].join(", ")}.
+      Hay que sacar el molde a mano antes de cortar esas prendas.
+    </div>` : "";
+
+  const aMedidaHTML = aMedida.length ? `
+    <div style="border:1.5px solid #B7791F;background:#fffdf5;border-radius:6px;padding:9px 12px;margin-bottom:14px;font-size:12px;line-height:1.7;">
+      <strong style="color:#B7791F;">A la medida — no entran en el cuadro de arriba:</strong><br>
+      ${aMedida.map(per => `${per.nombre || "sin nombre"}${per.color ? ` (${per.color})` : ""}`).join(" · ")}.
+      Cortar con las medidas del pedido.
+    </div>` : "";
+
+  const titulo = nombrePDF("Corte", p.id, p.cliente);
+  const num = String(p.id).padStart(4, "0");
+  const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${titulo}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#fff;color:#222;padding:30px 36px;font-size:13px;}
+    @media print{body{padding:0;}.no-print{display:none!important;}@page{margin:11mm 12mm;size:letter;}thead{display:table-header-group}tr{page-break-inside:avoid}}
+    table{border-collapse:collapse;width:100%;}
+  </style></head><body>
+
+  <div class="no-print" style="margin-bottom:20px;">
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button onclick="_print()" style="padding:11px 20px;border-radius:8px;border:none;background:#2C1654;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Imprimir / PDF</button>
+      <button onclick="window.parent.__closeFrame__()" style="padding:11px 14px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2C1654;padding-bottom:12px;margin-bottom:12px;">
+    <div>
+      <div style="font-size:22px;font-weight:900;color:#2C1654;font-family:Georgia,serif;">${TALLER}</div>
+      <div style="font-size:12px;color:#555;margin-top:3px;">${p.cliente || ""}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:18px;font-weight:900;color:#2C1654;">HOJA DE CORTE</div>
+      <div style="font-size:12px;color:#555;margin-top:2px;">Pedido N°${num}<br>Fecha: ${fecha}</div>
+    </div>
+  </div>
+
+  <div style="background:#f5f2f8;border:1px solid #ded5ea;border-radius:6px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;">
+    <strong>${p.tipoPrenda || "(sin especificar)"}</strong>${p.tela ? ` — ${p.tela}` : ""} · <strong>${totalPrendas}</strong> prendas
+    ${prenda ? ` · moldes de <strong>${prenda}</strong>` : ` · <span style="color:#C0392B;font-weight:800;">sin moldes digitalizados para este tipo de prenda</span>`}
+  </div>
+
+  ${avisoMolde}
+  ${aMedidaHTML}
+  ${cuerpo || `<div style="padding:20px;text-align:center;color:#888;">Este pedido no tiene personas con talla.</div>`}
+
+  <div style="margin-top:16px;border:1.5px solid #2C1654;border-radius:6px;padding:10px 12px;font-size:11.5px;line-height:1.9;">
+    <strong style="color:#2C1654;">Antes de cortar:</strong> verificar el sentido de la tela y que el tendido esté parejo.
+    Las cantidades de arriba son piezas, no prendas.<br>
+    Tela usada: ______ yardas &nbsp;&nbsp; Sobrante: ______ &nbsp;&nbsp; Cortó: _________________________ &nbsp;&nbsp; Fecha: __________
+  </div>
+
+  <script>
+  const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
+  function _print(){
+    try{window.parent.document.title=document.title;}catch(e){}
+    window.print();
+    window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});
+    setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);
+  }
+  </script>
+  </body></html>`;
+}
+
+export async function imprimirCorte(p) {
+  let moldes = [];
+  try {
+    moldes = (await dbMoldesLeer()) || [];
+  } catch (e) {
+    console.warn("No se pudieron leer los moldes:", e.message);
+  }
+  const w = nuevaVentanaImpresion(nombrePDF("Corte", p.id, p.cliente));
+  w.document.write(hojaCorteHTML(p, moldes));
+  w.document.close();
+}
+
 // Detección de color en el spec de un item ("Rojo", "Azul · cuello V"...).
 // Compartido entre la hoja de producción y la UI (para ofrecer al usuario
 // elegir cómo agrupar al imprimir).
@@ -1353,18 +1571,58 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     /parvulari/i.test(s || "") ? "🧒 " :
     /b[aá]sica/i.test(s || "") ? "🎒 " :
     /bachillerato|t[eé]cnic/i.test(s || "") ? "🎓 " : "";
-  const casillas = n => {
+  const caja = lado =>
+    `<span style="display:inline-block;width:${lado}px;height:${lado}px;border:1.5px solid #888;border-radius:3px;margin-right:5px;vertical-align:middle;flex:none;"></span>`;
+  const casillas = (n, grande = false) => {
     const q = parseInt(n) || 0;
     if (q <= 0 || q > 40) return "";
-    return `<span style="line-height:1.9;">${`<span style="display:inline-block;width:14px;height:14px;border:1.5px solid #888;border-radius:3px;margin:0 3px 0 0;vertical-align:middle;"></span>`.repeat(q)}</span>`;
+    return `<span style="line-height:1.9;">${caja(grande ? 19 : 14).repeat(q)}</span>`;
   };
+  // Si el pedido se registró por lista, cada prenda tiene dueño. Poner el
+  // nombre al lado de su casilla aprovecha el espacio que sobraba en la fila
+  // y hace la hoja mas util: se tacha POR NIÑO, no contando cuadritos. Solo
+  // se usa cuando los nombres encontrados son exactamente los de esa fila;
+  // si no cuadran se vuelve a las casillas sueltas, que nunca mienten.
+  const nombresDeItem = it => {
+    const dueños = [];
+    for (const per of p.personas || []) {
+      for (const pr of per.prendas || []) {
+        if ((pr.talla || "") === (it.talla || "") &&
+            (pr.spec || "") === (it.spec || "") &&
+            (pr.tipo || "") === (it.tipo || "")) dueños.push(per.nombre || "");
+      }
+    }
+    return dueños.length === (parseInt(it.qty) || 0) && dueños.every(Boolean) ? dueños : null;
+  };
+  const casillasConNombre = it => {
+    const nombres = nombresDeItem(it);
+    if (!nombres) return casillas(it.qty, true);
+    return `<div style="display:flex;flex-wrap:wrap;gap:4px 16px;">${nombres.map(n =>
+      `<span style="display:inline-flex;align-items:center;font-size:13px;font-weight:700;color:#333;white-space:nowrap;">${caja(17)}${n}</span>`
+    ).join("")}</div>`;
+  };
+  // La columna "De qué es" repetía la misma frase en todas las filas del
+  // bloque ("Camiseta Intramuros — Amarillo", cinco veces seguidas) y dejaba
+  // media fila en blanco, con las casillas apretadas en un rincón. Si dentro
+  // de cada bloque la descripción no cambia, se dice UNA vez en el encabezado
+  // y la fila queda para lo único que el taller usa ahí: tachar.
+  const descDe = it => `${iconoSpec(it.spec)}${[it.tipo, it.spec].filter(Boolean).join(" — ") || "—"}`;
+  const descBloque = b => {
+    const s = new Set(b.items.map(descDe));
+    return s.size === 1 ? [...s][0] : null;
+  };
+  const colapsarDesc = bloques.every(b => descBloque(b) !== null);
+  const NCOLS = colapsarDesc ? 3 : 4;
+  // Sin bloques no hay encabezado donde ponerla, así que va sobre la tabla.
+  const descGlobal = colapsarDesc && !porGrupo ? descBloque(bloques[0]) : null;
   const tablaPrendasHTML = ordenados.length ? `
+    ${descGlobal ? `<div style="font-size:14px;font-weight:800;color:#333;margin-bottom:6px;">${descGlobal}</div>` : ""}
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
         <th style="padding:9px 12px;text-align:center;width:90px;">TALLA</th>
         <th style="padding:9px 12px;text-align:center;width:70px;">CUÁNTOS</th>
-        <th style="padding:9px 12px;text-align:left;">De qué es</th>
-        <th style="padding:9px 12px;text-align:left;width:180px;">Tache al terminar ✔</th>
+        ${colapsarDesc ? "" : `<th style="padding:9px 12px;text-align:left;">De qué es</th>`}
+        <th style="padding:9px 12px;text-align:left;${colapsarDesc ? "" : "width:180px;"}">Tache al terminar ✔</th>
       </tr></thead>
       <tbody>
         ${bloques.map(b => {
@@ -1374,9 +1632,10 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
           const dot = css ? `<span style="display:inline-block;width:15px;height:15px;border-radius:50%;background:${css};border:1px solid rgba(0,0,0,.25);vertical-align:middle;margin-right:8px;"></span>` : "";
           const header = porGrupo ? `
             <tr style="background:#EAF2F8;">
-              <td colspan="4" style="padding:9px 12px;border-top:3px solid #1A5276;">
+              <td colspan="${NCOLS}" style="padding:9px 12px;border-top:3px solid #1A5276;">
                 ${dot}<span style="font-size:17px;font-weight:900;color:#1A5276;text-transform:uppercase;letter-spacing:.5px;">${b.nombre || "Sin especificar"}</span>
                 <span style="font-size:11px;font-weight:800;color:#888;margin-left:9px;">${subtotal} piezas</span>
+                ${colapsarDesc ? `<span style="font-size:13px;font-weight:700;color:#555;margin-left:12px;">${descBloque(b)}</span>` : ""}
               </td>
             </tr>` : "";
           return header + grupos.map((g, gi) => {
@@ -1389,14 +1648,14 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
                 ${g.items.length > 1 ? `<div style="font-size:10px;font-weight:800;color:#888;margin-top:3px;">${totalTalla} en total</div>` : ""}
               </td>` : ""}
               <td style="padding:10px 12px;text-align:center;font-weight:900;font-size:24px;color:#1A5276;">${it.qty}</td>
-              <td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${iconoSpec(it.spec)}${[it.tipo, it.spec].filter(Boolean).join(" — ") || "—"}</td>
-              <td style="padding:10px 12px;">${casillas(it.qty)}</td>
+              ${colapsarDesc ? "" : `<td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${descDe(it)}</td>`}
+              <td style="padding:10px 12px;">${colapsarDesc ? casillasConNombre(it) : casillas(it.qty)}</td>
             </tr>`).join("");
           }).join("");
         }).join("")}
         <tr style="background:#1A5276;color:#fff;font-weight:800;">
           <td colspan="2" style="padding:11px 12px;text-align:right;font-size:14px;">TOTAL</td>
-          <td colspan="2" style="padding:11px 12px;font-size:22px;">${totalPzas} piezas</td>
+          <td colspan="${NCOLS - 2}" style="padding:11px 12px;font-size:22px;">${totalPzas} piezas</td>
         </tr>
       </tbody>
     </table>` : tallasTxt ? `<div style="font-size:14px;color:#E67E22;font-weight:700;margin-top:6px;">📦 ${tallasTxt}</div>` : `<div style="color:#aaa;font-style:italic;">(sin prendas especificadas)</div>`;

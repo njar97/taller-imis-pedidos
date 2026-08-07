@@ -11,3 +11,13 @@ skills-lock.json
 
 # Respaldos de datos de producción (traen nombres y medidas de clientes)
 respaldos/
+
+# cache de los scripts de moldes
+scripts/moldes/__pycache__/
+
+# trazos generados por marcada.py
+scripts/moldes/trazo_*.png
+scripts/moldes/ubicacion-artes_*.png
+scripts/moldes/opciones-tamano_*.png
+scripts/moldes/HOJA-ESTAMPADO_*
+scripts/moldes/MOCKUP-CLIENTE_*
