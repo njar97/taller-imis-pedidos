@@ -3,7 +3,8 @@
 // (~1 660 líneas).
 
 import { CUEL_E, CUEL_EC } from "./lib/constants.js";
-import { dbCuelBorrar as gsCuelBorrar, dbCuelGuardar as gsCuelGuardar } from "./lib/db.js";
+import { dbCuelBorrar as gsCuelBorrar, dbCuelCrear as gsCuelCrear, dbCuelGuardar as gsCuelGuardar } from "./lib/db.js";
+import { guardarSeguro, vaciarCola } from "./lib/colaGuardado.js";
 import { pushToast } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { Modal } from "./lib/Modal.jsx";
@@ -13,7 +14,7 @@ import { imprimirProduccionCuellos } from "./lib/imprimir.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 
-import { useState, useRef, lazy, Suspense } from "react";
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
 
 // Catálogo de diseños — carga diferida, solo si se abre
 const CatalogoTejidos = lazy(() => import("./CatalogoTejidos.jsx"));
@@ -385,21 +386,13 @@ function CuelloModal({ initial, esAdmin, onSave, onCancel, pedidosConf, clientes
             />
           </>
         ) : (
-          <>
-            <div style={{ marginBottom: 10 }}>
-              <label style={LBL}>Fecha de entrega</label>
-              <input type="date" style={INPS} value={f.fechaEntrega} onChange={e => set("fechaEntrega", e.target.value)} />
-            </div>
-            <RegistroAbonos
-              abonos={f.abonos || []}
-              precioTotal={f.precioT}
-              onChange={v => {
-                set("abonos", v);
-                set("anticipo", v.reduce((s, a) => s + parseFloat(a.monto || 0), 0).toFixed(2));
-              }}
-              esAdmin={false}
-            />
-          </>
+          // Al operario NO se le muestra el registro de abonos: el dinero del
+          // cliente lo cobra y lo asienta el admin. Antes se mostraba con
+          // esAdmin={false}, que oculta el saldo pero deja registrar pagos.
+          <div style={{ marginBottom: 10 }}>
+            <label style={LBL}>Fecha de entrega</label>
+            <input type="date" style={INPS} value={f.fechaEntrega} onChange={e => set("fechaEntrega", e.target.value)} />
+          </div>
         )}
 
         {/* ── Estado ── */}
@@ -470,18 +463,34 @@ export default function SeccionCuellos({
     .reduce((s, c) => s + (parseFloat(c.precioT || 0) - parseFloat(c.anticipo || 0)), 0);
   const conteos = CUEL_E.reduce((a, e) => ({ ...a, [e]: cuellos.filter(c => c.estatus === e).length }), {});
 
-  function guardar(form) {
+  async function guardar(form) {
     const isNuevo = modal === "nuevo";
     const id = isNuevo ? nextCuelId : modal.id;
     const p = { ...form, id, fecha: isNuevo ? hoyC() : (modal.fecha || hoyC()) };
     if (isNuevo) {
       setCuellos(prev => [...prev, p]);
-      setNextCuelId(n => n + 1);
+      setNextCuelId(n => Math.max(n, id + 1));
     } else {
       setCuellos(prev => prev.map(c => (c.id === id ? p : c)));
     }
     setModal(null);
-    gsCuelGuardar(p);
+    if (isNuevo) {
+      // Insert puro: si otro dispositivo ya usó el número, busca el siguiente
+      // libre en vez de reemplazar el cuello ajeno.
+      try {
+        const idReal = await gsCuelCrear(p);
+        if (idReal !== id) {
+          p.id = idReal;
+          setCuellos(prev => prev.map(c => (c.id === id ? { ...c, id: idReal } : c)));
+          pushToast(`Otro dispositivo usaba el N°${id}; este quedó como N°${idReal}`, "info", 5000);
+        }
+        setNextCuelId(n => Math.max(n, idReal + 1));
+      } catch {
+        await guardarSeguro({ tabla: "taller_cuellos", obj: p, guardar: gsCuelGuardar, que: "el cuello" });
+      }
+    } else {
+      await guardarSeguro({ tabla: "taller_cuellos", obj: p, guardar: gsCuelGuardar, que: "el cuello" });
+    }
     if (p.cliente && upsertClienteLocal) {
       upsertClienteLocal(p.cliente, { telefono: p.telefono });
     }
@@ -497,10 +506,24 @@ export default function SeccionCuellos({
   function cambiarEstatus(id, est) {
     setCuellos(prev => {
       const nuevos = prev.map(c => (c.id === id ? { ...c, estatus: est } : c));
-      gsCuelGuardar(nuevos.find(c => c.id === id));
+      guardarSeguro({
+        tabla: "taller_cuellos",
+        obj: nuevos.find(c => c.id === id),
+        guardar: gsCuelGuardar,
+        que: "el cambio de estado",
+      });
       return nuevos;
     });
   }
+
+  // Al entrar a la sección se reintenta lo que quedó pendiente por falta de
+  // señal, y también cuando el navegador avisa que volvió la red.
+  useEffect(() => {
+    const reintentar = () => vaciarCola({ taller_cuellos: gsCuelGuardar });
+    reintentar();
+    window.addEventListener("online", reintentar);
+    return () => window.removeEventListener("online", reintentar);
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>

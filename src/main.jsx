@@ -171,6 +171,7 @@ import {
 import {
   dbLeer            as gsLeer,
   dbGuardar         as gsGuardar,
+  dbCrear           as gsCrear,
   dbBorrar          as gsBorrar,
   dbRestaurar       as gsRestaurar,
   dbBordLeer        as gsBordLeer,
@@ -548,7 +549,8 @@ function App() {
     };
     if (esNuevo) {
       setPedidos(prev => [...prev, p]);
-      setNextId(n => n + 1);
+      // nextId definitivo se fija abajo, con el id que confirme el servidor.
+      setNextId(n => Math.max(n, p.id + 1));
     } else {
       setPedidos(prev => prev.map(x => x.id === p.id ? p : x));
     }
@@ -577,7 +579,22 @@ function App() {
       }
     }
     try {
-      await Promise.all([gsGuardar(p), idbGuardar(p.id, p.imagenes)]);
+      if (esNuevo) {
+        // Insert puro: si otro dispositivo ya usó este número, gsCrear busca
+        // el siguiente libre en vez de reemplazar el pedido ajeno. Por eso el
+        // id definitivo lo dice el servidor, no nosotros.
+        const idReal = await gsCrear(p);
+        if (idReal !== p.id) {
+          const idViejo = p.id;
+          p.id = idReal;
+          setPedidos(prev => prev.map(x => x.id === idViejo ? { ...x, id: idReal } : x));
+          pushToast(`Otro dispositivo estaba usando el N°${idViejo}; este quedó como N°${idReal}`, "info", 5000);
+        }
+        setNextId(n => Math.max(n, idReal + 1));
+        await idbGuardar(p.id, p.imagenes);
+      } else {
+        await Promise.all([gsGuardar(p), idbGuardar(p.id, p.imagenes)]);
+      }
       if (erroresSubida.length > 0) {
         setSync("error_fotos");
         setErrorFotos(erroresSubida);
