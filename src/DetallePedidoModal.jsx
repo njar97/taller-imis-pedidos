@@ -22,6 +22,7 @@ import { agruparPrendas } from "./ListaPrendas.jsx";
 import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js";
 import { generarTokenCaptura, urlCaptura } from "./lib/captura.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
+import PanelDocumentos from "./PanelDocumentos.jsx";
 import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import {
@@ -1431,6 +1432,7 @@ export default function DetallePedidoModal({
   );
   const [capturaTok, setCapturaTok] = useState(pedido.capturaToken || null);
   const [generandoLink, setGenerandoLink] = useState(false);
+  const [verDocs, setVerDocs] = useState(false);
 
   // Genera (si hace falta) y copia el link público de captura de medidas.
   const copiarLinkCaptura = async () => {
@@ -1640,116 +1642,25 @@ export default function DetallePedidoModal({
           borderTop: "1px solid #eee",
         }}
       >
-        {/* Acciones secundarias: compartir / exportar (estilo outline para
-            que no compitan con "Editar"). */}
+        {/* Antes acá había hasta 11 botones outline que solo se distinguían
+            por el emoji, con la explicación en un `title=` que en Android
+            táctil no se ve. Los papeles se fueron al panel "Documentos", que
+            los agrupa por destinatario y los nombra. Afuera queda lo que se
+            usa todos los días. */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {esAdmin && (
-            <button
-              onClick={onExportarPDF}
-              title="Imprimir o guardar como PDF"
-              style={btnExport("#1D6A3A")}
-            >
-              📄 PDF
-            </button>
-          )}
-          {esAdmin && (pedido.personas || []).length > 0 && (
-            <button
-              onClick={() => {
-                try { exportarExcelMedidas(pedido); }
-                catch (e) { pushToast(e.message, "error"); }
-              }}
-              title="Descargar las medidas en el formato Excel del taller (una hoja por prenda)"
-              style={btnExport("#217346")}
-            >
-              📗 Excel
-            </button>
-          )}
-          {esAdmin && (
-            <button
-              onClick={copiarLinkCaptura}
-              disabled={generandoLink}
-              title="Link público para llenar las medidas desde el teléfono, sin cuenta: mandalo a quien toma las medidas donde el cliente"
-              style={btnExport(capturaTok ? "#27AE60" : "#C0392B")}
-            >
-              {generandoLink ? "⏳" : "🔗"} Medidas{capturaTok ? " ✓" : ""}
-            </button>
-          )}
-          {esAdmin && (
-            <button
-              onClick={() => imprimirHojaTaller(pedido)}
-              title="Hoja de producción para el taller: por talla, con cada persona y sus medidas. Tachá al terminar."
-              style={btnExport("#B7791F")}
-            >
-              🏭 Producción
-            </button>
-          )}
-          {esAdmin && onImprimirProduccion && (() => {
-            // La hoja vieja (por color / prenda / detalle) queda solo para
-            // pedidos con varios colores o tipos, donde ese agrupamiento ayuda
-            // a comprar/organizar. En pedidos simples basta la hoja de arriba.
-            const ops = opcionesAgrupacion(pedido).filter(o => o.id !== "talla");
-            if (!ops.length) return null;
-            const ICO = { color: "🎨", tipo: "👕", spec: "🏷️" };
-            const COL = { color: "#8E44AD", tipo: "#2980B9", spec: "#16A085" };
-            return ops.map(o => (
-              <button
-                key={o.id}
-                onClick={() => onImprimirProduccion({ agruparPor: o.id })}
-                title={"Hoja agrupada por " + o.label.toLowerCase()}
-                style={btnExport(COL[o.id])}
-              >
-                {ICO[o.id]} {o.label}
-              </button>
-            ));
-          })()}
-          {esAdmin && (
-            <button
-              onClick={() => imprimirCantidades(pedido)}
-              title="Cuántas cortar: un cuadro de talla × color con las cantidades. Es la hoja para la mesa."
-              style={btnExport("#7D3C98")}
-            >
-              🔢 Cantidades
-            </button>
-          )}
-          {esAdmin && (
-            <button
-              onClick={() => imprimirCorte(pedido)}
-              title="Hoja de corte detallada: además de las cantidades, cuántas piezas de cada molde salen por talla"
-              style={btnExport("#0E7490")}
-            >
-              ✂️ Corte
-            </button>
-          )}
-          {esAdmin && onImprimirEntrega && (
-            <button
-              onClick={onImprimirEntrega}
-              title="Hoja de entrega para el cliente: lista de personas con firma de recibido, sin precios"
-              style={btnExport("#6B21A8")}
-            >
-              📦 Entrega
-            </button>
-          )}
-          {pedido.fechaEntrega && (
-            <button
-              onClick={() => {
-                if (descargarICSPedido(pedido)) {
-                  pushToast("Evento .ics descargado — abre con tu calendario", "success");
-                } else {
-                  pushToast("Sin fecha de entrega", "error");
-                }
-              }}
-              title="Descargar .ics para el calendario del teléfono (alarma 1 día antes)"
-              style={btnExport("#1A5276")}
-            >
-              📅 Calendario
-            </button>
-          )}
           <button
             onClick={onWhatsApp}
             title="Copia el resumen del pedido para pegarlo en WhatsApp"
             style={btnExport("#1F9D55")}
           >
             💬 WhatsApp
+          </button>
+          <button
+            onClick={() => setVerDocs(true)}
+            title="Hojas para el taller, papeles para el cliente y el recordatorio de entrega"
+            style={btnExport("#1A5276")}
+          >
+            📄 Documentos…
           </button>
         </div>
         {/* Acción principal */}
@@ -1770,6 +1681,39 @@ export default function DetallePedidoModal({
           ✏️ Editar
         </button>
       </div>
+
+      {verDocs && (
+        <PanelDocumentos
+          pedido={pedido}
+          esAdmin={esAdmin}
+          opcionesExtra={
+            onImprimirProduccion
+              ? opcionesAgrupacion(pedido).filter(o => o.id !== "talla")
+              : []
+          }
+          generandoLink={generandoLink}
+          capturaTok={capturaTok}
+          onClose={() => setVerDocs(false)}
+          onHojaTaller={() => imprimirHojaTaller(pedido)}
+          onCantidades={() => imprimirCantidades(pedido)}
+          onCorte={() => imprimirCorte(pedido)}
+          onAgrupada={id => onImprimirProduccion({ agruparPor: id })}
+          onExcelMedidas={() => {
+            try { exportarExcelMedidas(pedido); }
+            catch (e) { pushToast(e.message, "error"); }
+          }}
+          onPDF={onExportarPDF}
+          onEntrega={onImprimirEntrega}
+          onLinkMedidas={copiarLinkCaptura}
+          onCalendario={() => {
+            if (descargarICSPedido(pedido)) {
+              pushToast("Evento .ics descargado — abre con tu calendario", "success");
+            } else {
+              pushToast("Sin fecha de entrega", "error");
+            }
+          }}
+        />
+      )}
     </Modal>
   );
 }
