@@ -10,6 +10,9 @@
 import { nuevaVentanaImpresion } from "./imprimir.js";
 import { MEDIDAS_DEF } from "./constants.js";
 import { rankTalla, cantidadComponente } from "./dominio.js";
+// imgSrc y no la URL cruda: driveUrl es un link /view, no una imagen — la
+// foto legacy de Drive salía rota en la ficha técnica.
+import { imgSrc } from "./imagenes.js";
 
 // Paleta pensada para impresión en BLANCO Y NEGRO: todo lo que se imprime usa
 // negro + grises con buen contraste; nada depende del color para distinguirse.
@@ -98,9 +101,9 @@ const BARRA = `<div class="bar no-print">
   </div>`;
 
 function encabezado(prod, subtitulo, campos) {
-  const img = (prod.imagenes || []).find(i => i.supabaseUrl || i.driveUrl);
+  const img = (prod.imagenes || []).find(i => imgSrc(i));
   const ico = img
-    ? `<img src="${esc(img.supabaseUrl || img.driveUrl)}" alt="">`
+    ? `<img src="${esc(imgSrc(img))}" alt="">`
     : esc(prod.icono || "✂️");
   const flds = campos.map(c => `<div class="fld"><b>${esc(c)}</b><span class="ln"></span></div>`).join("");
   return `<header class="hd">
@@ -119,7 +122,7 @@ function encabezado(prod, subtitulo, campos) {
 // ─────────────────────────────────────────────────────────────
 export function imprimirFichaProducto(prod) {
   const win = nuevaVentanaImpresion("Ficha técnica — " + prod.nombre);
-  const img = (prod.imagenes || []).find(i => i.supabaseUrl || i.driveUrl);
+  const img = (prod.imagenes || []).find(i => imgSrc(i));
   const tec = tecnicasDe(prod);
 
   const specs = [
@@ -156,7 +159,7 @@ export function imprimirFichaProducto(prod) {
     : `<div class="empty">Sin bordados/estampados registrados</div>`;
 
   const imgBlock = img
-    ? `<div class="fig"><img src="${esc(img.supabaseUrl || img.driveUrl)}" alt="${esc(prod.nombre)}"></div>`
+    ? `<div class="fig"><img src="${esc(imgSrc(img))}" alt="${esc(prod.nombre)}"></div>`
     : "";
 
   const notas = prod.notas
@@ -347,13 +350,30 @@ export function imprimirHojaTaller(p) {
   const personas = Array.isArray(p.personas) ? p.personas : [];
 
   // Agrupar por talla (las sin talla van aparte).
-  const porTalla = new Map();
+  //
+  // La talla vive en DOS sitios según cómo se cargó el pedido: suelta en la
+  // persona, o dentro de cada prenda (per.prendas[].talla). Mirar solo la
+  // primera imprimía pedidos ENTEROS como "PENDIENTE DE TALLA" — le pasó al
+  // 63 (INSO) — el mismo bug ya corregido en las hojas de corte. Una persona
+  // con varias prendas aparece bajo cada talla, con la prenda anotada, y el
+  // conteo de cada talla cuenta PRENDAS (lo que se cose), no personas.
+  const lineasDe = per => {
+    const t = (per.talla || "").trim();
+    if (t) return [{ talla: t, prenda: "" }];
+    return (per.prendas || [])
+      .map(pr => ({ talla: (pr.talla || "").trim(), prenda: (pr.tipo || "").trim() }))
+      .filter(l => l.talla);
+  };
+
+  const porTalla = new Map();          // talla -> [{per, prenda}]
   const pendientes = [];
   for (const per of personas) {
-    const t = (per.talla || "").trim();
-    if (!t) { pendientes.push(per); continue; }
-    if (!porTalla.has(t)) porTalla.set(t, []);
-    porTalla.get(t).push(per);
+    const lineas = lineasDe(per);
+    if (!lineas.length) { pendientes.push(per); continue; }
+    for (const l of lineas) {
+      if (!porTalla.has(l.talla)) porTalla.set(l.talla, []);
+      porTalla.get(l.talla).push({ per, prenda: l.prenda });
+    }
   }
   const tallasOrd = [...porTalla.keys()].sort((a, b) => rankTalla(a) - rankTalla(b));
   const totalConTalla = [...porTalla.values()].reduce((s, arr) => s + arr.length, 0);
@@ -369,15 +389,18 @@ export function imprimirHojaTaller(p) {
     return `<span class="esp">${sim} ${esc(c)}</span>`;
   };
 
-  const filaPersona = (per) => {
+  const filaPersona = (per, prenda = "") => {
     const meds = medidasDePersona(per);
     const medBox = meds.length
       ? `<div class="med">✂ A LA MEDIDA — ${meds.map(([l, v]) => `${esc(l)}: <b>${esc(v)}</b>`).join(" · ")}</div>`
       : "";
     const nota = per.nota ? `<div class="nota">📌 ${esc(per.nota)}</div>` : "";
+    // La prenda se anota cuando la persona pide varias: sin esto, dos
+    // renglones de la misma persona no dicen cuál camiseta es cuál.
+    const pr = prenda ? ` <span class="pr">${esc(prenda)}</span>` : "";
     return `<div class="prow">
       <span class="ck"></span>
-      <div class="who"><div class="nm">${esc(per.nombre || "Sin nombre")}</div>${medBox}${nota}</div>
+      <div class="who"><div class="nm">${esc(per.nombre || "Sin nombre")}${pr}</div>${medBox}${nota}</div>
       ${badge(per)}
     </div>`;
   };
@@ -386,13 +409,13 @@ export function imprimirHojaTaller(p) {
     const arr = porTalla.get(t);
     return `<section class="tsec">
       <div class="thd">TALLA ${esc(t)} <span class="cnt">${arr.length}</span></div>
-      ${arr.map(filaPersona).join("")}
+      ${arr.map(x => filaPersona(x.per, x.prenda)).join("")}
     </section>`;
   };
 
   const seccionPend = pendientes.length ? `<section class="tsec">
       <div class="thd falta">⚠ PENDIENTE DE TALLA <span class="cnt">${pendientes.length}</span></div>
-      ${pendientes.map(filaPersona).join("")}
+      ${pendientes.map(per => filaPersona(per)).join("")}
     </section>` : "";
 
   // Componentes adicionales del kit (gabacha, gorro, etc.): prendas de talla
@@ -456,6 +479,7 @@ export function imprimirHojaTaller(p) {
     .ck{width:26px;height:26px;border:2.2px solid #1c1c1c;border-radius:6px;flex:none}
     .who{flex:1;min-width:0}
     .nm{font-size:18px;font-weight:700;line-height:1.15}
+    .pr{font-size:12px;font-weight:700;border:1.3px solid #333;border-radius:5px;padding:1px 7px;margin-left:6px;white-space:nowrap}
     .med{margin-top:4px;font-size:13px;background:#F0F0F0;border:1.4px solid #333;border-radius:7px;padding:4px 9px;color:#1c1c1c;display:inline-block;font-weight:600}
     .nota{margin-top:4px;font-size:12.5px;color:#333;font-weight:600}
     .esp{font-size:13px;font-weight:800;padding:6px 13px;border-radius:8px;white-space:nowrap;flex:none;border:1.5px solid #1c1c1c;color:#1c1c1c;background:#fff}

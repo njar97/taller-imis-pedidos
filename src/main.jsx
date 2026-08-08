@@ -1005,7 +1005,9 @@ function App() {
             onImprimir={(c) => imprimirCotizacion(c)}
             onComparar={(cots) => {
               if (!cots || cots.length < 2) return;
-              const w = nuevaVentanaImpresion();
+              // Con título: sin él, el PDF guardado salía sin nombre.
+              const cli = (cots[0] && cots[0].cliente) || "";
+              const w = nuevaVentanaImpresion(`Comparativo${cli ? " — " + cli : ""}`);
               w.document.write(htmlComparativoCotizaciones(cots));
               w.document.close();
             }}

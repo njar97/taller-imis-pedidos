@@ -3,6 +3,8 @@
 // cliente sin sumar los montos. Recibe cotizaciones en formato app
 // (camelCase) y devuelve HTML listo para nuevaVentanaImpresion().
 
+import { imgSrc } from "./imagenes.js";
+
 const esc = s =>
   String(s == null ? "" : s)
     .replace(/&/g, "&amp;")
@@ -47,7 +49,9 @@ export function htmlComparativoCotizaciones(cots) {
       const { qty, total, unit } = resumen(c);
       const etiqueta = partirTipo(c.tipoPrenda).etiqueta || "Opción " + (i + 1);
       const im = (c.imagenes || [])[0];
-      const img = im && (im.supabaseUrl || im.driveUrl || im.data);
+      // imgSrc y no la URL cruda: driveUrl es un link /view de Drive, no una
+      // imagen — usado como <img src> salía la foto rota en el comparativo.
+      const img = imgSrc(im);
       return `
       <div class="op">
         <div class="badge">Opción ${i + 1}</div>
@@ -106,6 +110,12 @@ export function htmlComparativoCotizaciones(cots) {
     <div class="ops">${cards}</div>
     <div class="pie">Los precios son por unidad. <b>Se elige una sola opción</b> — los montos no se suman. Precios sujetos a confirmación de tallas.</div>
   </div>
-  <div class="imprimir no-print"><button onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button></div>
+  <div class="imprimir no-print">
+    <button onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
+    <!-- Sin Cerrar, cancelar la impresion dejaba al usuario atrapado en el
+         overlay. window.close() funciona porque nuevaVentanaImpresion lo
+         remapea al cierre del overlay. -->
+    <button onclick="window.close()" style="background:#fff;color:#444;border:1.5px solid #ccc;border-radius:8px;padding:11px 18px;font-weight:700;font-size:14px;cursor:pointer;margin-left:8px">✕ Cerrar</button>
+  </div>
 </body></html>`;
 }

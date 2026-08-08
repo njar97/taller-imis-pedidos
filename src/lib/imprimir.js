@@ -977,12 +977,21 @@ export function imprimirEntrega(p) {
   });
   const saldo = parseFloat(p.precio || 0) - sumarAbonos(p);
 
-  // Filas con nombre: personas del pedido con sus prendas agrupadas.
-  const personasConPrendas = (p.personas || []).filter(per =>
-    Array.isArray(per.prendas) &&
-    per.prendas.some(pr => pr.tipo || pr.talla)
+  // Filas con nombre: TODAS las personas del pedido. La que trae prendas[]
+  // las lista agrupadas; la que solo trae talla (pedidos cargados así) sale
+  // con su talla — antes esas personas quedaban FUERA y la hoja caía al
+  // formato por tallas, que sin tallasItems imprimía puros ceros.
+  const personasNombradas = (p.personas || []).filter(per =>
+    per.nombre ||
+    (per.talla || "").trim() ||
+    (Array.isArray(per.prendas) && per.prendas.some(pr => pr.tipo || pr.talla))
   );
-  const filasNombradas = personasConPrendas.map(per => {
+  const filasNombradas = personasNombradas.map(per => {
+    const conPrendas = Array.isArray(per.prendas) && per.prendas.some(pr => pr.tipo || pr.talla);
+    if (!conPrendas) {
+      const t = (per.talla || "").trim();
+      return { nombre: per.nombre || "", prendas: t ? `Talla ${t}` : "", obs: "", nPrendas: 1 };
+    }
     const grupos = agruparPrendas(per.prendas)
       .filter(g => g.tipo || g.talla)
       .sort((a, b) => {
@@ -994,24 +1003,29 @@ export function imprimirEntrega(p) {
       .map(g => `${g.qty > 1 ? g.qty + "× " : ""}${[g.tipo, g.talla].filter(Boolean).join(" — ")}`)
       .join(" · ");
     const obs = grupos.map(g => g.spec).filter(Boolean).join(" · ");
-    return { nombre: per.nombre || "", prendas, obs };
+    const nPrendas = grupos.reduce((s, g) => s + (parseInt(g.qty) || 1), 0);
+    return { nombre: per.nombre || "", prendas, obs, nPrendas };
   });
+  const prendasNombradas = filasNombradas.reduce((s, f) => s + f.nPrendas, 0);
 
   // Total de piezas: por items de talla si existen, si no por prendas.
   const totalPiezas =
     (p.tallasItems || []).reduce((s, it) => s + (parseInt(it.qty) || 0), 0) ||
-    personasConPrendas.reduce((s, per) => s + per.prendas.filter(pr => pr.tipo || pr.talla).length, 0) ||
+    prendasNombradas ||
     filasNombradas.length;
 
-  const esLista = personasConPrendas.length > 0;
+  const esLista = filasNombradas.length > 0;
   const th = `padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;`;
   const td = `border:1px solid #bbb;padding:0 8px;height:30px;`;
 
   let tablaHTML;
   if (esLista) {
-    // Formato por LISTA: una fila por prenda, firma individual. Filas en
-    // blanco hasta cubrir todas las piezas.
-    const blancas = Math.max(0, totalPiezas - filasNombradas.length);
+    // Formato por LISTA: una fila por PERSONA (quien firma), con sus prendas
+    // listadas. Las blancas cubren solo prendas que de verdad no tienen
+    // persona asignada — antes se restaban FILAS (personas) de PIEZAS
+    // (prendas), y con multi-prenda salían filas vacías fantasma que en la
+    // entrega parecían prendas faltantes.
+    const blancas = Math.max(0, totalPiezas - prendasNombradas);
     const filas = [
       ...filasNombradas,
       ...Array.from({ length: blancas }, () => ({ nombre: "", prendas: "", obs: "" })),
@@ -1027,9 +1041,9 @@ export function imprimirEntrega(p) {
       <tbody>${filas.map((f, i) => `
         <tr style="background:${i % 2 === 0 ? "#fff" : "#faf8fc"};">
           <td style="${td}width:26px;text-align:center;color:#888;font-size:11px;">${i + 1}</td>
-          <td style="${td}font-weight:600;">${f.nombre}</td>
-          <td style="${td}font-size:12px;">${f.prendas}</td>
-          <td style="${td}font-size:11px;color:#666;font-style:italic;">${f.obs}</td>
+          <td style="${td}font-weight:600;">${esc(f.nombre)}</td>
+          <td style="${td}font-size:12px;">${esc(f.prendas)}</td>
+          <td style="${td}font-size:11px;color:#666;font-style:italic;">${esc(f.obs)}</td>
           <td style="${td}width:150px;"></td>
         </tr>`).join("")}
       </tbody>
@@ -1697,8 +1711,10 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
       const chaq = renderGrid(per.medidas.chaqueta, CHAQ_MEDS);
       const quep = per.medidas.quepi?.contornoCabeza != null
         ? `<span style="font-size:12px;font-weight:800;color:#1A5276;">Contorno: ${per.medidas.quepi.contornoCabeza} cm</span>` : "";
-      const abonoBadge = per.medidas.abono != null
-        ? `<span style="font-size:9px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;padding:1px 5px;color:#2e7d32;font-weight:700;">Abono $${per.medidas.abono}</span>` : "";
+      // OJO: acá NO va el abono. Esta hoja la lee el operario en el taller
+      // (main.jsx la imprime para no-admin) y el dinero del cliente no es
+      // asunto de producción — se filtraba "Abono $X" por persona.
+      const abonoBadge = "";
       return `<div style="border:1px solid #d0d8e4;border-radius:8px;padding:9px 11px;margin-bottom:8px;page-break-inside:avoid;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid #eee;">
           <div>
@@ -2212,6 +2228,9 @@ export function exportarPedidoPDF(pedido, tipo) {
     </style></head><body>
     <div class="no-print" style="text-align:right;margin-bottom:10px">
       <button onclick="_print()" style="padding:8px 20px;background:${color};color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:14px">🖨️ Guardar PDF</button>
+      <!-- Sin este boton, cancelar la impresion dejaba al usuario atrapado
+           en el overlay: tocaba recargar la app entera. -->
+      <button onclick="window.close()" style="padding:8px 14px;border-radius:7px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer">✕ Cerrar</button>
     </div>
     <div class="header">
       <div><div class="logo">🧵 Taller IMIS</div><div style="font-size:11px;color:#aaa;margin-top:3px">${tipo === "bordado" ? "Bordado" : "Tejido de cuello"}</div></div>
