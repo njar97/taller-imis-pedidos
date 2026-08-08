@@ -483,6 +483,9 @@ export function imprimirHojaTaller(p) {
     .med{margin-top:4px;font-size:13px;background:#F0F0F0;border:1.4px solid #333;border-radius:7px;padding:4px 9px;color:#1c1c1c;display:inline-block;font-weight:600}
     .nota{margin-top:4px;font-size:12.5px;color:#333;font-weight:600}
     .esp{font-size:13px;font-weight:800;padding:6px 13px;border-radius:8px;white-space:nowrap;flex:none;border:1.5px solid #1c1c1c;color:#1c1c1c;background:#fff}
+    .refs{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 4px}
+    .refs img{height:110px;max-width:170px;object-fit:contain;border:1.5px solid #1c1c1c;border-radius:8px;background:#fff}
+    .refs .rt{font-size:10.5px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:.05em;width:100%}
   `;
 
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -490,6 +493,15 @@ export function imprimirHojaTaller(p) {
     <body>${BARRA}<section class="page">
       ${encabezado({ nombre: (p.tipoPrenda || "Pedido") + " — " + (p.cliente || ""), icono: "🏭", imagenes: [] }, "Hoja de producción", ["Fecha", "Costurera"])}
       <div class="rsum"><span class="t">Total ${totalConTalla}${pendientes.length ? " + " + pendientes.length + " pend." : ""}:</span>${resumen}</div>
+      ${(() => {
+        // Imágenes de referencia del pedido (el diseño, la muestra): esto lo
+        // tenía la hoja de producción vieja y era su único aporte real. Sin
+        // ellas la costurera cose sin ver cómo debe quedar.
+        const refs = (p.imagenes || []).map(im => imgSrc(im)).filter(Boolean).slice(0, 4);
+        return refs.length
+          ? `<div class="refs"><span class="rt">Referencia del diseño</span>${refs.map(u => `<img src="${esc(u)}" alt="">`).join("")}</div>`
+          : "";
+      })()}
       ${leyenda}
       <div class="hint">Cada renglón es una prenda. Tachá ▢ al terminar. Las que dicen «A la medida» se cortan con esas medidas, no por talla.${usaEsp ? " El símbolo (● ○ ★) indica qué lleva bordado en la manga." : ""}</div>
       ${tallasOrd.map(seccionTalla).join("")}
