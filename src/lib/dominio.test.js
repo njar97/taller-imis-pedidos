@@ -14,6 +14,9 @@ import {
   carritoPedido,
   normNombre,
   PEDIDO_BASE,
+  montoNum,
+  sumarAbonos,
+  abonosAnotadosSinRegistrar,
 } from "./dominio.js";
 
 describe("fmt$", () => {
@@ -346,5 +349,65 @@ describe("conjuntos (uniformes completos)", () => {
   it("descarta conjuntos vacíos y tolera un pedido sin conjuntos", () => {
     expect(conjuntosResueltos({ ...pedido, conjuntos: [{ nombre: "Vacío", piezas: [] }] })).toEqual([]);
     expect(conjuntosResueltos({ tallasItems: [] })).toEqual([]);
+  });
+});
+
+// El dinero se muestra en recibo, Excel del mes, topbar y detalle: un error
+// aqui cobra mal. Los casos vienen de la DATA REAL de la base (pedidos 27,
+// 34, 35): anticipos guardados como "$335", abonos transcritos por persona.
+describe("montoNum", () => {
+  it("limpia el signo de dolar de la data real", () => {
+    expect(montoNum("$335")).toBe(335);
+    expect(montoNum("$1113.50")).toBe(1113.5);
+  });
+  it("numeros y strings normales pasan igual", () => {
+    expect(montoNum(14)).toBe(14);
+    expect(montoNum("300")).toBe(300);
+  });
+  it("vacio, null o basura dan 0, nunca NaN", () => {
+    expect(montoNum("")).toBe(0);
+    expect(montoNum(null)).toBe(0);
+    expect(montoNum(undefined)).toBe(0);
+    expect(montoNum("abc")).toBe(0);
+  });
+});
+
+describe("sumarAbonos", () => {
+  it("con abonos[], esa es la fuente de verdad", () => {
+    expect(sumarAbonos({ abonos: [{ monto: "10" }, { monto: "$25.50" }], anticipo: "999" })).toBe(35.5);
+  });
+  it("sin abonos cae al anticipo, aunque venga con $ (pedido 34 real)", () => {
+    expect(sumarAbonos({ abonos: [], anticipo: "$335" })).toBe(335);
+  });
+  it("NO suma los abonos por persona: ya estan transcritos a abonos[] y sumarlos duplicaria", () => {
+    // pedido 35 real: 30 abonos registrados = $1113.50, y las mismas
+    // cantidades anotadas en personas[].medidas.abono
+    const p = {
+      abonos: [{ monto: "1113.50" }],
+      personas: [{ medidas: { abono: 1113.5 } }],
+    };
+    expect(sumarAbonos(p)).toBe(1113.5);
+  });
+});
+
+describe("abonosAnotadosSinRegistrar", () => {
+  it("da 0 en los pedidos historicos (todo transcrito o cubierto por anticipo)", () => {
+    // pedido 27 real: sin abonos[], anticipo 300 = suma de los anotados
+    expect(abonosAnotadosSinRegistrar({
+      abonos: [], anticipo: "300",
+      personas: [{ medidas: { abono: 150 } }, { medidas: { abono: 150 } }],
+    })).toBe(0);
+  });
+  it("detecta dinero capturado que nadie paso al registro", () => {
+    expect(abonosAnotadosSinRegistrar({
+      abonos: [{ monto: "50" }], anticipo: "",
+      personas: [{ medidas: { abono: 50 } }, { medidas: { abono: 30 } }],
+    })).toBe(30);
+  });
+  it("no inventa deuda cuando lo registrado supera lo anotado", () => {
+    expect(abonosAnotadosSinRegistrar({
+      abonos: [{ monto: "100" }],
+      personas: [{ medidas: { abono: 40 } }],
+    })).toBe(0);
   });
 });

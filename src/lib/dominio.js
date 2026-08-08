@@ -7,12 +7,39 @@ export const hoy = () => new Date().toISOString().split("T")[0];
 /** Formatea un número como precio en dólares: `fmt$(4.5)` → `"$4.50"`. Trata null/undefined como 0. */
 export const fmt$ = n => "$" + parseFloat(n || 0).toFixed(2);
 
+// Monto en número, venga como venga: hay data real con "$335" y "$1113.50"
+// en `anticipo` — parseFloat("$335") da NaN y el NaN se propaga al recibo.
+// Se limpia todo lo que no sea dígito o punto.
+export const montoNum = v => {
+  const n = parseFloat(String(v ?? "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+};
+
 // Suma real de abonos. Si el pedido tiene abonos[], usa eso (fuente de
 // verdad). Si no, cae a p.anticipo. Es el "total ya pagado".
+//
+// OJO: los abonos anotados por persona (personas[].medidas.abono) NO se
+// suman aquí a propósito: en los pedidos reales (34, 35, 36, 63) ya están
+// transcritos a abonos[] con el nombre en la nota, y en el 27 el anticipo
+// manual los cubre — sumarlos duplicaría el dinero. Para detectar los que
+// quedaron SIN transcribir está abonosAnotadosSinRegistrar().
 export const sumarAbonos = p =>
   (p.abonos || []).length > 0
-    ? p.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0)
-    : parseFloat(p.anticipo || 0);
+    ? p.abonos.reduce((s, a) => s + montoNum(a.monto), 0)
+    : montoNum(p.anticipo);
+
+// Dinero anotado por persona en la captura de medidas que NO aparece en el
+// registro de pagos. En los pedidos históricos da 0 (todo transcrito); si un
+// día se captura y no se transcribe, esto es lo que hay que reclamar antes
+// de que el saldo salga inflado frente al cliente.
+export const abonosAnotadosSinRegistrar = p => {
+  const anotado = (p.personas || []).reduce(
+    (s, per) => s + montoNum(per.medidas && per.medidas.abono),
+    0
+  );
+  const dif = anotado - sumarAbonos(p);
+  return dif > 0.009 ? Math.round(dif * 100) / 100 : 0;
+};
 
 // Resumen agregado de TODAS las prendas del pedido, conservando el tipo
 // (Pantalón, Camisa, etc.) cuando viene en personas[].prendas[]. Cada item

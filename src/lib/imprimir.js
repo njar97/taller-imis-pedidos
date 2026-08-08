@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { agujasTejido, conjuntosResueltos, itemsResumen, medidaCuelloParaTalla, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { agujasTejido, conjuntosResueltos, itemsResumen, medidaCuelloParaTalla, montoNum, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { dbMoldesLeer, dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
@@ -768,7 +768,6 @@ function _print(){try{window.parent.document.title=document.title;}catch(e){}win
 }
 export function imprimirRecibo(p) {
   const abonado = sumarAbonos(p);
-  const saldo = parseFloat(p.precio || 0) - abonado;
   const tallas = resumenTallas(p);
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", {
@@ -781,11 +780,16 @@ export function imprimirRecibo(p) {
   const money = n => "$" + (parseFloat(n) || 0).toFixed(2);
   const NUM = "font-variant-numeric:tabular-nums;white-space:nowrap;";
 
-  const tieneItems = (p.tallasItems || []).length > 0;
+  // Items del detalle: tallasItems si existen; si no, itemsResumen — que sabe
+  // leer personas con prendas[] Y personas con solo talla. Sin esto, un pedido
+  // cargado por la captura pública (solo tallas por persona) imprimía el
+  // recibo SIN detalle: ni tabla ni cantidades.
+  const itemsBase = (p.tallasItems || []).length > 0 ? p.tallasItems : itemsResumen(p);
+  const tieneItems = itemsBase.length > 0;
   // Tallas ordenadas de la MÁS PEQUEÑA a la MÁS GRANDE (rankTalla: numéricas
   // por número, luego XS<S<M<L<XL<XXL<XXXL).
   const itemsOrd = tieneItems
-    ? [...p.tallasItems].sort((a, b) => rankTalla(a.talla) - rankTalla(b.talla))
+    ? [...itemsBase].sort((a, b) => rankTalla(a.talla) - rankTalla(b.talla))
     : [];
   const itemsTotal = itemsOrd.reduce((s, it) => s + (parseFloat(it.precio) || 0) * it.qty, 0);
   const itemsPzas = itemsOrd.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
@@ -804,7 +808,8 @@ export function imprimirRecibo(p) {
     return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f7fc"};border-bottom:1px solid #eee;">
             <td style="padding:7px 12px;">
               <span style="font-weight:800;color:#2C1654;">${it.talla || "—"}</span>
-              ${it.spec ? `<span style="color:#999;font-size:11px;"> · ${it.spec}</span>` : ""}
+              ${it.tipo ? `<span style="color:#555;font-size:11px;"> ${esc(it.tipo)}</span>` : ""}
+              ${it.spec ? `<span style="color:#999;font-size:11px;"> · ${esc(it.spec)}</span>` : ""}
             </td>
             <td style="padding:7px 12px;text-align:center;font-weight:700;${NUM}">${it.qty}</td>
             <td style="padding:7px 12px;text-align:right;color:#555;${NUM}">${tieneP ? money(it.precio) : "—"}</td>
@@ -884,10 +889,15 @@ export function imprimirRecibo(p) {
   </div>
 
   <!-- TOTALES Y PAGO (estilo factura: bloque apilado, decimales alineados) -->
-  ${p.precio ? (() => {
-    const total = parseFloat(p.precio) || 0;
-    const sub = esCF ? total / 1.13 : null;
-    const iva = esCF ? total - sub : null;
+  ${(montoNum(p.precio) > 0 || itemsTotal > 0 || abonado > 0) ? (() => {
+    // El precio pactado manda; si está vacío se cae a la suma de los items.
+    // Antes el bloque ENTERO dependía de p.precio: un pedido con precio sin
+    // llenar pero con $1,113.50 abonados (caso real, pedido 35) imprimía el
+    // recibo sin total, sin anticipo y sin saldo.
+    const total = montoNum(p.precio) || itemsTotal;
+    const saldoR = total > 0 ? total - abonado : null;
+    const sub = esCF && total > 0 ? total / 1.13 : null;
+    const iva = sub != null ? total - sub : null;
     const line = (lbl, val, o = {}) => `
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:${o.pad || "4px 0"};${o.borderTop ? "border-top:" + o.borderTop + ";" : ""}">
         <span style="color:${o.lblColor || "#666"};font-weight:${o.lblW || 600};font-size:${o.lblSize || "12px"};${o.upper ? "text-transform:uppercase;letter-spacing:.5px;" : ""}">${lbl}</span>
@@ -897,14 +907,14 @@ export function imprimirRecibo(p) {
   <div class="sec">💰 Totales y pago</div>
   <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
     <div style="width:340px;max-width:100%;border:1.5px solid #e6e1ef;border-radius:12px;padding:14px 18px;background:#fbfafd;">
-      ${esCF ? line("Subtotal", money(sub)) : ""}
-      ${esCF ? line("IVA (13%)", money(iva)) : ""}
-      ${line("Total", money(total), { borderTop: esCF ? "1px solid #e6e1ef" : "", pad: esCF ? "8px 0 4px" : "4px 0", lblW: 800, lblColor: "#2C1654", lblSize: "13px", valW: 800, valSize: "15px" })}
+      ${sub != null ? line("Subtotal", money(sub)) : ""}
+      ${sub != null ? line("IVA (13%)", money(iva)) : ""}
+      ${line("Total", total > 0 ? money(total) : "Por confirmar", { borderTop: sub != null ? "1px solid #e6e1ef" : "", pad: sub != null ? "8px 0 4px" : "4px 0", lblW: 800, lblColor: "#2C1654", lblSize: "13px", valW: 800, valSize: "15px" })}
       ${line("Anticipo recibido", "−" + money(abonado), { valColor: "#27AE60" })}
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:24px;margin-top:8px;padding-top:10px;border-top:2px solid #2C1654;">
-        <span style="font-weight:900;color:#2C1654;text-transform:uppercase;letter-spacing:.5px;font-size:13px;">${saldo > 0 ? "Saldo pendiente" : "Estado"}</span>
-        <span style="font-weight:900;font-size:23px;color:${saldo > 0 ? "#E74C3C" : "#27AE60"};${NUM}">${saldo > 0 ? money(saldo) : "✅ Pagado"}</span>
-      </div>
+      ${saldoR != null ? `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:24px;margin-top:8px;padding-top:10px;border-top:2px solid #2C1654;">
+        <span style="font-weight:900;color:#2C1654;text-transform:uppercase;letter-spacing:.5px;font-size:13px;">${saldoR > 0 ? "Saldo pendiente" : "Estado"}</span>
+        <span style="font-weight:900;font-size:23px;color:${saldoR > 0 ? "#E74C3C" : "#27AE60"};${NUM}">${saldoR > 0 ? money(saldoR) : "✅ Pagado"}</span>
+      </div>` : `<div style="margin-top:8px;padding-top:8px;border-top:2px solid #2C1654;font-size:11px;color:#888;">El saldo se confirma al definir el precio total.</div>`}
     </div>
   </div>`;
   })() : ""}
@@ -2066,8 +2076,8 @@ export function exportarExcelMes(pedidos, bordados, cuellos, periodo) {
     Prenda: p.tipoPrenda || "",
     Telas: p.tela || "",
     "Precio ($)": pM(p.precio),
-    "Abonado ($)": (p.abonos || []).length > 0 ? p.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(p.anticipo),
-    "Saldo ($)": Math.max(0, pM(p.precio) - ((p.abonos || []).length > 0 ? p.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(p.anticipo))),
+    "Abonado ($)": sumarAbonos(p),
+    "Saldo ($)": pM(p.precio) - sumarAbonos(p),
     Estatus: p.estatus || "",
     "Fecha pedido": p.fecha || "",
     "Fecha entrega": p.fechaEntrega || "",
@@ -2080,8 +2090,8 @@ export function exportarExcelMes(pedidos, bordados, cuellos, periodo) {
     Prenda: b.diseño || b.soporte || "",
     Telas: b.soporte || "",
     "Precio ($)": pM(b.precioT),
-    "Abonado ($)": (b.abonos || []).length > 0 ? b.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(b.anticipo),
-    "Saldo ($)": Math.max(0, pM(b.precioT) - ((b.abonos || []).length > 0 ? b.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(b.anticipo))),
+    "Abonado ($)": sumarAbonos(b),
+    "Saldo ($)": pM(b.precioT) - sumarAbonos(b),
     Estatus: b.estatus || "",
     "Fecha pedido": b.fecha || "",
     "Fecha entrega": b.fechaEntrega || "",
@@ -2094,8 +2104,8 @@ export function exportarExcelMes(pedidos, bordados, cuellos, periodo) {
     Prenda: [cu.cuello && cu.cuello.activa ? "Cuello" : "", cu.puno && cu.puno.activa ? "Puño" : "", cu.banda && cu.banda.activa ? "Banda" : ""].filter(Boolean).join("+"),
     Telas: cu.material || "",
     "Precio ($)": pM(cu.precioT),
-    "Abonado ($)": (cu.abonos || []).length > 0 ? cu.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(cu.anticipo),
-    "Saldo ($)": Math.max(0, pM(cu.precioT) - ((cu.abonos || []).length > 0 ? cu.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(cu.anticipo))),
+    "Abonado ($)": sumarAbonos(cu),
+    "Saldo ($)": pM(cu.precioT) - sumarAbonos(cu),
     Estatus: cu.estatus || "",
     "Fecha pedido": cu.fecha || "",
     "Fecha entrega": cu.fechaEntrega || "",
@@ -2206,7 +2216,7 @@ export function exportarPedidoPDF(pedido, tipo) {
       const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
       return isNaN(n) ? 0 : n;
     };
-    const abonado = (pedido.abonos || []).length > 0 ? pedido.abonos.reduce((s, a) => s + pM(a.monto), 0) : pM(pedido.anticipo);
+    const abonado = sumarAbonos(pedido);
     const saldo = pM(pedido.precioT) - abonado;
     const idStr = tipo === "bordado" ? "BORD-" + String(pedido.id).padStart(3, "0") : "CUEL-" + String(pedido.id).padStart(3, "0");
     const color = tipo === "bordado" ? "#1A5F5A" : "#B85C00";
@@ -2257,7 +2267,7 @@ export function exportarPedidoPDF(pedido, tipo) {
       <div class="campo"><div class="campo-lbl">Cantidad</div><div class="campo-val">${pedido.cantidad || "1"} pieza(s)</div></div>
       <div class="campo"><div class="campo-lbl">Fecha entrega</div><div class="campo-val">${pedido.fechaEntrega || "—"}</div></div>
     </div>
-    ${saldo >= 0 ? `<div class="sec">💰 Pago</div>
+    ${(pM(pedido.precioT) > 0 || abonado > 0) ? `<div class="sec">💰 Pago</div>
     <div class="total-box">
       <div><div style="font-size:11px;opacity:.8">Precio total</div><div style="font-size:24px;font-weight:900">$${pM(pedido.precioT).toFixed(2)}</div></div>
       <div style="text-align:right"><div style="font-size:11px;opacity:.8">Saldo pendiente</div><div style="font-size:24px;font-weight:900">$${saldo.toFixed(2)}</div></div>

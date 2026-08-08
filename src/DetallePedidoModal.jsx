@@ -9,7 +9,7 @@
 
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen, conjuntosResueltos, detalleFactura, textoFactura, carritoPedido, normNombre } from "./lib/dominio.js";
+import { fmt$, resumenTallas, itemsResumen, conjuntosResueltos, detalleFactura, textoFactura, carritoPedido, normNombre, sumarAbonos, abonosAnotadosSinRegistrar, montoNum } from "./lib/dominio.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { imprimirCorte, imprimirCantidades, opcionesAgrupacion } from "./lib/imprimir.js";
@@ -162,7 +162,13 @@ function InfoTabla({ pedido, esAdmin }) {
     esAdmin && pedido.nit ? ["NIT", pedido.nit] : null,
     esAdmin ? ["Precio", fmt$(pedido.precio)] : null,
     esAdmin ? ["Abonado", fmt$(sumarAbonos(pedido))] : null,
-    esAdmin ? ["Saldo", fmt$(parseFloat(pedido.precio || 0) - sumarAbonos(pedido))] : null,
+    esAdmin ? ["Saldo", fmt$(montoNum(pedido.precio) - sumarAbonos(pedido))] : null,
+    // Si la captura de medidas trae abonos por persona que nadie paso al
+    // registro de pagos, el saldo de arriba esta inflado: avisarlo aqui,
+    // donde se decide, y no en el recibo que ve el cliente.
+    ...(esAdmin && abonosAnotadosSinRegistrar(pedido) > 0
+      ? [["⚠ Sin registrar", fmt$(abonosAnotadosSinRegistrar(pedido)) + " anotados por persona no estan en el registro de pagos"]]
+      : []),
     // Intermediario (solo interno, nunca sale en cotización/recibo)
     ...(esAdmin && parseFloat(pedido.comisionUnit || 0) > 0 ? (() => {
       const pzs = itemsResumen(pedido).reduce((s, it) => s + (parseInt(it.qty) || 0), 0)
@@ -212,11 +218,8 @@ function InfoTabla({ pedido, esAdmin }) {
   ));
 }
 
-function sumarAbonos(p) {
-  return (p.abonos || []).length > 0
-    ? p.abonos.reduce((s, a) => s + parseFloat(a.monto || 0), 0)
-    : parseFloat(p.anticipo || 0);
-}
+// sumarAbonos viene de dominio.js: la copia local que vivia aca no limpiaba
+// el "$" de anticipos como "$335" (data real) y mostraba Abonado NaN.
 
 // Bloque colapsado "Detalle para factura" (solo admin). Agrupa los ítems por
 // producto + precio y los deja listos para copiar/pegar al emitir la factura,
