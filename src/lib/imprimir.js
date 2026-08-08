@@ -47,7 +47,7 @@ export function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false
         const tieneP = g.precio != null && g.precio !== "" && parseFloat(g.precio) > 0;
         const sub = mostrarPrecios && tieneP ? parseFloat(g.precio) * g.qty : null;
         return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;">
-          <span><strong style="color:${color};">${g.qty}×</strong> ${label}${g.spec ? ` <span style="color:#888;font-size:11px;">(${g.spec})</span>` : ""}</span>
+          <span><strong style="color:${color};">${g.qty}×</strong> ${esc(label)}${g.spec ? ` <span style="color:#888;font-size:11px;">(${esc(g.spec)})</span>` : ""}</span>
           ${sub != null ? `<span style="color:#27AE60;font-weight:700;white-space:nowrap;">$${sub.toFixed(2)}</span>` : ""}
         </div>`;
       })
@@ -55,11 +55,11 @@ export function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false
     const tallaTaller = mostrarInternos && per.gafete
       ? `<span style="font-size:10px;color:#666;background:#eef;padding:1px 6px;border-radius:8px;margin-left:6px;">Talla taller ${per.gafete}</span>`
       : "";
-    const cargo = per.cargo ? `<div style="font-size:10px;color:#888;margin-top:1px;">${per.cargo}</div>` : "";
+    const cargo = per.cargo ? `<div style="font-size:10px;color:#888;margin-top:1px;">${esc(per.cargo)}</div>` : "";
     return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f9fa"};border-bottom:1px solid #eee;">
       <td style="padding:8px 10px;color:#aaa;font-size:11px;width:24px;vertical-align:top;">${i + 1}</td>
       <td style="padding:8px 10px;vertical-align:top;width:35%;">
-        <div style="font-weight:800;color:#2C1654;">${per.nombre || "Sin nombre"}${tallaTaller}</div>
+        <div style="font-weight:800;color:#2C1654;">${esc(per.nombre || "Sin nombre")}${tallaTaller}</div>
         ${cargo}
       </td>
       <td style="padding:8px 10px;vertical-align:top;font-size:12px;">${lineas}</td>
@@ -882,9 +882,9 @@ export function imprimirRecibo(p) {
   <!-- DETALLE DEL PEDIDO -->
   <div class="sec">📋 Detalle del pedido</div>
   <div style="background:#fafafa;border:1.5px solid #eee;border-radius:10px;padding:14px;margin-bottom:16px;">
-    <div style="font-size:16px;font-weight:800;color:#2C1654;margin-bottom:6px;">✂️ ${p.tipoPrenda || "(sin especificar)"}</div>
-    ${p.tela || p.color ? `<div style="font-size:13px;color:#555;margin-bottom:4px;">🧵 ${[p.tela, p.color].filter(Boolean).join(" — ")}</div>` : ""}
-    ${p.descripcion ? `<div style="font-size:12px;color:#666;margin-top:6px;padding:8px 10px;background:#fff;border-radius:6px;border-left:3px solid #9B59B6;">${p.descripcion}</div>` : ""}
+    <div style="font-size:16px;font-weight:800;color:#2C1654;margin-bottom:6px;">✂️ ${esc(p.tipoPrenda || "(sin especificar)")}</div>
+    ${p.tela || p.color ? `<div style="font-size:13px;color:#555;margin-bottom:4px;">🧵 ${esc([p.tela, p.color].filter(Boolean).join(" — "))}</div>` : ""}
+    ${p.descripcion ? `<div style="font-size:12px;color:#666;margin-top:6px;padding:8px 10px;background:#fff;border-radius:6px;border-left:3px solid #9B59B6;">${esc(p.descripcion)}</div>` : ""}
     ${tablaPorPersonaHTML(p, "#2C1654", true, false) || itemsHTML}
   </div>
 
@@ -924,12 +924,12 @@ export function imprimirRecibo(p) {
   <div class="sec">🧾 Datos fiscales</div>
   <div style="background:#f0f8ff;border:1.5px solid #cce5ff;border-radius:10px;padding:14px;margin-bottom:16px;">
     ${(p.tipoDocumento || "").includes("pendiente") ? `<div style="color:#856404;font-weight:700;margin-bottom:8px;">⚠️ Pendiente recibir datos fiscales completos</div>` : ""}
-    ${p.razonSocial ? `<div style="font-weight:700;font-size:14px;margin-bottom:4px;">${p.razonSocial}</div>` : ""}
+    ${p.razonSocial ? `<div style="font-weight:700;font-size:14px;margin-bottom:4px;">${esc(p.razonSocial)}</div>` : ""}
     <div style="display:flex;gap:20px;font-size:12px;color:#555;">
-      ${p.nit ? `<span>NIT: <strong>${p.nit}</strong></span>` : ""}
-      ${p.nrc ? `<span>NRC: <strong>${p.nrc}</strong></span>` : ""}
+      ${p.nit ? `<span>NIT: <strong>${esc(p.nit)}</strong></span>` : ""}
+      ${p.nrc ? `<span>NRC: <strong>${esc(p.nrc)}</strong></span>` : ""}
     </div>
-    ${p.dirFiscal ? `<div style="font-size:12px;color:#555;margin-top:4px;">${p.dirFiscal}</div>` : ""}
+    ${p.dirFiscal ? `<div style="font-size:12px;color:#555;margin-top:4px;">${esc(p.dirFiscal)}</div>` : ""}
   </div>` : ""}
 
   <!-- FIRMAS -->
@@ -943,7 +943,7 @@ export function imprimirRecibo(p) {
     <div style="text-align:center;">
       <div style="border-top:1.5px solid #333;padding-top:8px;margin-top:40px;">
         <div style="font-size:11px;font-weight:700;color:#333;">Recibido por — Cliente</div>
-        <div style="font-size:12px;color:#555;margin-top:2px;">${p.cliente}</div>
+        <div style="font-size:12px;color:#555;margin-top:2px;">${esc(p.cliente)}</div>
       </div>
     </div>
   </div>

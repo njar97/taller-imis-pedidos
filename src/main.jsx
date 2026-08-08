@@ -227,6 +227,7 @@ import {
 import { EMPRESA } from "./lib/empresa.js";
 import { nombrePDF } from "./lib/pdfNombre.js";
 import { guardarSnapshot as guardarSnapshotEdicion } from "./lib/edicionReciente.js";
+import { imprimirHojaTaller } from "./lib/documentosProducto.js";
 import {
   tablaPorPersonaHTML,
   imprimirPedido,
@@ -1108,7 +1109,14 @@ function App() {
             setConf={setConf}
             setVisor={setVisor}
             cambiarEstatus={cambiarEstatus}
-            onImprimir={(p) => modoProduccion ? imprimirProduccion(p, pedidos) : imprimirPedido(p, esAdmin, pedidos)}
+            onImprimir={(p) => {
+              // El taller (operario o modo producción) imprime la hoja por
+              // talla — la buena, sin dinero. La hoja de producción vieja se
+              // retiró de este camino: repetía la pregunta con peor formato y
+              // hasta hace poco filtraba el abono por persona al operario.
+              if (modoProduccion || !esAdmin) imprimirHojaTaller(p);
+              else imprimirPedido(p, esAdmin, pedidos);
+            }}
             onCopiarWA={(p) => copiarWA(p, esAdmin)}
             cotizaciones={pedidos.filter(p => p.esCotizacion)}
             onEditarCotizacion={(c) => setModal(c)}
