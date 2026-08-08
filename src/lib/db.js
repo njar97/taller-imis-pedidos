@@ -107,6 +107,50 @@ async function upsertTabla(tabla, obj) {
   }
 }
 
+// ── Crear una fila NUEVA sin pisar a nadie ───────────────────
+//
+// upsertTabla sirve para editar, pero es peligroso para crear: los ids se
+// calculan en el dispositivo (max(ids)+1) y el refresco en vivo no los
+// avanza, así que dos aparatos abiertos a la vez calculan el MISMO id. Con
+// `merge-duplicates` el segundo en guardar reemplaza al primero y nadie se
+// entera: un pedido registrado desaparece.
+//
+// Acá el INSERT va sin on_conflict: si el id está tomado, Postgres devuelve
+// 23505 y en vez de pisar buscamos el siguiente id libre y reintentamos.
+
+const esIdTomado = e =>
+  /\b23505\b|duplicate key|llave duplicada/i.test(String((e && e.message) || ""));
+
+async function maxIdRemoto(tabla) {
+  const rows = await rest(`/${tabla}?select=id&order=id.desc&limit=1`);
+  return Array.isArray(rows) && rows.length ? Number(rows[0].id) || 0 : 0;
+}
+
+// Devuelve el id con el que realmente quedó guardada la fila — puede NO ser
+// el que traía el objeto. Quien llama debe usar el devuelto.
+// Lanza si falla por red, para que el llamador conserve su manejo de offline.
+async function crearFila(tabla, obj, maxIntentos = 6) {
+  let id = Number(obj.id) || 1;
+  for (let intento = 0; intento < maxIntentos; intento++) {
+    try {
+      await rest(`/${tabla}`, {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify([keysToSnake({ ...obj, id })]),
+      });
+      return id;
+    } catch (e) {
+      if (!esIdTomado(e)) throw e;
+      // Otro dispositivo se adelantó: preguntamos cuál es el último de verdad.
+      const max = await maxIdRemoto(tabla).catch(() => id);
+      const siguiente = Math.max(id + 1, max + 1);
+      console.warn(`db.crearFila(${tabla}): id ${id} ya estaba tomado, voy con ${siguiente}`);
+      id = siguiente;
+    }
+  }
+  throw new Error(`No encontré un id libre en ${tabla} tras ${maxIntentos} intentos`);
+}
+
 // Soft-delete: marca deleted_at = now() en vez de DELETE.
 // El registro queda recuperable hasta que se purgue manualmente.
 async function borrarPorId(tabla, id) {
@@ -158,6 +202,8 @@ async function purgarPorId(tabla, id) {
 
 export const dbLeer        = () => leerTabla("taller_pedidos");
 export const dbGuardar     = p => upsertTabla("taller_pedidos", limpiarPedido(p));
+// Para pedidos NUEVOS. Devuelve el id real con el que quedó (ver crearFila).
+export const dbCrear       = p => crearFila("taller_pedidos", limpiarPedido(p));
 export const dbBorrar      = id => borrarPorId("taller_pedidos", id);
 export const dbPapelera    = () => leerPapelera("taller_pedidos");
 export const dbRestaurar   = id => restaurarPorId("taller_pedidos", id);
@@ -182,6 +228,7 @@ function limpiarPedido(p) {
 
 export const dbBordLeer      = () => leerTabla("taller_bordados");
 export const dbBordGuardar   = b  => upsertTabla("taller_bordados", b);
+export const dbBordCrear     = b  => crearFila("taller_bordados", b);
 export const dbBordBorrar    = id => borrarPorId("taller_bordados", id);
 export const dbBordPapelera  = () => leerPapelera("taller_bordados");
 export const dbBordRestaurar = id => restaurarPorId("taller_bordados", id);
@@ -234,6 +281,7 @@ export const dbMoldesLeer          = () => leerTabla("taller_moldes");
 
 export const dbCuelLeer      = () => leerTabla("taller_cuellos");
 export const dbCuelGuardar   = c  => upsertTabla("taller_cuellos", c);
+export const dbCuelCrear     = c  => crearFila("taller_cuellos", c);
 export const dbCuelBorrar    = id => borrarPorId("taller_cuellos", id);
 export const dbCuelPapelera  = () => leerPapelera("taller_cuellos");
 export const dbCuelRestaurar = id => restaurarPorId("taller_cuellos", id);

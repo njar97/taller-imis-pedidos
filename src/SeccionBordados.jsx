@@ -4,7 +4,8 @@
 // (~2 030 líneas).
 
 import { BORD_E, BORD_EC, DISENO_EST, POSICIONES_BORD, SOPORTES_BORD, TIPO_DOC } from "./lib/constants.js";
-import { dbBordBorrar as gsBordBorrar, dbBordGuardar as gsBordGuardar } from "./lib/db.js";
+import { dbBordBorrar as gsBordBorrar, dbBordCrear as gsBordCrear, dbBordGuardar as gsBordGuardar } from "./lib/db.js";
+import { guardarSeguro, vaciarCola } from "./lib/colaGuardado.js";
 import { pushToast } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { Modal } from "./lib/Modal.jsx";
@@ -14,7 +15,7 @@ import { subirArchivoSupabase, subirFotoSupabase } from "./supabaseStorage.js";
 import BuscadorConfRef from "./BuscadorConfRef.jsx";
 import RegistroAbonos from "./RegistroAbonos.jsx";
 
-import { useState, useRef, lazy, Suspense } from "react";
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
 
 // Catálogo de diseños — carga diferida, solo si se abre
 const CatalogoDisenos = lazy(() => import("./CatalogoDisenos.jsx"));
@@ -795,21 +796,13 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
             />
           </>
         ) : (
-          <>
-            <div style={{ marginBottom: 10 }}>
-              <label style={LBL}>Fecha de entrega</label>
-              <input style={INPS} type="date" value={f.fechaEntrega} onChange={e => set("fechaEntrega", e.target.value)} />
-            </div>
-            <RegistroAbonos
-              abonos={f.abonos || []}
-              precioTotal={f.precioT}
-              onChange={v => {
-                set("abonos", v);
-                set("anticipo", v.reduce((s, a) => s + parseFloat(a.monto || 0), 0).toFixed(2));
-              }}
-              esAdmin={false}
-            />
-          </>
+          // Al operario NO se le muestra el registro de abonos: el dinero del
+          // cliente lo cobra y lo asienta el admin. Antes se mostraba con
+          // esAdmin={false}, que oculta el saldo pero deja registrar pagos.
+          <div style={{ marginBottom: 10 }}>
+            <label style={LBL}>Fecha de entrega</label>
+            <input style={INPS} type="date" value={f.fechaEntrega} onChange={e => set("fechaEntrega", e.target.value)} />
+          </div>
         )}
 
         {/* ── Estado ── */}
@@ -888,18 +881,34 @@ export default function SeccionBordados({
     .reduce((s, b) => s + (parseFloat(b.precioT || 0) - parseFloat(b.anticipo || 0)), 0);
   const conteos = BORD_E.reduce((a, e) => ({ ...a, [e]: bordados.filter(b => b.estatus === e).length }), {});
 
-  function guardar(form) {
+  async function guardar(form) {
     const isNuevo = modal === "nuevo";
     const id = isNuevo ? nextBordId : modal.id;
     const p = { ...form, id, fecha: isNuevo ? hoyB() : (modal.fecha || hoyB()) };
     if (isNuevo) {
       setBordados(prev => [...prev, p]);
-      setNextBordId(n => n + 1);
+      setNextBordId(n => Math.max(n, id + 1));
     } else {
       setBordados(prev => prev.map(b => (b.id === id ? p : b)));
     }
     setModal(null);
-    gsBordGuardar(p);
+    if (isNuevo) {
+      // Insert puro: si otro dispositivo ya usó el número, busca el siguiente
+      // libre en vez de reemplazar el bordado ajeno.
+      try {
+        const idReal = await gsBordCrear(p);
+        if (idReal !== id) {
+          p.id = idReal;
+          setBordados(prev => prev.map(b => (b.id === id ? { ...b, id: idReal } : b)));
+          pushToast(`Otro dispositivo usaba el N°${id}; este quedó como N°${idReal}`, "info", 5000);
+        }
+        setNextBordId(n => Math.max(n, idReal + 1));
+      } catch {
+        await guardarSeguro({ tabla: "taller_bordados", obj: p, guardar: gsBordGuardar, que: "el bordado" });
+      }
+    } else {
+      await guardarSeguro({ tabla: "taller_bordados", obj: p, guardar: gsBordGuardar, que: "el bordado" });
+    }
     if (p.cliente && upsertClienteLocal) {
       upsertClienteLocal(p.cliente, {
         telefono: p.telefono, nit: p.nit, nrc: p.nrc,
@@ -918,10 +927,24 @@ export default function SeccionBordados({
   function cambiarEstatus(id, est) {
     setBordados(prev => {
       const nuevos = prev.map(b => (b.id === id ? { ...b, estatus: est } : b));
-      gsBordGuardar(nuevos.find(b => b.id === id));
+      guardarSeguro({
+        tabla: "taller_bordados",
+        obj: nuevos.find(b => b.id === id),
+        guardar: gsBordGuardar,
+        que: "el cambio de estado",
+      });
       return nuevos;
     });
   }
+
+  // Al entrar a la sección se reintenta lo que quedó pendiente por falta de
+  // señal, y también cuando el navegador avisa que volvió la red.
+  useEffect(() => {
+    const reintentar = () => vaciarCola({ taller_bordados: gsBordGuardar });
+    reintentar();
+    window.addEventListener("online", reintentar);
+    return () => window.removeEventListener("online", reintentar);
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
