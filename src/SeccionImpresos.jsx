@@ -6,6 +6,11 @@
 // Cada ficha guarda la medida de la pieza, cuántas caben por hoja y el
 // PDF listo para imprenta. El PDF principal trae frente y reverso en
 // dos páginas: se manda a doble cara y ya.
+//
+// Los films DTF entran acá también, pero se miden distinto: no hay hoja ni
+// piezas por hoja, hay un ROLLO de ancho fijo y se paga por METRO LINEAL.
+// Lo que encarece un film no es el área sino cuánto avanza el rollo, así
+// que la ficha guarda ancho de rollo, largo y precio por metro.
 
 import { dbImpresosLeer, dbImpresoGuardar, dbImpresoBorrar } from "./lib/db.js";
 import { Modal } from "./lib/Modal.jsx";
@@ -18,11 +23,15 @@ const TIPOS = [
   { id: "recuerdo",   label: "Recuerdos",    icon: "🕊️" },
   { id: "palanca",    label: "Palancas",     icon: "✉️" },
   { id: "invitacion", label: "Invitaciones", icon: "💌" },
+  { id: "film",       label: "Films DTF",    icon: "🎞️" },
   { id: "otro",       label: "Otros",        icon: "🖨️" },
 ];
+const OTRO = TIPOS[TIPOS.length - 1];
 
-const iconoDe = t => (TIPOS.find(x => x.id === t) || TIPOS[3]).icon;
-const rotuloDe = t => (TIPOS.find(x => x.id === t) || TIPOS[3]).label;
+const iconoDe = t => (TIPOS.find(x => x.id === t) || OTRO).icon;
+const rotuloDe = t => (TIPOS.find(x => x.id === t) || OTRO).label;
+
+const esFilm = i => i.tipo === "film";
 
 const fmtFecha = f => {
   if (!f) return "";
@@ -30,11 +39,30 @@ const fmtFecha = f => {
   return `${d}/${m}/${a}`;
 };
 
+const num = v => Number(v).toFixed(2).replace(/\.00$/, "");
+const fmt$ = v => (v == null || v === "" ? null : `$${Number(v).toFixed(2)}`);
+
 // "3.51 × 6.00 cm cerrada" — el cerrada importa: es lo que mide doblada.
+// En un film no hay pieza doblada: la medida es lo que ocupa el arte armado.
 function medidaTexto(i) {
   if (!i.piezaAnchoCm || !i.piezaAltoCm) return null;
-  const n = v => Number(v).toFixed(2).replace(/\.00$/, "");
-  return `${n(i.piezaAnchoCm)} × ${n(i.piezaAltoCm)} cm${i.doblado ? " cerrada" : ""}`;
+  const base = `${num(i.piezaAnchoCm)} × ${num(i.piezaAltoCm)} cm`;
+  if (esFilm(i)) return base;
+  return base + (i.doblado ? " cerrada" : "");
+}
+
+// "59.9 cm de rollo de 59.5" — lo que de verdad se paga.
+function rolloTexto(i) {
+  if (!i.largoCm) return null;
+  const ancho = i.rolloAnchoCm ? ` de ${num(i.rolloAnchoCm)}` : "";
+  return `${num(i.largoCm)} cm de rollo${ancho}`;
+}
+
+// El costo total se guarda calculado, pero si falta se saca del largo.
+function costoFilm(i) {
+  if (i.costoTotal != null && i.costoTotal !== "") return Number(i.costoTotal);
+  if (i.largoCm && i.costoMetro) return (Number(i.largoCm) / 100) * Number(i.costoMetro);
+  return null;
 }
 
 export default function SeccionImpresos({ esAdmin }) {
@@ -169,15 +197,32 @@ function CardImpreso({ i, onAbrir }) {
         <div style={{ fontSize: 12, fontWeight: 700, color: "#333", lineHeight: 1.25 }}>{i.titulo}</div>
         {i.cliente && <div style={{ fontSize: 10.5, color: "#999" }}>{i.cliente}</div>}
         <div style={{ display: "flex", gap: 4, marginTop: "auto", flexWrap: "wrap", alignItems: "center", paddingTop: 4 }}>
-          {i.porHoja && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: MORADO, background: "#F4ECF7", borderRadius: 5, padding: "2px 6px" }}>
-              {i.porHoja} por hoja
-            </span>
-          )}
-          {med && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: "#1A5276", background: "#EBF5FB", borderRadius: 5, padding: "2px 6px" }}>
-              {med.replace(" cerrada", "")}
-            </span>
+          {esFilm(i) ? (
+            <>
+              {rolloTexto(i) && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: MORADO, background: "#F4ECF7", borderRadius: 5, padding: "2px 6px" }}>
+                  {num(i.largoCm)} cm de rollo
+                </span>
+              )}
+              {costoFilm(i) != null && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#1E8449", background: "#EAF7EF", borderRadius: 5, padding: "2px 6px" }}>
+                  {fmt$(costoFilm(i))}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              {i.porHoja && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: MORADO, background: "#F4ECF7", borderRadius: 5, padding: "2px 6px" }}>
+                  {i.porHoja} por hoja
+                </span>
+              )}
+              {med && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#1A5276", background: "#EBF5FB", borderRadius: 5, padding: "2px 6px" }}>
+                  {med.replace(" cerrada", "")}
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -200,9 +245,23 @@ function DetalleImpreso({ i, esAdmin, onClose, onBorrar }) {
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px", fontSize: 13 }}>
           <Dato k="Cliente"      v={i.cliente} />
           <Dato k="Fecha"        v={fmtFecha(i.fecha)} />
-          <Dato k="Pieza"        v={med} />
-          <Dato k="Por hoja"     v={i.porHoja ? `${i.porHoja}${i.cols && i.filas ? ` (${i.cols} col × ${i.filas} fil)` : ""}` : null} />
-          <Dato k="Hoja"         v={i.hoja} />
+          {esFilm(i) ? (
+            <>
+              <Dato k="Arte armado" v={med} />
+              <Dato k="Rollo"       v={i.rolloAnchoCm ? `${num(i.rolloAnchoCm)} cm de ancho` : null} />
+              <Dato k="Avanza"      v={i.largoCm ? `${num(i.largoCm)} cm de rollo` : null} />
+              <Dato k="Tarifa"      v={i.costoMetro ? `${fmt$(i.costoMetro)} el metro lineal` : null} />
+              <Dato k="Costo"       v={fmt$(costoFilm(i))} />
+              <Dato k="Proveedor"   v={i.proveedor} />
+              <Dato k="Pedido"      v={i.pedidoRef ? `N° ${i.pedidoRef}` : null} />
+            </>
+          ) : (
+            <>
+              <Dato k="Pieza"    v={med} />
+              <Dato k="Por hoja" v={i.porHoja ? `${i.porHoja}${i.cols && i.filas ? ` (${i.cols} col × ${i.filas} fil)` : ""}` : null} />
+              <Dato k="Hoja"     v={i.hoja} />
+            </>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -212,7 +271,7 @@ function DetalleImpreso({ i, esAdmin, onClose, onBorrar }) {
                  background: MORADO, color: "#fff", borderRadius: 9, padding: "11px 14px",
                  textDecoration: "none", fontWeight: 700, fontSize: 13.5, textAlign: "center",
                }}>
-              ⬇️ Pliego listo para imprimir
+              {esFilm(i) ? "⬇️ Film listo para imprimir" : "⬇️ Pliego listo para imprimir"}
             </a>
           )}
           {extras.map((a, n) => (
