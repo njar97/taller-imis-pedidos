@@ -1701,6 +1701,12 @@ export default function DetallePedidoModal({
           onCantidades={() => imprimirCantidades(pedido)}
           onCorte={() => imprimirCorte(pedido)}
           onAgrupada={id => onImprimirProduccion({ agruparPor: id })}
+          onIrMarcando={onImprimirProduccion ? () => {
+            // Misma hoja, sin diálogo de impresión: se llena tocando.
+            // Agrupada igual que la impresa (por color si hay varios).
+            const g = opcionesAgrupacion(pedido).filter(o => o.id !== "talla")[0];
+            onImprimirProduccion({ agruparPor: g ? g.id : "auto", llenar: true });
+          } : null}
           onExcelMedidas={() => {
             try { exportarExcelMedidas(pedido); }
             catch (e) { pushToast(e.message, "error"); }
