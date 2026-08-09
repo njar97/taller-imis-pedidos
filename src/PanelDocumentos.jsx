@@ -78,6 +78,7 @@ export default function PanelDocumentos({
   onCantidades,
   onCorte,
   onAgrupada,              // (id) => void
+  onIrMarcando,
   onExcelMedidas,
   onPDF,
   onEntrega,
@@ -127,6 +128,14 @@ export default function PanelDocumentos({
               onClick={cerrarY(() => onAgrupada(o.id))}
             />
           ))}
+          {esAdmin && onIrMarcando && (
+            <Doc
+              key="marcar" icono="✅" color={COLOR.taller}
+              nombre="Ir marcando en el celular"
+              desc="La misma hoja agrupada, pero sin imprimir: se toca cada prenda al terminarla. Lo marcado se guarda en este teléfono."
+              onClick={cerrarY(onIrMarcando)}
+            />
+          )}
           {esAdmin && hayPersonas && (
             <Doc
               key="excel" icono="📗" color={COLOR.taller}
