@@ -98,7 +98,10 @@ export async function imprimirPedido(p, esAdmin, todosPedidos = []) {
 // capturar el contenido y generar un PDF compartible por WhatsApp.
 // Expone window.__shareWithPDF__(tituloArch, waText) en el padre, que el
 // iframe llama al pulsar el botón "Compartir WA".
-export function nuevaVentanaImpresion(titulo = null) {
+// autoPrint:false abre la hoja SIN disparar el diálogo de impresión — para
+// hojas que se usan en pantalla (ir marcando desde el celular). El botón
+// "Guardar PDF" del propio documento sigue estando para cuando sí se imprime.
+export function nuevaVentanaImpresion(titulo = null, { autoPrint = true } = {}) {
   const prev = document.getElementById("__print_overlay__");
   if (prev) {
     prev.remove();
@@ -270,8 +273,10 @@ export function nuevaVentanaImpresion(titulo = null) {
       close: () => {
         idoc.close();
         const doImprimir = () => {
-          // Monkey-patch close del iframe para que onclick="window.close()" cierre el overlay
+          // Monkey-patch close del iframe para que onclick="window.close()" cierre el overlay.
+          // Va SIEMPRE, también sin autoPrint: si no, el botón "Cerrar" no cierra nada.
           try { iframe.contentWindow.close = closeOverlay; } catch {}
+          if (!autoPrint) return;
           try {
             const prevTitle = document.title;
             if (titulo) document.title = titulo;
@@ -1424,6 +1429,10 @@ export const opcionesAgrupacion = p => {
 // detalle del pedido; los call sites viejos siguen funcionando igual.
 export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   const num = String(p.id).padStart(4, "0");
+  // Modo "ir marcando": la misma hoja, pero cada pieza es una casilla que se
+  // toca en el celular en vez de tacharse con lapicero. Lo marcado se guarda
+  // en el propio teléfono (localStorage), así que sobrevive cerrar la hoja.
+  const llenar = !!opts.llenar;
   // QR con URL del pedido — el query param ?p=<id> se puede usar en
   // un futuro deeplink para abrir el detalle del pedido al instante.
   const baseURL = typeof window !== "undefined" ? window.location.origin + window.location.pathname : "";
@@ -1571,11 +1580,25 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     /parvulari/i.test(s || "") ? "🧒 " :
     /b[aá]sica/i.test(s || "") ? "🎒 " :
     /bachillerato|t[eé]cnic/i.test(s || "") ? "🎓 " : "";
+  const escA = s => String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const caja = lado =>
     `<span style="display:inline-block;width:${lado}px;height:${lado}px;border:1.5px solid #888;border-radius:3px;margin-right:5px;vertical-align:middle;flex:none;"></span>`;
-  const casillas = (n, grande = false) => {
+  // Clave estable de cada pieza: mientras no cambien las prendas del pedido,
+  // la misma casilla conserva su marca entre aperturas de la hoja.
+  const claveDe = (it, i, nombre) =>
+    [it.tipo || "", it.spec || "", it.talla || "", nombre || "", i].join("¦");
+  // En modo marcar, la casilla y su nombre son UN solo blanco grande de toque
+  // (los cuadritos de 17 px no se atinan con el dedo).
+  const chip = (k, bi, texto) =>
+    `<span class="pick" data-k="${escA(k)}" data-b="${bi}"><span class="bx"></span>${texto ? escA(texto) : ""}</span>`;
+  const casillas = (n, grande = false, it = null, bi = 0) => {
     const q = parseInt(n) || 0;
     if (q <= 0 || q > 40) return "";
+    if (llenar && it) {
+      return `<span class="picks">${Array.from({ length: q }, (_, i) => chip(claveDe(it, i, ""), bi, "")).join("")}</span>`;
+    }
     return `<span style="line-height:1.9;">${caja(grande ? 19 : 14).repeat(q)}</span>`;
   };
   // Si el pedido se registró por lista, cada prenda tiene dueño. Poner el
@@ -1594,9 +1617,12 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     }
     return dueños.length === (parseInt(it.qty) || 0) && dueños.every(Boolean) ? dueños : null;
   };
-  const casillasConNombre = it => {
+  const casillasConNombre = (it, bi = 0) => {
     const nombres = nombresDeItem(it);
-    if (!nombres) return casillas(it.qty, true);
+    if (!nombres) return casillas(it.qty, true, it, bi);
+    if (llenar) {
+      return `<span class="picks">${nombres.map((n, i) => chip(claveDe(it, i, n), bi, n)).join("")}</span>`;
+    }
     return `<div style="display:flex;flex-wrap:wrap;gap:4px 16px;">${nombres.map(n =>
       `<span style="display:inline-flex;align-items:center;font-size:13px;font-weight:700;color:#333;white-space:nowrap;">${caja(17)}${n}</span>`
     ).join("")}</div>`;
@@ -1617,7 +1643,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   const descGlobal = colapsarDesc && !porGrupo ? descBloque(bloques[0]) : null;
   const tablaPrendasHTML = ordenados.length ? `
     ${descGlobal ? `<div style="font-size:14px;font-weight:800;color:#333;margin-bottom:6px;">${descGlobal}</div>` : ""}
-    <table style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
+    <table class="tprod" style="width:100%;border-collapse:collapse;font-size:13px;border:2px solid #1A5276;border-radius:10px;overflow:hidden;">
       <thead><tr style="background:#1A5276;color:#fff;">
         <th style="padding:9px 12px;text-align:center;width:90px;">TALLA</th>
         <th style="padding:9px 12px;text-align:center;width:70px;">CUÁNTOS</th>
@@ -1625,7 +1651,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
         <th style="padding:9px 12px;text-align:left;${colapsarDesc ? "" : "width:180px;"}">Tache al terminar ✔</th>
       </tr></thead>
       <tbody>
-        ${bloques.map(b => {
+        ${bloques.map((b, bi) => {
           const grupos = agruparPorTalla(b.items);
           const subtotal = b.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
           const css = CSS_COLOR[(b.nombre || "").toLowerCase()];
@@ -1636,6 +1662,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
                 ${dot}<span style="font-size:17px;font-weight:900;color:#1A5276;text-transform:uppercase;letter-spacing:.5px;">${b.nombre || "Sin especificar"}</span>
                 <span style="font-size:11px;font-weight:800;color:#888;margin-left:9px;">${subtotal} piezas</span>
                 ${colapsarDesc ? `<span style="font-size:13px;font-weight:700;color:#555;margin-left:12px;">${descBloque(b)}</span>` : ""}
+                ${llenar ? `<span class="bcnt no-print" data-b="${bi}"></span>` : ""}
               </td>
             </tr>` : "";
           return header + grupos.map((g, gi) => {
@@ -1649,7 +1676,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
               </td>` : ""}
               <td style="padding:10px 12px;text-align:center;font-weight:900;font-size:24px;color:#1A5276;">${it.qty}</td>
               ${colapsarDesc ? "" : `<td style="padding:10px 12px;color:#333;font-size:14px;font-weight:700;">${descDe(it)}</td>`}
-              <td style="padding:10px 12px;">${colapsarDesc ? casillasConNombre(it) : casillas(it.qty)}</td>
+              <td style="padding:10px 12px;">${colapsarDesc ? casillasConNombre(it, bi) : casillas(it.qty, false, it, bi)}</td>
             </tr>`).join("");
           }).join("");
         }).join("")}
@@ -1668,8 +1695,35 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     </div>` : "";
   const diagramaURL = diagramaCamisaPNG(p.disenos, { ancho: 280, alto: 320 });
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
-  const w = nuevaVentanaImpresion(tituloProd);
+  const w = nuevaVentanaImpresion(tituloProd, { autoPrint: !llenar });
+  // En modo marcar la hoja se lee en el teléfono, no en papel: sin viewport
+  // el móvil la maqueta a 980 px y la encoge, y no se le atina a nada.
+  const cssLlenar = llenar ? `
+    body{padding:14px 12px;}
+    .barra{margin:-14px -12px 12px;}
+    .hdr{flex-wrap:wrap;}
+    .tprod{table-layout:fixed;}
+    .picks{display:flex;flex-wrap:wrap;gap:7px;}
+    .pick{max-width:100%;}
+    .pick{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:6px 13px 6px 9px;border:2px solid #cfd8e3;border-radius:11px;background:#fff;font-size:15px;font-weight:700;color:#222;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;}
+    .pick .bx{width:22px;height:22px;border:2px solid #90a4b8;border-radius:5px;flex:none;display:grid;place-items:center;font-size:15px;line-height:1;color:#fff;}
+    .pick.on{background:#E8F5E9;border-color:#2E7D32;color:#1B5E20;}
+    .pick.on .bx{background:#2E7D32;border-color:#2E7D32;}
+    .pick.on .bx::after{content:"✔";}
+    .bcnt{display:inline-block;margin-left:10px;font-size:12px;font-weight:900;color:#1A5276;background:#fff;border:1.5px solid #1A5276;border-radius:20px;padding:1px 10px;}
+    .barra{position:sticky;top:0;z-index:9;background:#1A5276;color:#fff;padding:11px 14px;margin:-24px -30px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .barra .n{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums;}
+    .barra .lbl{font-size:12px;opacity:.85;flex:1;min-width:120px;}
+    .barra button{padding:9px 14px;border-radius:9px;border:none;font-weight:800;font-size:13px;cursor:pointer;}
+    @media print{
+      body{padding:0;}
+      .pick{min-height:0;padding:1px 7px 1px 4px;border:none;font-size:13px;}
+      .pick .bx{width:15px;height:15px;border:1.5px solid #888;font-size:12px;}
+      .pick.on{background:none;color:#000;}
+      .pick.on .bx{background:none;border-color:#000;color:#000;}
+    }` : "";
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  ${llenar ? `<meta name="viewport" content="width=device-width,initial-scale=1">` : ""}
   <title>${tituloProd}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
@@ -1685,12 +1739,19 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     .urgente .campo-val{color:#C0392B;}
     .ok{border-left-color:#27AE60;}
     .ok .campo-val{color:#155724;}
+    ${cssLlenar}
   </style></head><body>
 
   <div class="no-print" style="margin-bottom:16px;">
+    ${llenar ? `
+    <div class="barra">
+      <span class="n" id="prog">0 / 0</span>
+      <span class="lbl">Tocá cada uno al terminarlo. Se guarda en este teléfono.</span>
+      <button id="btnlimp" onclick="_limpiar()" style="background:#0d3f5e;color:#fff;">↺ Limpiar</button>
+    </div>` : `
     <div style="background:#EBF5FB;border:1px solid #BBDEFB;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#1A5276;">
       💾 <strong>Tip:</strong> al imprimir, en "Destino" elegí <strong>"Guardar como PDF"</strong>. El archivo se llamará <strong>${tituloProd}.pdf</strong>
-    </div>
+    </div>`}
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button onclick="_print()" style="padding:11px 24px;border-radius:8px;border:none;background:#1A5276;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">🖨️ Guardar PDF</button>
       <button onclick="window.close()" style="padding:11px 16px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-weight:700;font-size:14px;cursor:pointer;">✕ Cerrar</button>
@@ -1698,7 +1759,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   </div>
 
   <!-- ENCABEZADO: taller + N° + entrega + QR -->
-  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1A5276;padding-bottom:10px;margin-bottom:14px;gap:14px;">
+  <div class="hdr" style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1A5276;padding-bottom:10px;margin-bottom:14px;gap:14px;">
     <div style="flex:1;">
       <div style="font-size:18px;font-weight:900;color:#1A5276;font-family:Georgia,serif;line-height:1;">${TALLER}</div>
       <div style="font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-top:3px;">Hoja de Producción · ${fecha}</div>
@@ -1820,6 +1881,44 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   <script>
   const _pt=(function(){try{return window.parent.document.title;}catch(e){return '';}})();
   function _print(){try{window.parent.document.title=document.title;}catch(e){}window.print();window.addEventListener('afterprint',function(){try{window.parent.document.title=_pt;}catch(e){}},{once:true});setTimeout(function(){try{window.parent.document.title=_pt;}catch(e){}},15000);}
+  ${llenar ? `
+  var _LS='hp_marcas_${p.id}';
+  var _S={};
+  try{(JSON.parse(localStorage.getItem(_LS)||'[]')||[]).forEach(function(k){_S[k]=1;});}catch(e){}
+  function _guardar(){try{localStorage.setItem(_LS,JSON.stringify(Object.keys(_S)));}catch(e){}}
+  function _pintar(){
+    var els=document.querySelectorAll('.pick'),tot=0,hechos=0,porB={};
+    for(var i=0;i<els.length;i++){
+      var el=els[i],k=el.getAttribute('data-k'),b=el.getAttribute('data-b'),on=!!_S[k];
+      el.className=on?'pick on':'pick';
+      if(!porB[b])porB[b]={n:0,t:0};
+      porB[b].t++;tot++;
+      if(on){porB[b].n++;hechos++;}
+    }
+    var pr=document.getElementById('prog');
+    if(pr)pr.textContent=hechos+' / '+tot;
+    var cs=document.querySelectorAll('.bcnt');
+    for(var j=0;j<cs.length;j++){
+      var d=porB[cs[j].getAttribute('data-b')]||{n:0,t:0};
+      cs[j].textContent=d.n+' de '+d.t;
+    }
+  }
+  document.addEventListener('click',function(ev){
+    var el=ev.target&&ev.target.closest?ev.target.closest('.pick'):null;
+    if(!el)return;
+    var k=el.getAttribute('data-k');
+    if(_S[k])delete _S[k];else _S[k]=1;
+    _guardar();_pintar();
+  });
+  var _arm=false,_tmr=null;
+  function _limpiar(){
+    var b=document.getElementById('btnlimp');
+    if(!_arm){_arm=true;b.textContent='¿Seguro? Tocá otra vez';_tmr=setTimeout(function(){_arm=false;b.textContent='↺ Limpiar';},4000);return;}
+    clearTimeout(_tmr);_arm=false;b.textContent='↺ Limpiar';
+    _S={};_guardar();_pintar();
+  }
+  _pintar();
+  ` : ""}
   </script>
   </body></html>`);
   w.document.close();

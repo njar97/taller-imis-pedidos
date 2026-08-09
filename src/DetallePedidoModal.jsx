@@ -1702,6 +1702,20 @@ export default function DetallePedidoModal({
               </button>
             ));
           })()}
+          {esAdmin && onImprimirProduccion && (
+            <button
+              onClick={() => {
+                // Misma hoja, sin diálogo de impresión: se llena tocando.
+                // Agrupada igual que la impresa (color si hay varios).
+                const g = opcionesAgrupacion(pedido).filter(o => o.id !== "talla")[0];
+                onImprimirProduccion({ agruparPor: g ? g.id : "auto", llenar: true });
+              }}
+              title="La misma hoja de producción, para ir marcando desde el celular. Lo marcado se guarda en este teléfono."
+              style={btnExport("#0F766E")}
+            >
+              ✅ Ir marcando
+            </button>
+          )}
           {esAdmin && (
             <button
               onClick={() => imprimirCorte(pedido)}
