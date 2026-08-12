@@ -135,7 +135,44 @@ emisor, no Hacienda: **hay que armarlo en la app**.
   PDF se descarga aparte. El patrón `wa.me` ya se usa en `DetalleClienteModal.jsx:57`,
   `FormPedido.jsx:605` y `EstimadorPrecio.jsx:747`. **Reusar, no reinventar.**
 
-### 3.5.4 Y que no se pierda
+### 3.5.4 Envío por correo electrónico
+
+⚠️ **No es un extra: enviar el DTE al receptor es obligación del emisor.** Y el
+receptor necesita el **JSON**, no solo el PDF — el JSON es el documento con validez
+fiscal; el PDF es la representación gráfica.
+
+**Lo que ya existe (no reinventar):** Tlacuilo (`emisor-dte`) ya resuelve las dos
+cosas en `emisor_dte_v8.html`:
+- **Genera el PDF con jsPDF + autotable** (cargados por CDN).
+- **Manda por correo con `mailto:`** (`emisor_dte_v8.html:1550`).
+
+**Las opciones, de menos a más trabajo:**
+
+| Opción | Cómo | Adjunta archivos | Costo |
+|---|---|---|---|
+| **A. `mailto:`** | Abre el correo del teléfono con destinatario, asunto y cuerpo ya escritos | ❌ **NO** | cero |
+| **B. `navigator.share()`** | El mismo botón de compartir; Javier elige Gmail | ✅ sí | cero |
+| **C. Backend que envía** | Edge Function de Supabase o endpoint en el puente, con SMTP o Resend | ✅ sí, y automático | medio |
+
+**Recomendación**: empezar por la **B**, que es el mismo mecanismo del botón de
+WhatsApp — un solo botón «Compartir factura» y que Javier elija a dónde. Con Gmail el
+texto **sí** viaja (a diferencia de WhatsApp), así que ahí conviene mandar PDF + JSON
+juntos y el cuerpo con los datos.
+
+La **A (`mailto:`)** sirve como fallback en escritorio, igual que `wa.me`, pero
+**no puede adjuntar** — solo texto con el link de la consulta pública.
+
+La **C** es la única que hace el envío *automático* al emitir (sin que Javier toque
+nada) y la que corresponde a la obligación legal de mandarlo siempre. Dejarla para
+después de que el flujo manual funcione, y decidir con Javier si vale la pena. Nota:
+el puente ya tiene autenticación y sabe de empresas, así que sería el lugar natural
+— pero **el `/enviar` que existe hoy es «enviar al MH», no enviar correo**; no
+confundirlos.
+
+**Falta un dato**: los pedidos y `taller_clientes` **no guardan correo del cliente**.
+Si se quiere enviar, hay que agregar el campo. Pedirle a Javier el correo de la USO.
+
+### 3.5.5 Y que no se pierda
 
 Guardar el JSON del DTE en `taller_facturas` (ya hay columnas `receptor` e `items`
 jsonb) para poder **regenerar el PDF después** sin volver a emitir. Hoy, si el usuario
