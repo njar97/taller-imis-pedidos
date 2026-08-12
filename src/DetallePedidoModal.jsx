@@ -257,7 +257,7 @@ function DetalleFactura({ pedido }) {
   const fila = { display: "flex", justifyContent: "space-between" };
 
   return (
-    <details style={{ marginTop: 6, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
+    <details open style={{ marginTop: 6, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
       <summary
         style={{
           fontSize: 12,
@@ -1608,7 +1608,13 @@ export default function DetallePedidoModal({
       )}
 
       {vista === "carrito" ? (
-        <VistaCarrito pedido={pedido} />
+        <>
+          <VistaCarrito pedido={pedido} />
+          {/* La factura nace de la venta, no del pedido: va acá, debajo del
+              carrito que ya muestra qué se cobra y cuánto. Antes vivía plegada
+              en medio del detalle y no se encontraba. */}
+          {esAdmin && <DetalleFactura pedido={pedido} />}
+        </>
       ) : (
        <>
       <StatusYCosturera
@@ -1618,7 +1624,7 @@ export default function DetallePedidoModal({
       />
       <InfoTabla pedido={pedido} esAdmin={esAdmin} />
       <EspecsDiseno disenos={pedido.disenos} onVerFoto={onVerFoto} />
-      {esAdmin && <DetalleFactura pedido={pedido} />}
+      {esAdmin && !hayCarrito && <DetalleFactura pedido={pedido} />}
       <Abonos abonos={pedido.abonos} personas={pedido.personas} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
       <DelCatalogo pedido={pedido} catalogo={catalogo} onVerFoto={onVerFoto} />
