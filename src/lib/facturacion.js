@@ -235,12 +235,17 @@ export function prepararFacturaPedido(pedido, opciones = {}) {
 
   const d = detalleFactura(pedido);
 
-  // ── Modo anticipo: una sola línea por el monto libre, no toca el carrito ──
+  // ── Modo anticipo: una sola línea por el monto libre, no toca el carrito.
+  // También sirve de FALLBACK cuando el pedido no tiene ni un ítem cargado
+  // (solo el precio final, sin desglose) — ahí el monto cubre el total y no
+  // es realmente "un anticipo", así que la nota no lo llama así.
   if (anticipo && Number(anticipo.monto) > 0) {
     const monto = +Number(anticipo.monto).toFixed(2);
     const saldo = +(d.total - monto).toFixed(2);
-    const nota = (anticipo.nota || "").trim() ||
-      `Anticipo. Total pedido ${fmt$(d.total)} · Saldo pendiente ${fmt$(saldo)}`;
+    const esPagoCompleto = saldo <= 0.01;
+    const nota = (anticipo.nota || "").trim() || (esPagoCompleto
+      ? (pedido.tipoPrenda || pedido.cliente || `Pedido #${pedido.id}`)
+      : `Anticipo. Total pedido ${fmt$(d.total)} · Saldo pendiente ${fmt$(saldo)}`);
     return {
       ok: true, tipo, receptor,
       lineas: [{ tipo: nota, precio: monto, qty: 1, subtotal: monto }],
@@ -250,21 +255,37 @@ export function prepararFacturaPedido(pedido, opciones = {}) {
     };
   }
 
-  if (!d.lineas.length) return { ok: false, error: "El pedido no tiene ítems para facturar." };
-  if (d.lineas.some(l => l.precio == null))
+  // Si vino una selección explícita (modo "elegir": ítems del carrito, del
+  // pago aparte, o líneas escritas a mano) se usa esa, aunque la canasta
+  // principal esté vacía — es justo el caso que antes quedaba sin salida
+  // (pedido con precio pero sin ítems cargados, o con todo marcado "aparte").
+  const lineas = (lineasElegidas && lineasElegidas.length) ? lineasElegidas : d.lineas;
+  const usandoTodo = lineas === d.lineas;
+
+  if (!lineas.length) {
+    return {
+      ok: false,
+      error: lineasElegidas
+        ? "Elegí al menos un ítem para facturar (o escribile un precio a los que les falta)."
+        : "El pedido no tiene ítems para facturar.",
+    };
+  }
+  if (usandoTodo && d.lineas.some(l => l.precio == null))
     return { ok: false, error: "Hay ítems sin precio unitario — completá los precios en el pedido antes de facturar." };
 
-  const lineas = (lineasElegidas && lineasElegidas.length) ? lineasElegidas : d.lineas;
-  if (!lineas.length) return { ok: false, error: "Elegí al menos un ítem para facturar." };
-
-  const esParcial = lineas !== d.lineas;
+  const esParcial = !usandoTodo;
   const total = +lineas.reduce((s, l) => s + l.precio * l.qty, 0).toFixed(2);
 
-  if (!esParcial && d.descuadre)
+  if (usandoTodo && d.descuadre)
     avisos.push(
       `La factura saldrá por la suma de líneas (${fmt$(d.sumaLineas)}), que NO coincide con el precio del pedido (${fmt$(d.total)}).`
     );
-  if (esParcial) avisos.push(`Factura PARCIAL del carrito — no incluye todos los ítems del pedido.`);
+  if (esParcial) {
+    if (total < d.total - 0.01)
+      avisos.push(`Factura por ${fmt$(total)} de ${fmt$(d.total)} del pedido — quedan ítems sin facturar.`);
+    else if (total > d.total + 0.01)
+      avisos.push(`Factura por ${fmt$(total)}, más que el precio base del pedido (${fmt$(d.total)}) — incluye ítems fuera del carrito principal.`);
+  }
 
   return { ok: true, tipo, receptor, lineas, total, avisos };
 }

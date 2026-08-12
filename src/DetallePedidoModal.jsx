@@ -465,15 +465,86 @@ function FacturaElectronica({ pedido }) {
   const sugerido = tipoSugerido(pedido);
   const [tipo, setTipo] = useState(sugerido);
 
-  const d = useMemo(() => detalleFactura(pedido), [pedido]);
+  // carritoPedido() trae las TRES canastas del pedido: lo facturable (igual
+  // que antes), lo marcado "pago aparte" (personas noFactura) y lo que se
+  // produce sin precio propio. Antes el clasificador solo miraba la primera:
+  // un pedido con todo en "aparte" o sin nada cargado (solo el precio final,
+  // como los delantales con "Talla única - 100 unidades" en texto libre)
+  // salía con la lista vacía y el botón moría con "no tiene ítems".
+  const carrito = useMemo(() => carritoPedido(pedido), [pedido]);
+  const d = carrito.factura;
 
-  // Qué se factura: todo el carrito (default), una selección de líneas —
-  // para dividir el pedido en varias facturas —, o un anticipo por un monto
-  // libre que no tiene por qué corresponder a ítems del carrito.
-  const [modo, setModo] = useState("todo"); // "todo" | "elegir" | "anticipo"
-  const [seleccion, setSeleccion] = useState(() => new Map()); // "tipo|precio" -> cantidad elegida
+  // Catálogo de líneas elegibles para "Elegir ítems", normalizado desde las
+  // tres canastas. `precioBase`/`qtyBase` son el punto de partida; el usuario
+  // puede editarlos (por eso NO son el valor final — ver `estadoDe`).
+  const candidatos = useMemo(() => {
+    const list = [];
+    carrito.factura.lineas.forEach((l, i) => list.push({
+      key: `f:${i}`, origen: "factura", tipo: l.tipo,
+      precioBase: l.precio, qtyBase: l.qty, defaultChecked: true,
+    }));
+    carrito.aparte.lineas.forEach((l, i) => list.push({
+      key: `a:${i}`, origen: "aparte", tipo: l.tipo + (l.talla ? ` (${l.talla})` : ""),
+      precioBase: l.precio, qtyBase: l.qty, defaultChecked: false,
+    }));
+    carrito.sinPrecio.forEach((c, i) => list.push({
+      key: `s:${i}`, origen: "sinPrecio", tipo: c.nombre + (c.talla ? ` (${c.talla})` : ""),
+      precioBase: null, qtyBase: c.qty, defaultChecked: false,
+    }));
+    return list;
+  }, [carrito]);
+  const sinCandidatos = candidatos.length === 0;
+
+  // Qué se factura: todo el carrito (default), una selección de líneas —para
+  // dividir el pedido, incluir algo de pago aparte, o agregar una línea que no
+  // existe como ítem—, o un anticipo por un monto libre. Si el pedido no tiene
+  // NADA elegible (ver sinCandidatos) no hay "todo" ni "elegir" posibles: el
+  // único camino es facturar por el monto total, con descripción libre.
+  const [modo, setModo] = useState(() => (candidatos.length ? "todo" : "anticipo"));
+  // Overrides sobre los defaults de cada candidato (si el usuario lo tocó).
+  // Sparse a propósito: lo que no se tocó sigue el default sin copiar nada.
+  const [overrides, setOverrides] = useState(() => new Map());
+  const [lineasManuales, setLineasManuales] = useState([]);
   const [montoAnticipo, setMontoAnticipo] = useState("");
   const [notaAnticipo, setNotaAnticipo] = useState("");
+
+  // Si se abre otro pedido reusando el mismo componente, no arrastrar la
+  // selección del anterior.
+  useEffect(() => {
+    setOverrides(new Map());
+    setLineasManuales([]);
+    setMontoAnticipo("");
+    setNotaAnticipo("");
+    setModo(candidatos.length ? "todo" : "anticipo");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedido.id]);
+
+  // Si el pedido no tiene nada elegible, prellenar el monto con el precio del
+  // pedido — así "Facturar por el total" arranca listo en vez de en $0.00.
+  useEffect(() => {
+    if (sinCandidatos && !montoAnticipo && d.total > 0) setMontoAnticipo(String(d.total));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinCandidatos, pedido.id]);
+
+  const estadoDe = (cand) => {
+    const ov = overrides.get(cand.key) || {};
+    return {
+      incluido: ov.incluido ?? cand.defaultChecked,
+      qty: ov.qty ?? cand.qtyBase,
+      precio: ov.precio ?? cand.precioBase,
+    };
+  };
+  const setOverride = (key, campo, valor) => setOverrides(m => {
+    const n = new Map(m);
+    n.set(key, { ...(n.get(key) || {}), [campo]: valor });
+    return n;
+  });
+
+  const agregarLineaManual = () => setLineasManuales(ls =>
+    [...ls, { id: `m${ls.length}_${Date.now()}`, desc: "", qty: 1, precio: "" }]);
+  const quitarLineaManual = (id) => setLineasManuales(ls => ls.filter(l => l.id !== id));
+  const cambiarLineaManual = (id, campo, valor) =>
+    setLineasManuales(ls => ls.map(l => l.id === id ? { ...l, [campo]: valor } : l));
 
   // Datos fiscales del cliente, editables en el momento de facturar — arrancan
   // en lo que ya tiene guardado el pedido, pero se pueden corregir sin ir al
@@ -491,25 +562,28 @@ function FacturaElectronica({ pedido }) {
     facturasDePedido(pedido.id).then(setFacturas);
   }, [pedido.id, emisor]);
 
-  // Al entrar a "Elegir ítems" la primera vez, arranca con todo marcado —
-  // desmarcar es más natural que armar la selección desde cero.
-  useEffect(() => {
-    if (modo === "elegir" && seleccion.size === 0 && d.lineas.length) {
-      setSeleccion(new Map(d.lineas.map(l => [l.tipo + "|" + l.precio, l.qty])));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modo]);
-
   const cambiarEmisor = (k) => { setEmisorActivo(k); setEmisor(k); };
   const cambiarAmbiente = (a) => { setAmbienteDte(a); setAmbiente(a); };
 
   const { facturado, saldo } = totalFacturado(facturas, d.total);
 
-  const lineasElegidas = modo === "elegir"
-    ? d.lineas
-        .map(l => ({ ...l, qty: seleccion.get(l.tipo + "|" + l.precio) ?? 0 }))
-        .filter(l => l.qty > 0)
-    : null;
+  // De las 3 canastas, solo entran a la factura las marcadas E incluidas —
+  // marcar sin precio (canasta "sin precio") no alcanza: hay que escribirlo.
+  const lineasDeCandidatos = candidatos
+    .map(c => ({ c, est: estadoDe(c) }))
+    .filter(({ est }) => est.incluido && est.precio > 0 && est.qty > 0)
+    .map(({ c, est }) => ({ tipo: c.tipo, precio: Number(est.precio), qty: Number(est.qty) }));
+  const lineasDeManuales = lineasManuales
+    .filter(l => l.desc.trim() && Number(l.precio) > 0 && Number(l.qty) > 0)
+    .map(l => ({ tipo: l.desc.trim(), precio: Number(l.precio), qty: Number(l.qty) }));
+
+  const lineasElegidas = modo === "elegir" ? [...lineasDeCandidatos, ...lineasDeManuales] : null;
+
+  const modosDisponibles = [
+    ...(carrito.factura.lineas.length ? [["todo", "Todo el carrito"]] : []),
+    ...(candidatos.length ? [["elegir", "Elegir ítems"]] : []),
+    ["anticipo", sinCandidatos ? "Facturar por el total" : "Anticipo"],
+  ];
 
   const opcionesEmision = () => ({
     tipo,
@@ -723,9 +797,9 @@ function FacturaElectronica({ pedido }) {
             )}
           </div>
 
-          <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-            {[["todo", "Todo el carrito"], ...(d.lineas.length ? [["elegir", "Elegir ítems"]] : []), ["anticipo", "Anticipo"]]
-              .map(([k, label]) => (
+          {modosDisponibles.length > 1 && (
+            <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+              {modosDisponibles.map(([k, label]) => (
                 <button key={k} onClick={() => setModo(k)}
                   style={{
                     flex: 1, padding: "6px 4px", fontSize: 11, fontWeight: 700, cursor: "pointer",
@@ -735,36 +809,118 @@ function FacturaElectronica({ pedido }) {
                   {label}
                 </button>
               ))}
-          </div>
+            </div>
+          )}
+
+          {sinCandidatos && modo === "anticipo" && (
+            <div style={{
+              fontSize: 11, color: "#8a6d3b", background: "#fcf8e3",
+              border: "1px solid #faebcc", borderRadius: 7,
+              padding: "6px 8px", marginBottom: 8,
+            }}>
+              ⚠ Este pedido no tiene ítems cargados (solo el precio final) — facturá por el
+              monto de abajo. Para que la próxima vez salgan solos, cargá los ítems en el pedido.
+            </div>
+          )}
 
           {modo === "elegir" && (
             <div style={{ marginBottom: 8, border: "1px solid #eee", borderRadius: 8, padding: 8 }}>
-              {d.lineas.map(l => {
-                const key = l.tipo + "|" + l.precio;
-                const qtySel = seleccion.get(key) ?? 0;
+              {[
+                ["factura", "Del carrito"],
+                ["aparte", "Pago aparte (normalmente NO van en esta factura)"],
+                ["sinPrecio", "Sin precio — escribí uno para incluirlas"],
+              ].map(([origen, titulo]) => {
+                const items = candidatos.filter(c => c.origen === origen);
+                if (!items.length) return null;
                 return (
-                  <div key={key} style={{
-                    display: "flex", alignItems: "center", gap: 6, padding: "4px 0",
-                    borderBottom: "1px solid #f5f5f5", fontSize: 12,
-                  }}>
-                    <input type="checkbox" checked={qtySel > 0}
-                      onChange={e => setSeleccion(m => {
-                        const n = new Map(m); n.set(key, e.target.checked ? l.qty : 0); return n;
-                      })} />
-                    <span style={{ flex: 1 }}>{l.tipo}{l.precio != null ? ` · ${fmt$(l.precio)} c/u` : ""}</span>
-                    <input type="number" min={0} max={l.qty} value={qtySel}
-                      onChange={e => {
-                        const v = Math.max(0, Math.min(l.qty, parseInt(e.target.value, 10) || 0));
-                        setSeleccion(m => { const n = new Map(m); n.set(key, v); return n; });
-                      }}
-                      style={{
-                        width: 46, padding: "3px 4px", fontSize: 12, textAlign: "center",
-                        border: "1px solid #ddd", borderRadius: 5,
-                      }} />
-                    <span style={{ color: "#888", fontSize: 11 }}>de {l.qty}</span>
+                  <div key={origen} style={{ marginBottom: 4 }}>
+                    <div style={{
+                      fontSize: 10, color: "#999", fontWeight: 700,
+                      textTransform: "uppercase", margin: "4px 0 2px",
+                    }}>
+                      {titulo}
+                    </div>
+                    {items.map(c => {
+                      const est = estadoDe(c);
+                      const faltaPrecio = est.incluido && !(est.precio > 0);
+                      return (
+                        <div key={c.key} style={{
+                          display: "flex", alignItems: "center", gap: 6, padding: "4px 0",
+                          borderBottom: "1px solid #f5f5f5", fontSize: 12,
+                        }}>
+                          <input type="checkbox" checked={est.incluido}
+                            onChange={e => setOverride(c.key, "incluido", e.target.checked)} />
+                          <span style={{ flex: 1 }}>{c.tipo}</span>
+                          <input type="number" min={0} step="0.01" value={est.precio ?? ""}
+                            onChange={e => setOverride(c.key, "precio",
+                              e.target.value === "" ? null : parseFloat(e.target.value))}
+                            placeholder="precio"
+                            style={{
+                              width: 60, padding: "3px 4px", fontSize: 12, textAlign: "right",
+                              border: `1px solid ${faltaPrecio ? "#c0392b" : "#ddd"}`, borderRadius: 5,
+                            }} />
+                          <span style={{ color: "#888", fontSize: 11 }}>×</span>
+                          <input type="number" min={0} max={c.qtyBase} value={est.qty}
+                            onChange={e => {
+                              const v = Math.max(0, Math.min(c.qtyBase, parseInt(e.target.value, 10) || 0));
+                              setOverride(c.key, "qty", v);
+                            }}
+                            style={{
+                              width: 42, padding: "3px 4px", fontSize: 12, textAlign: "center",
+                              border: "1px solid #ddd", borderRadius: 5,
+                            }} />
+                          <span style={{ color: "#888", fontSize: 11 }}>de {c.qtyBase}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
+
+              {lineasManuales.map(l => (
+                <div key={l.id} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "4px 0",
+                  borderBottom: "1px solid #f5f5f5", fontSize: 12,
+                }}>
+                  <input value={l.desc} onChange={e => cambiarLineaManual(l.id, "desc", e.target.value)}
+                    placeholder="Descripción del cobro"
+                    style={{
+                      flex: 1, padding: "3px 5px", fontSize: 12,
+                      border: "1px solid #ddd", borderRadius: 5,
+                    }} />
+                  <input type="number" min={0} step="0.01" value={l.precio}
+                    onChange={e => cambiarLineaManual(l.id, "precio", e.target.value)}
+                    placeholder="precio"
+                    style={{
+                      width: 60, padding: "3px 4px", fontSize: 12, textAlign: "right",
+                      border: "1px solid #ddd", borderRadius: 5,
+                    }} />
+                  <span style={{ color: "#888", fontSize: 11 }}>×</span>
+                  <input type="number" min={1} value={l.qty}
+                    onChange={e => cambiarLineaManual(l.id, "qty", Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    style={{
+                      width: 42, padding: "3px 4px", fontSize: 12, textAlign: "center",
+                      border: "1px solid #ddd", borderRadius: 5,
+                    }} />
+                  <button onClick={() => quitarLineaManual(l.id)} title="Quitar línea"
+                    style={{
+                      border: "none", background: "transparent", color: "#c0392b",
+                      cursor: "pointer", fontSize: 14, padding: "0 3px",
+                    }}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              <button onClick={agregarLineaManual}
+                style={{
+                  marginTop: 6, width: "100%", padding: "5px 8px", borderRadius: 6,
+                  border: "1px dashed #bbb", background: "#fff", color: "#666",
+                  fontSize: 11, fontWeight: 700, cursor: "pointer",
+                }}>
+                + Agregar línea (un cobro que no está en el carrito)
+              </button>
+
               <div style={{ textAlign: "right", fontWeight: 800, fontSize: 12, marginTop: 6 }}>
                 Total seleccionado: {fmt$((lineasElegidas || []).reduce((s, l) => s + l.precio * l.qty, 0))}
               </div>
@@ -774,15 +930,19 @@ function FacturaElectronica({ pedido }) {
           {modo === "anticipo" && (
             <div style={{ marginBottom: 8, display: "grid", gap: 6 }}>
               <label style={etiqueta}>
-                Monto del anticipo
+                {sinCandidatos ? "Monto a facturar" : "Monto del anticipo"}
                 <input type="number" min={0} step="0.01" value={montoAnticipo}
                   onChange={e => setMontoAnticipo(e.target.value)}
                   placeholder="0.00" style={{ ...inp, marginTop: 2 }} />
               </label>
               <label style={etiqueta}>
-                Nota (opcional — si la dejás vacía se arma sola)
+                Descripción (opcional — si la dejás vacía se arma sola)
                 <input value={notaAnticipo} onChange={e => setNotaAnticipo(e.target.value)}
-                  placeholder={`Anticipo. Total pedido ${fmt$(d.total)} · Saldo pendiente ${fmt$(d.total - (montoNum(montoAnticipo) || 0))}`}
+                  placeholder={
+                    (d.total - (montoNum(montoAnticipo) || 0)) <= 0.01
+                      ? (pedido.tipoPrenda || pedido.cliente || `Pedido #${pedido.id}`)
+                      : `Anticipo. Total pedido ${fmt$(d.total)} · Saldo pendiente ${fmt$(d.total - (montoNum(montoAnticipo) || 0))}`
+                  }
                   style={{ ...inp, marginTop: 2 }} />
               </label>
             </div>
