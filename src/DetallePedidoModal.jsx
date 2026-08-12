@@ -26,7 +26,7 @@ import PanelDocumentos from "./PanelDocumentos.jsx";
 import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import {
-  facturasDePedido, prepararFacturaPedido, emitirFacturaPedido,
+  facturasDePedido, prepararFacturaPedido, emitirFacturaPedido, tipoSugerido,
   tieneTokenPuente, loginPuente, ambienteDte, setAmbienteDte,
   EMISORES, emisorActivo, setEmisorActivo,
 } from "./lib/facturacion.js";
@@ -348,9 +348,13 @@ function FacturaElectronica({ pedido }) {
   const [pideLogin, setPideLogin] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
-  // Quién emite y contra qué ambiente: se eligen a propósito y se ven siempre.
+  // Quién emite, contra qué ambiente y qué documento: se eligen a propósito y
+  // se ven siempre. El tipo arranca en lo que pide la ficha del pedido, pero se
+  // puede cambiar acá — CCF y consumidor final son los dos casos de todos los días.
   const [emisor, setEmisor] = useState(emisorActivo);
   const [ambiente, setAmbiente] = useState(ambienteDte);
+  const sugerido = tipoSugerido(pedido);
+  const [tipo, setTipo] = useState(sugerido);
 
   useEffect(() => {
     facturasDePedido(pedido.id).then(setFacturas);
@@ -360,7 +364,7 @@ function FacturaElectronica({ pedido }) {
   const cambiarAmbiente = (a) => { setAmbienteDte(a); setAmbiente(a); };
 
   const emitir = async () => {
-    const prep = prepararFacturaPedido(pedido);
+    const prep = prepararFacturaPedido(pedido, tipo);
     if (!prep.ok) { pushToast(prep.error, "error"); return; }
     if (!tieneTokenPuente()) { setPideLogin(true); return; }
 
@@ -387,7 +391,7 @@ function FacturaElectronica({ pedido }) {
 
     setEmitiendo(true);
     try {
-      const reg = await emitirFacturaPedido(pedido);
+      const reg = await emitirFacturaPedido(pedido, tipo);
       setFacturas(f => [reg, ...f]);
       pushToast(`✅ DTE sellado por MH — ${reg.numero_control}`, "success", 6000);
       if (reg._sinRegistro)
@@ -482,7 +486,25 @@ function FacturaElectronica({ pedido }) {
                 <option value="01">PRODUCCIÓN — real</option>
               </select>
             </label>
+            <label style={{ flex: "1 1 100%", fontSize: 11, color: "#666" }}>
+              Documento
+              <select value={tipo} onChange={e => setTipo(e.target.value)}
+                style={{ ...inp, marginTop: 2 }}>
+                <option value="01">Factura — consumidor final</option>
+                <option value="03">Crédito Fiscal (CCF)</option>
+              </select>
+            </label>
           </div>
+          {tipo !== sugerido && (
+            <div style={{
+              fontSize: 11, color: "#8a6d3b", background: "#fcf8e3",
+              border: "1px solid #faebcc", borderRadius: 7,
+              padding: "6px 8px", marginBottom: 8,
+            }}>
+              ⚠ El pedido pide {sugerido === "03" ? "Crédito Fiscal" : "Factura de consumidor final"} y
+              vas a emitir {tipo === "03" ? "Crédito Fiscal" : "Factura de consumidor final"}.
+            </div>
+          )}
           <button
             onClick={emitir}
             disabled={emitiendo}

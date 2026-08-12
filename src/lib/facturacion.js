@@ -118,14 +118,29 @@ export async function facturasDePedido(pedidoId) {
   }
 }
 
+// Dónde arranca la numeración cuando esta app todavía no emitió nada por ese
+// NIT. NO puede ser 1: el numeroControl tiene que ser único ante Hacienda y
+// IMIS ya gastó la serie M001P001 emitiendo desde el portal gratuito del MH
+// (12-ago-2026: FC hasta la 22 y CCF hasta la 6, y la base de correos puede no
+// tenerlas todas). Arrancar en 1 hizo que el MH rechazara con
+// "[identificacion.numeroControl] YA EXISTE UN REGISTRO CON ESE VALOR".
+// Un bloque alto y redondo evita el choque y además deja a simple vista qué
+// DTE salió de esta app y cuál del portal viejo.
+const CORR_INICIAL = {
+  "03151010111012": 1000, // UDP Confecciones IMIS
+};
+
 // La serie de correlativos es POR CONTRIBUYENTE: cada NIT lleva su propia
 // numeración de DTE ante Hacienda, así que nunca se mezcla con otro emisor.
 async function siguienteCorrelativo(tipo, ambiente) {
+  const nit = emisorDatos().nit;
   const rows = await supa(
-    `/taller_facturas?nit_emisor=eq.${emisorDatos().nit}&tipo_dte=eq.${tipo}&ambiente=eq.${ambiente}` +
+    `/taller_facturas?nit_emisor=eq.${nit}&tipo_dte=eq.${tipo}&ambiente=eq.${ambiente}` +
     `&select=correlativo&order=correlativo.desc&limit=1`
   );
-  return rows && rows.length ? Number(rows[0].correlativo) + 1 : 1;
+  if (rows && rows.length) return Number(rows[0].correlativo) + 1;
+  // En pruebas (00) no hay serie que respetar: ahí sí se empieza en 1.
+  return ambiente === "01" ? (CORR_INICIAL[nit] || 1) : 1;
 }
 
 // ── Token del puente ──
@@ -150,20 +165,32 @@ export function olvidarTokenPuente() {
 
 // ── Validación previa ──
 
+// Qué tipo de DTE pide el pedido por su ficha (lo que el cliente acordó).
+// Es solo la sugerencia: al facturar se puede elegir otro en el selector.
+export const tipoSugerido = (pedido) =>
+  (pedido?.tipoDocumento || "").startsWith("Crédito Fiscal") ? "03" : "01";
+
 // Decide tipo de DTE y valida que el pedido tenga lo necesario.
+// `tipoForzado` ("01" | "03") es lo elegido en el selector de facturación; si
+// no viene, manda lo que dice la ficha del pedido.
 // Devuelve { ok, tipo, receptor, lineas, total, avisos[] } o { ok:false, error }.
-export function prepararFacturaPedido(pedido) {
+export function prepararFacturaPedido(pedido, tipoForzado) {
   const d = detalleFactura(pedido);
   if (!d.lineas.length) return { ok: false, error: "El pedido no tiene ítems para facturar." };
   if (d.lineas.some(l => l.precio == null))
     return { ok: false, error: "Hay ítems sin precio unitario — completá los precios en el pedido antes de facturar." };
 
-  const esCcf = (pedido.tipoDocumento || "").startsWith("Crédito Fiscal");
+  const sugerido = tipoSugerido(pedido);
+  const tipo = tipoForzado === "01" || tipoForzado === "03" ? tipoForzado : sugerido;
+  const esCcf = tipo === "03";
   const nit = (pedido.nit || "").replace(/-/g, "").trim();
   const nrc = (pedido.nrc || "").replace(/-/g, "").trim();
 
   if (esCcf && (!nit || !nrc))
-    return { ok: false, error: "El pedido pide Crédito Fiscal pero le faltan NIT y/o NRC del cliente." };
+    return {
+      ok: false,
+      error: "Para Crédito Fiscal hacen falta el NIT y el NRC del cliente — completalos en el pedido, o emití Factura de consumidor final.",
+    };
 
   const receptor = {
     nit: nit || "",
@@ -178,10 +205,16 @@ export function prepararFacturaPedido(pedido) {
       `La factura saldrá por la suma de líneas ($${d.sumaLineas.toFixed(2)}), que NO coincide con el precio del pedido ($${d.total.toFixed(2)}).`
     );
   if (!esCcf && !nit) avisos.push("Sin NIT del cliente → va como consumidor final (sin receptor).");
+  if (tipo !== sugerido)
+    avisos.push(
+      sugerido === "03"
+        ? "El pedido pide Crédito Fiscal y vas a emitir Factura de consumidor final: el cliente NO podrá usar el crédito fiscal."
+        : "El pedido pide Factura de consumidor final y vas a emitir Crédito Fiscal."
+    );
 
   return {
     ok: true,
-    tipo: esCcf ? "03" : "01",
+    tipo,
     receptor,
     lineas: d.lineas,
     total: d.sumaLineas != null ? d.sumaLineas : d.total,
@@ -198,8 +231,8 @@ function esErrorNumeroControlRepetido(data) {
 
 // Emite el DTE del pedido. Devuelve el registro guardado en taller_facturas.
 // Lanza Error con mensaje legible si algo falla.
-export async function emitirFacturaPedido(pedido) {
-  const prep = prepararFacturaPedido(pedido);
+export async function emitirFacturaPedido(pedido, tipoForzado) {
+  const prep = prepararFacturaPedido(pedido, tipoForzado);
   if (!prep.ok) throw new Error(prep.error);
 
   const token = localStorage.getItem(TOKEN_KEY);
