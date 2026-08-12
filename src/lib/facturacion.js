@@ -12,7 +12,7 @@
 // Tlacuilo directo), se reintenta con el siguiente correlativo.
 
 import { withRetry } from "./retry.js";
-import { detalleFactura } from "./dominio.js";
+import { detalleFactura, fmt$ } from "./dominio.js";
 
 const PUENTE = "https://emisor-imis.duckdns.org";
 const TOKEN_KEY = "taller_puente_token";
@@ -173,40 +173,58 @@ export function olvidarTokenPuente() {
 export const tipoSugerido = (pedido) =>
   (pedido?.tipoDocumento || "").startsWith("Crédito Fiscal") ? "03" : "01";
 
+// Cuánto lleva facturado el pedido (sin contar lo anulado) y cuánto falta.
+// Sirve para no facturar dos veces lo mismo al dividir por partes o cobrar
+// anticipos: sin este número, cada factura se arma "a ciegas".
+export function totalFacturado(facturas, totalPedido) {
+  const facturado = +(facturas || [])
+    .filter(f => !(f.estado || "").toUpperCase().startsWith("ANULAD"))
+    .reduce((s, f) => s + (parseFloat(f.total) || 0), 0)
+    .toFixed(2);
+  const saldo = totalPedido != null ? +(totalPedido - facturado).toFixed(2) : null;
+  return { facturado, saldo };
+}
+
 // Decide tipo de DTE y valida que el pedido tenga lo necesario.
-// `tipoForzado` ("01" | "03") es lo elegido en el selector de facturación; si
-// no viene, manda lo que dice la ficha del pedido.
-// Devuelve { ok, tipo, receptor, lineas, total, avisos[] } o { ok:false, error }.
-export function prepararFacturaPedido(pedido, tipoForzado) {
-  const d = detalleFactura(pedido);
-  if (!d.lineas.length) return { ok: false, error: "El pedido no tiene ítems para facturar." };
-  if (d.lineas.some(l => l.precio == null))
-    return { ok: false, error: "Hay ítems sin precio unitario — completá los precios en el pedido antes de facturar." };
+//
+// `opciones`:
+//   tipo:      "01" | "03" — si no viene, manda lo que dice la ficha del pedido.
+//   receptor:  { nit, nrc, razonSocial, dirFiscal } editado en el momento de
+//              facturar. Si no viene, se usan los datos guardados en el pedido.
+//   lineas:    subconjunto (o cantidades editadas) de detalleFactura(pedido).lineas
+//              — para facturar solo parte del carrito. Si no viene, va TODO.
+//   anticipo:  { monto, nota? } — factura por un monto libre en vez del carrito,
+//              con una sola línea de texto. Ignora `lineas` si viene.
+//
+// Devuelve { ok, tipo, receptor, lineas, total, avisos[], esAnticipo } o
+// { ok:false, error }.
+export function prepararFacturaPedido(pedido, opciones = {}) {
+  const { tipo: tipoForzado, receptor: receptorEditado, lineas: lineasElegidas, anticipo } = opciones;
 
   const sugerido = tipoSugerido(pedido);
   const tipo = tipoForzado === "01" || tipoForzado === "03" ? tipoForzado : sugerido;
   const esCcf = tipo === "03";
-  const nit = (pedido.nit || "").replace(/-/g, "").trim();
-  const nrc = (pedido.nrc || "").replace(/-/g, "").trim();
+
+  // Los datos editados en el momento pisan a los guardados en el pedido —
+  // así se puede corregir un NIT mal tecleado sin ir al formulario del pedido.
+  const base = receptorEditado || pedido;
+  const nit = (base.nit || "").replace(/-/g, "").trim();
+  const nrc = (base.nrc || "").replace(/-/g, "").trim();
+  const dirFiscal = (base.dirFiscal || "").trim();
+  const nombreFiscal = (
+    (receptorEditado && receptorEditado.razonSocial) || pedido.razonSocial || pedido.cliente || ""
+  ).trim();
 
   if (esCcf && (!nit || !nrc))
     return {
       ok: false,
-      error: "Para Crédito Fiscal hacen falta el NIT y el NRC del cliente — completalos en el pedido, o emití Factura de consumidor final.",
+      error: "Para Crédito Fiscal hacen falta el NIT y el NRC del cliente — completalos acá mismo, o emití Factura de consumidor final.",
     };
 
-  const receptor = {
-    nit: nit || "",
-    nrc: nrc || "",
-    nombre: (pedido.razonSocial || pedido.cliente || "").trim(),
-  };
-  if ((pedido.dirFiscal || "").trim()) receptor.direccion = { complemento: pedido.dirFiscal.trim() };
+  const receptor = { nit: nit || "", nrc: nrc || "", nombre: nombreFiscal };
+  if (dirFiscal) receptor.direccion = { complemento: dirFiscal };
 
   const avisos = [];
-  if (d.descuadre)
-    avisos.push(
-      `La factura saldrá por la suma de líneas ($${d.sumaLineas.toFixed(2)}), que NO coincide con el precio del pedido ($${d.total.toFixed(2)}).`
-    );
   if (!esCcf && !nit) avisos.push("Sin NIT del cliente → va como consumidor final (sin receptor).");
   if (tipo !== sugerido)
     avisos.push(
@@ -215,14 +233,40 @@ export function prepararFacturaPedido(pedido, tipoForzado) {
         : "El pedido pide Factura de consumidor final y vas a emitir Crédito Fiscal."
     );
 
-  return {
-    ok: true,
-    tipo,
-    receptor,
-    lineas: d.lineas,
-    total: d.sumaLineas != null ? d.sumaLineas : d.total,
-    avisos,
-  };
+  const d = detalleFactura(pedido);
+
+  // ── Modo anticipo: una sola línea por el monto libre, no toca el carrito ──
+  if (anticipo && Number(anticipo.monto) > 0) {
+    const monto = +Number(anticipo.monto).toFixed(2);
+    const saldo = +(d.total - monto).toFixed(2);
+    const nota = (anticipo.nota || "").trim() ||
+      `Anticipo. Total pedido ${fmt$(d.total)} · Saldo pendiente ${fmt$(saldo)}`;
+    return {
+      ok: true, tipo, receptor,
+      lineas: [{ tipo: nota, precio: monto, qty: 1, subtotal: monto }],
+      total: monto,
+      avisos,
+      esAnticipo: true,
+    };
+  }
+
+  if (!d.lineas.length) return { ok: false, error: "El pedido no tiene ítems para facturar." };
+  if (d.lineas.some(l => l.precio == null))
+    return { ok: false, error: "Hay ítems sin precio unitario — completá los precios en el pedido antes de facturar." };
+
+  const lineas = (lineasElegidas && lineasElegidas.length) ? lineasElegidas : d.lineas;
+  if (!lineas.length) return { ok: false, error: "Elegí al menos un ítem para facturar." };
+
+  const esParcial = lineas !== d.lineas;
+  const total = +lineas.reduce((s, l) => s + l.precio * l.qty, 0).toFixed(2);
+
+  if (!esParcial && d.descuadre)
+    avisos.push(
+      `La factura saldrá por la suma de líneas (${fmt$(d.sumaLineas)}), que NO coincide con el precio del pedido (${fmt$(d.total)}).`
+    );
+  if (esParcial) avisos.push(`Factura PARCIAL del carrito — no incluye todos los ítems del pedido.`);
+
+  return { ok: true, tipo, receptor, lineas, total, avisos };
 }
 
 // ── Emisión ──
@@ -233,9 +277,10 @@ function esErrorNumeroControlRepetido(data) {
 }
 
 // Emite el DTE del pedido. Devuelve el registro guardado en taller_facturas.
-// Lanza Error con mensaje legible si algo falla.
-export async function emitirFacturaPedido(pedido, tipoForzado) {
-  const prep = prepararFacturaPedido(pedido, tipoForzado);
+// `opciones` es lo mismo que recibe prepararFacturaPedido (tipo, receptor,
+// lineas, anticipo). Lanza Error con mensaje legible si algo falla.
+export async function emitirFacturaPedido(pedido, opciones = {}) {
+  const prep = prepararFacturaPedido(pedido, opciones);
   if (!prep.ok) throw new Error(prep.error);
 
   const token = localStorage.getItem(TOKEN_KEY);

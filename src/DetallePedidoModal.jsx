@@ -26,10 +26,11 @@ import PanelDocumentos from "./PanelDocumentos.jsx";
 import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import {
-  facturasDePedido, prepararFacturaPedido, emitirFacturaPedido, tipoSugerido,
+  facturasDePedido, prepararFacturaPedido, emitirFacturaPedido, tipoSugerido, totalFacturado,
   tieneTokenPuente, loginPuente, ambienteDte, setAmbienteDte,
   EMISORES, emisorActivo, setEmisorActivo,
 } from "./lib/facturacion.js";
+import { dbGuardar } from "./lib/db.js";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
@@ -464,25 +465,93 @@ function FacturaElectronica({ pedido }) {
   const sugerido = tipoSugerido(pedido);
   const [tipo, setTipo] = useState(sugerido);
 
+  const d = useMemo(() => detalleFactura(pedido), [pedido]);
+
+  // Qué se factura: todo el carrito (default), una selección de líneas —
+  // para dividir el pedido en varias facturas —, o un anticipo por un monto
+  // libre que no tiene por qué corresponder a ítems del carrito.
+  const [modo, setModo] = useState("todo"); // "todo" | "elegir" | "anticipo"
+  const [seleccion, setSeleccion] = useState(() => new Map()); // "tipo|precio" -> cantidad elegida
+  const [montoAnticipo, setMontoAnticipo] = useState("");
+  const [notaAnticipo, setNotaAnticipo] = useState("");
+
+  // Datos fiscales del cliente, editables en el momento de facturar — arrancan
+  // en lo que ya tiene guardado el pedido, pero se pueden corregir sin ir al
+  // formulario. "Guardar" los deja también en el pedido para la próxima vez.
+  const [cliNombre, setCliNombre] = useState(pedido.razonSocial || "");
+  const [cliNit, setCliNit] = useState(pedido.nit || "");
+  const [cliNrc, setCliNrc] = useState(pedido.nrc || "");
+  const [cliDir, setCliDir] = useState(pedido.dirFiscal || "");
+  const [guardandoCliente, setGuardandoCliente] = useState(false);
+  const clienteEditado =
+    cliNombre !== (pedido.razonSocial || "") || cliNit !== (pedido.nit || "") ||
+    cliNrc !== (pedido.nrc || "") || cliDir !== (pedido.dirFiscal || "");
+
   useEffect(() => {
     facturasDePedido(pedido.id).then(setFacturas);
   }, [pedido.id, emisor]);
 
+  // Al entrar a "Elegir ítems" la primera vez, arranca con todo marcado —
+  // desmarcar es más natural que armar la selección desde cero.
+  useEffect(() => {
+    if (modo === "elegir" && seleccion.size === 0 && d.lineas.length) {
+      setSeleccion(new Map(d.lineas.map(l => [l.tipo + "|" + l.precio, l.qty])));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modo]);
+
   const cambiarEmisor = (k) => { setEmisorActivo(k); setEmisor(k); };
   const cambiarAmbiente = (a) => { setAmbienteDte(a); setAmbiente(a); };
 
+  const { facturado, saldo } = totalFacturado(facturas, d.total);
+
+  const lineasElegidas = modo === "elegir"
+    ? d.lineas
+        .map(l => ({ ...l, qty: seleccion.get(l.tipo + "|" + l.precio) ?? 0 }))
+        .filter(l => l.qty > 0)
+    : null;
+
+  const opcionesEmision = () => ({
+    tipo,
+    receptor: { razonSocial: cliNombre, nit: cliNit, nrc: cliNrc, dirFiscal: cliDir },
+    lineas: lineasElegidas,
+    anticipo: modo === "anticipo" ? { monto: montoNum(montoAnticipo), nota: notaAnticipo } : null,
+  });
+
+  const guardarCliente = async () => {
+    setGuardandoCliente(true);
+    const ok = await dbGuardar({ ...pedido, razonSocial: cliNombre, nit: cliNit, nrc: cliNrc, dirFiscal: cliDir });
+    if (ok) {
+      // Mutar el pedido en memoria para que el cambio sobreviva a reaperturas
+      // del modal sin esperar a que se recargue toda la lista (mismo patrón
+      // que ya usa el link de captura de medidas, más abajo en este archivo).
+      pedido.razonSocial = cliNombre; pedido.nit = cliNit; pedido.nrc = cliNrc; pedido.dirFiscal = cliDir;
+      pushToast("Datos del cliente guardados en el pedido ✓", "success");
+    }
+    setGuardandoCliente(false);
+  };
+
+  const sinQueFacturar =
+    modo === "elegir" ? !(lineasElegidas && lineasElegidas.length) :
+    modo === "anticipo" ? !(montoNum(montoAnticipo) > 0) :
+    false;
+
   const emitir = async () => {
-    const prep = prepararFacturaPedido(pedido, tipo);
+    const opciones = opcionesEmision();
+    const prep = prepararFacturaPedido(pedido, opciones);
     if (!prep.ok) { pushToast(prep.error, "error"); return; }
     if (!tieneTokenPuente()) { setPideLogin(true); return; }
 
     const amb = ambienteDte();
     const emi = EMISORES[emisorActivo()];
     const tipoTxt = prep.tipo === "03" ? "Crédito Fiscal (CCF)" : "Factura (consumidor final)";
-    const lineas = [
+    const lineasMsg = [
       `Emite: ${emi.etiqueta} — NIT ${emi.nit}`,
       `${tipoTxt} por ${fmt$(prep.total)}`,
       prep.receptor.nombre ? `Cliente: ${prep.receptor.nombre}${prep.receptor.nit ? ` (NIT ${prep.receptor.nit})` : ""}` : null,
+      saldo != null && prep.total > saldo + 0.01
+        ? `⚠ El monto (${fmt$(prep.total)}) supera el saldo pendiente del pedido (${fmt$(Math.max(saldo, 0))}).`
+        : null,
       amb === "01"
         ? "⚠ AMBIENTE PRODUCCIÓN: esto se transmite a Hacienda de verdad y NO se puede borrar (solo invalidar, y la ventana buena es el mismo día)."
         : "Ambiente de PRUEBAS: no tiene efecto fiscal.",
@@ -492,18 +561,19 @@ function FacturaElectronica({ pedido }) {
 
     const ok = await pushConfirm({
       titulo: amb === "01" ? "Emitir DTE REAL ante Hacienda" : "Emitir factura (pruebas)",
-      msg: <div>{lineas.map((l, i) => <div key={i} style={{ marginBottom: 4 }}>{l}</div>)}</div>,
+      msg: <div>{lineasMsg.map((l, i) => <div key={i} style={{ marginBottom: 4 }}>{l}</div>)}</div>,
       okLabel: amb === "01" ? "Sí, emitir a Hacienda" : "Emitir en pruebas",
     });
     if (!ok) return;
 
     setEmitiendo(true);
     try {
-      const reg = await emitirFacturaPedido(pedido, tipo);
+      const reg = await emitirFacturaPedido(pedido, opciones);
       setFacturas(f => [reg, ...f]);
       pushToast(`✅ DTE sellado por MH — ${reg.numero_control}`, "success", 6000);
       if (reg._sinRegistro)
         pushToast("⚠ La factura se selló pero NO se pudo registrar en la app — anotá el sello", "error", 10000);
+      if (modo === "anticipo") { setMontoAnticipo(""); setNotaAnticipo(""); }
     } catch (e) {
       pushToast(e.message, "error", 8000);
       if (!tieneTokenPuente()) setPideLogin(true);
@@ -526,10 +596,21 @@ function FacturaElectronica({ pedido }) {
     width: "100%", padding: "7px 9px", borderRadius: 7,
     border: "1px solid #ddd", fontSize: 12, boxSizing: "border-box",
   };
+  const etiqueta = { fontSize: 11, color: "#666" };
 
   return (
     <div style={{ marginTop: 10, borderTop: "1px dashed #e0e0e0", paddingTop: 10 }}>
       {facturas.map((f, i) => <FichaFactura key={i} f={f} />)}
+      {(facturas.length > 0 || d.total > 0) && (
+        <div style={{
+          fontSize: 11, marginBottom: 8, padding: "5px 8px", borderRadius: 6,
+          background: "#f4f4f4", color: saldo != null && saldo <= 0.01 ? "#1a7f37" : "#555",
+        }}>
+          Ya facturado {fmt$(facturado)} de {fmt$(d.total)}
+          {saldo != null && ` · Saldo ${fmt$(Math.max(saldo, 0))}`}
+          {saldo != null && saldo < -0.01 && ` (facturado de más por ${fmt$(-saldo)})`}
+        </div>
+      )}
       {pideLogin ? (
         <div style={{ display: "grid", gap: 6 }}>
           <div style={{ fontSize: 11, color: "#888" }}>
@@ -561,7 +642,7 @@ function FacturaElectronica({ pedido }) {
       ) : (
         <>
           <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-            <label style={{ flex: "1 1 150px", fontSize: 11, color: "#666" }}>
+            <label style={{ flex: "1 1 150px", ...etiqueta }}>
               Emite
               <select value={emisor} onChange={e => cambiarEmisor(e.target.value)}
                 style={{ ...inp, marginTop: 2 }}>
@@ -569,7 +650,7 @@ function FacturaElectronica({ pedido }) {
                   <option key={k} value={k}>{v.etiqueta}</option>)}
               </select>
             </label>
-            <label style={{ flex: "1 1 130px", fontSize: 11, color: "#666" }}>
+            <label style={{ flex: "1 1 130px", ...etiqueta }}>
               Ambiente
               <select value={ambiente} onChange={e => cambiarAmbiente(e.target.value)}
                 style={{
@@ -580,7 +661,7 @@ function FacturaElectronica({ pedido }) {
                 <option value="01">PRODUCCIÓN — real</option>
               </select>
             </label>
-            <label style={{ flex: "1 1 100%", fontSize: 11, color: "#666" }}>
+            <label style={{ flex: "1 1 100%", ...etiqueta }}>
               Documento
               <select value={tipo} onChange={e => setTipo(e.target.value)}
                 style={{ ...inp, marginTop: 2 }}>
@@ -599,14 +680,123 @@ function FacturaElectronica({ pedido }) {
               vas a emitir {tipo === "03" ? "Crédito Fiscal" : "Factura de consumidor final"}.
             </div>
           )}
+
+          <div style={{
+            background: "#fafafa", border: "1px solid #eee", borderRadius: 8,
+            padding: 8, marginBottom: 8,
+          }}>
+            <div style={{ fontSize: 11, color: "#888", fontWeight: 700, marginBottom: 6 }}>
+              Datos fiscales del cliente
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <label style={{ gridColumn: "1 / -1", ...etiqueta }}>
+                Nombre / Razón social
+                <input style={{ ...inp, marginTop: 2 }} value={cliNombre}
+                  onChange={e => setCliNombre(e.target.value)}
+                  placeholder={pedido.cliente || "Consumidor final"} />
+              </label>
+              <label style={etiqueta}>
+                NIT
+                <input style={{ ...inp, marginTop: 2 }} value={cliNit}
+                  onChange={e => setCliNit(e.target.value)} />
+              </label>
+              <label style={etiqueta}>
+                NRC
+                <input style={{ ...inp, marginTop: 2 }} value={cliNrc}
+                  onChange={e => setCliNrc(e.target.value)} />
+              </label>
+              <label style={{ gridColumn: "1 / -1", ...etiqueta }}>
+                Dirección fiscal
+                <input style={{ ...inp, marginTop: 2 }} value={cliDir}
+                  onChange={e => setCliDir(e.target.value)} />
+              </label>
+            </div>
+            {clienteEditado && (
+              <button onClick={guardarCliente} disabled={guardandoCliente}
+                style={{
+                  marginTop: 6, width: "100%", padding: "6px 8px", borderRadius: 6,
+                  border: "1px solid #1B6B4A", background: "#fff", color: "#1B6B4A",
+                  fontWeight: 700, fontSize: 11, cursor: guardandoCliente ? "wait" : "pointer",
+                }}>
+                {guardandoCliente ? "Guardando…" : "💾 Guardar estos datos en el pedido"}
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+            {[["todo", "Todo el carrito"], ...(d.lineas.length ? [["elegir", "Elegir ítems"]] : []), ["anticipo", "Anticipo"]]
+              .map(([k, label]) => (
+                <button key={k} onClick={() => setModo(k)}
+                  style={{
+                    flex: 1, padding: "6px 4px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    border: `1px solid ${modo === k ? "#1B6B4A" : "#ddd"}`, borderRadius: 6,
+                    background: modo === k ? "#1B6B4A" : "#fff", color: modo === k ? "#fff" : "#666",
+                  }}>
+                  {label}
+                </button>
+              ))}
+          </div>
+
+          {modo === "elegir" && (
+            <div style={{ marginBottom: 8, border: "1px solid #eee", borderRadius: 8, padding: 8 }}>
+              {d.lineas.map(l => {
+                const key = l.tipo + "|" + l.precio;
+                const qtySel = seleccion.get(key) ?? 0;
+                return (
+                  <div key={key} style={{
+                    display: "flex", alignItems: "center", gap: 6, padding: "4px 0",
+                    borderBottom: "1px solid #f5f5f5", fontSize: 12,
+                  }}>
+                    <input type="checkbox" checked={qtySel > 0}
+                      onChange={e => setSeleccion(m => {
+                        const n = new Map(m); n.set(key, e.target.checked ? l.qty : 0); return n;
+                      })} />
+                    <span style={{ flex: 1 }}>{l.tipo}{l.precio != null ? ` · ${fmt$(l.precio)} c/u` : ""}</span>
+                    <input type="number" min={0} max={l.qty} value={qtySel}
+                      onChange={e => {
+                        const v = Math.max(0, Math.min(l.qty, parseInt(e.target.value, 10) || 0));
+                        setSeleccion(m => { const n = new Map(m); n.set(key, v); return n; });
+                      }}
+                      style={{
+                        width: 46, padding: "3px 4px", fontSize: 12, textAlign: "center",
+                        border: "1px solid #ddd", borderRadius: 5,
+                      }} />
+                    <span style={{ color: "#888", fontSize: 11 }}>de {l.qty}</span>
+                  </div>
+                );
+              })}
+              <div style={{ textAlign: "right", fontWeight: 800, fontSize: 12, marginTop: 6 }}>
+                Total seleccionado: {fmt$((lineasElegidas || []).reduce((s, l) => s + l.precio * l.qty, 0))}
+              </div>
+            </div>
+          )}
+
+          {modo === "anticipo" && (
+            <div style={{ marginBottom: 8, display: "grid", gap: 6 }}>
+              <label style={etiqueta}>
+                Monto del anticipo
+                <input type="number" min={0} step="0.01" value={montoAnticipo}
+                  onChange={e => setMontoAnticipo(e.target.value)}
+                  placeholder="0.00" style={{ ...inp, marginTop: 2 }} />
+              </label>
+              <label style={etiqueta}>
+                Nota (opcional — si la dejás vacía se arma sola)
+                <input value={notaAnticipo} onChange={e => setNotaAnticipo(e.target.value)}
+                  placeholder={`Anticipo. Total pedido ${fmt$(d.total)} · Saldo pendiente ${fmt$(d.total - (montoNum(montoAnticipo) || 0))}`}
+                  style={{ ...inp, marginTop: 2 }} />
+              </label>
+            </div>
+          )}
+
           <button
             onClick={emitir}
-            disabled={emitiendo}
+            disabled={emitiendo || sinQueFacturar}
             style={{
               width: "100%", padding: "9px 10px", border: "none", borderRadius: 8,
-              background: emitiendo ? "#aaa" : ambiente === "01" ? "#c0392b" : "#1a7f37",
+              background: (emitiendo || sinQueFacturar) ? "#aaa" : ambiente === "01" ? "#c0392b" : "#1a7f37",
               color: "#fff",
-              fontWeight: 700, fontSize: 12, cursor: emitiendo ? "wait" : "pointer",
+              fontWeight: 700, fontSize: 12,
+              cursor: emitiendo ? "wait" : sinQueFacturar ? "not-allowed" : "pointer",
             }}
           >
             {emitiendo
