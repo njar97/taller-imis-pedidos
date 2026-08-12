@@ -414,6 +414,18 @@ function FichaFactura({ f }) {
         </div>
       )}
 
+      {f.codigo_generacion && (
+        <a href={`https://emisor-imis.duckdns.org/dte/${f.codigo_generacion}`}
+          target="_blank" rel="noreferrer"
+          style={{
+            display: "block", textAlign: "center", marginTop: 7, padding: "9px 10px",
+            borderRadius: 8, background: anulada ? "#8a1c1c" : "#1B6B4A",
+            color: "#fff", fontWeight: 700, textDecoration: "none", fontSize: 12,
+          }}>
+          📄 Ver factura · PDF · enviar al cliente
+        </a>
+      )}
+
       <div style={{ display: "flex", gap: 10, marginTop: 5, flexWrap: "wrap" }}>
         {f.dte_json && (
           <a href={"data:application/json;charset=utf-8," +
