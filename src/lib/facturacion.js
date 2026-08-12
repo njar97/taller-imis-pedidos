@@ -17,34 +17,75 @@ import { detalleFactura } from "./dominio.js";
 const PUENTE = "https://emisor-imis.duckdns.org";
 const TOKEN_KEY = "taller_puente_token";
 
-// Ambiente MH: "01" producción (default). Para probar contra apitest sin tocar
-// código: localStorage.setItem("taller_dte_ambiente", "00").
+// Ambiente MH: "00" PRUEBAS por defecto. Producción se elige a propósito, con
+// el selector del bloque de facturación (o localStorage "taller_dte_ambiente").
+// Antes el default era "01": un clic accidental transmitía de verdad.
 export const ambienteDte = () =>
-  localStorage.getItem("taller_dte_ambiente") === "00" ? "00" : "01";
+  localStorage.getItem("taller_dte_ambiente") === "01" ? "01" : "00";
 
-// Perfil fiscal del emisor (Carymel) — plantilla validada por MH en la
-// homologación. El NRC va sin guion; el NIT sin guiones lo normaliza el bridge.
-const NIT_EMISOR = "03151202971040";
-const EMISOR = {
-  nit: NIT_EMISOR,
-  nrc: "3155220",
-  nombre: "Nelson Javier Ramirez Mancia",
-  codActividad: "14103",
-  descActividad: "Fabricación de Prendas de vestir para ambos sexos",
-  nombreComercial: "Carymel Bazar y Confección",
-  tipoEstablecimiento: "02",
-  direccion: {
-    departamento: "03",
-    municipio: "15",
-    complemento: "Colonia Santa Marta Avenida Centroamericana Casa #9-A",
+export const setAmbienteDte = (amb) =>
+  localStorage.setItem("taller_dte_ambiente", amb === "01" ? "01" : "00");
+
+// ── Perfiles fiscales de los emisores ──
+// Los dos están validados por el MH y sus certificados ya están cargados en el
+// puente (Tlacuilo). El NRC va sin guion; el NIT sin guiones lo normaliza el
+// bridge. Los pedidos del taller facturan por IMIS o por JAV según el caso.
+export const EMISORES = {
+  imis: {
+    etiqueta: "UDP Confecciones IMIS",
+    nit: "03151010111012",
+    nrc: "2115900",
+    nombre: "UDP CONFECCIONES IMIS",
+    codActividad: "13999",
+    descActividad: "Fabricación de productos textiles ncp",
+    nombreComercial: "CONFECCIONES IMIS",
+    tipoEstablecimiento: "02",
+    direccion: {
+      departamento: "03",
+      municipio: "15",
+      complemento: "AV. CENTROAMERICANA, COL. SANTA MARTA, # 5-A,",
+    },
+    telefono: "24511620",
+    correo: "confecciones_imis@hotmail.com",
+    codEstableMH: "M001",
+    codEstable: "0001",
+    codPuntoVentaMH: "P001",
+    codPuntoVenta: "0001",
   },
-  telefono: "78669963",
-  correo: "njrmancia@gmail.com",
-  codEstableMH: "M001",
-  codEstable: "0001",
-  codPuntoVentaMH: "P001",
-  codPuntoVenta: "0001",
+  jav: {
+    etiqueta: "Carymel Bazar y Confección (Nelson Javier)",
+    nit: "03151202971040",
+    nrc: "3155220",
+    nombre: "Nelson Javier Ramirez Mancia",
+    codActividad: "14103",
+    descActividad: "Fabricación de Prendas de vestir para ambos sexos",
+    nombreComercial: "Carymel Bazar y Confección",
+    tipoEstablecimiento: "02",
+    direccion: {
+      departamento: "03",
+      municipio: "15",
+      complemento: "Colonia Santa Marta Avenida Centroamericana Casa #9-A",
+    },
+    telefono: "78669963",
+    correo: "njrmancia@gmail.com",
+    codEstableMH: "M001",
+    codEstable: "0001",
+    codPuntoVentaMH: "P001",
+    codPuntoVenta: "0001",
+  },
 };
+
+const EMISOR_KEY = "taller_dte_emisor";
+
+// Cuál emite. Default IMIS: es la empresa que la app representa en todos los
+// PDFs. Antes estaba fijo en JAV y los DTE habrían salido a nombre equivocado.
+export const emisorActivo = () =>
+  localStorage.getItem(EMISOR_KEY) === "jav" ? "jav" : "imis";
+
+export const setEmisorActivo = (k) =>
+  localStorage.setItem(EMISOR_KEY, k === "jav" ? "jav" : "imis");
+
+const emisorDatos = () => EMISORES[emisorActivo()];
 
 // ── Supabase (registro de facturas emitidas + correlativo) ──
 
@@ -70,7 +111,7 @@ async function supa(path, opts = {}) {
 
 export async function facturasDePedido(pedidoId) {
   try {
-    return await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&nit_emisor=eq.${NIT_EMISOR}&order=id.desc`);
+    return await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&nit_emisor=eq.${emisorDatos().nit}&order=id.desc`);
   } catch (e) {
     console.error("facturasDePedido:", e);
     return [];
@@ -81,7 +122,7 @@ export async function facturasDePedido(pedidoId) {
 // numeración de DTE ante Hacienda, así que nunca se mezcla con otro emisor.
 async function siguienteCorrelativo(tipo, ambiente) {
   const rows = await supa(
-    `/taller_facturas?nit_emisor=eq.${NIT_EMISOR}&tipo_dte=eq.${tipo}&ambiente=eq.${ambiente}` +
+    `/taller_facturas?nit_emisor=eq.${emisorDatos().nit}&tipo_dte=eq.${tipo}&ambiente=eq.${ambiente}` +
     `&select=correlativo&order=correlativo.desc&limit=1`
   );
   return rows && rows.length ? Number(rows[0].correlativo) + 1 : 1;
@@ -182,11 +223,11 @@ export async function emitirFacturaPedido(pedido) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
       body: JSON.stringify({
-        nit: NIT_EMISOR,
+        nit: emisorDatos().nit,
         ambiente,
         tipoDte: prep.tipo,
         correlativo: corr,
-        emisor: EMISOR,
+        emisor: emisorDatos(),
         receptor: prep.receptor,
         items,
       }),
@@ -201,7 +242,7 @@ export async function emitirFacturaPedido(pedido) {
     if (data.ok) {
       const registro = {
         pedido_id: pedido.id,
-        nit_emisor: NIT_EMISOR,
+        nit_emisor: emisorDatos().nit,
         tipo_dte: prep.tipo,
         ambiente,
         correlativo: corr,

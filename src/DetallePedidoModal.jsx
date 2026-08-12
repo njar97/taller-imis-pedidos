@@ -27,7 +27,8 @@ import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import {
   facturasDePedido, prepararFacturaPedido, emitirFacturaPedido,
-  tieneTokenPuente, loginPuente, ambienteDte,
+  tieneTokenPuente, loginPuente, ambienteDte, setAmbienteDte,
+  EMISORES, emisorActivo, setEmisorActivo,
 } from "./lib/facturacion.js";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
@@ -347,10 +348,16 @@ function FacturaElectronica({ pedido }) {
   const [pideLogin, setPideLogin] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
+  // Quién emite y contra qué ambiente: se eligen a propósito y se ven siempre.
+  const [emisor, setEmisor] = useState(emisorActivo);
+  const [ambiente, setAmbiente] = useState(ambienteDte);
 
   useEffect(() => {
     facturasDePedido(pedido.id).then(setFacturas);
-  }, [pedido.id]);
+  }, [pedido.id, emisor]);
+
+  const cambiarEmisor = (k) => { setEmisorActivo(k); setEmisor(k); };
+  const cambiarAmbiente = (a) => { setAmbienteDte(a); setAmbiente(a); };
 
   const emitir = async () => {
     const prep = prepararFacturaPedido(pedido);
@@ -358,18 +365,23 @@ function FacturaElectronica({ pedido }) {
     if (!tieneTokenPuente()) { setPideLogin(true); return; }
 
     const amb = ambienteDte();
+    const emi = EMISORES[emisorActivo()];
     const tipoTxt = prep.tipo === "03" ? "Crédito Fiscal (CCF)" : "Factura (consumidor final)";
     const lineas = [
-      `${tipoTxt} por ${fmt$(prep.total)} — ambiente ${amb === "01" ? "PRODUCCIÓN (efecto fiscal real)" : "pruebas"}.`,
+      `Emite: ${emi.etiqueta} — NIT ${emi.nit}`,
+      `${tipoTxt} por ${fmt$(prep.total)}`,
       prep.receptor.nombre ? `Cliente: ${prep.receptor.nombre}${prep.receptor.nit ? ` (NIT ${prep.receptor.nit})` : ""}` : null,
+      amb === "01"
+        ? "⚠ AMBIENTE PRODUCCIÓN: esto se transmite a Hacienda de verdad y NO se puede borrar (solo invalidar, y la ventana buena es el mismo día)."
+        : "Ambiente de PRUEBAS: no tiene efecto fiscal.",
       ...prep.avisos.map(a => `⚠ ${a}`),
       facturas.length ? `⚠ Este pedido YA tiene ${facturas.length} factura(s) emitida(s).` : null,
     ].filter(Boolean);
 
     const ok = await pushConfirm({
-      titulo: "Emitir factura electrónica",
+      titulo: amb === "01" ? "Emitir DTE REAL ante Hacienda" : "Emitir factura (pruebas)",
       msg: <div>{lineas.map((l, i) => <div key={i} style={{ marginBottom: 4 }}>{l}</div>)}</div>,
-      okLabel: "Sí, emitir a Hacienda",
+      okLabel: amb === "01" ? "Sí, emitir a Hacienda" : "Emitir en pruebas",
     });
     if (!ok) return;
 
@@ -449,17 +461,45 @@ function FacturaElectronica({ pedido }) {
           </div>
         </div>
       ) : (
-        <button
-          onClick={emitir}
-          disabled={emitiendo}
-          style={{
-            width: "100%", padding: "9px 10px", border: "none", borderRadius: 8,
-            background: emitiendo ? "#aaa" : "#1a7f37", color: "#fff",
-            fontWeight: 700, fontSize: 12, cursor: emitiendo ? "wait" : "pointer",
-          }}
-        >
-          {emitiendo ? "Emitiendo…" : facturas.length ? "🧾 Emitir OTRA factura (DTE)" : "🧾 Emitir factura electrónica (DTE)"}
-        </button>
+        <>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+            <label style={{ flex: "1 1 150px", fontSize: 11, color: "#666" }}>
+              Emite
+              <select value={emisor} onChange={e => cambiarEmisor(e.target.value)}
+                style={{ ...inp, marginTop: 2 }}>
+                {Object.entries(EMISORES).map(([k, v]) =>
+                  <option key={k} value={k}>{v.etiqueta}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: "1 1 130px", fontSize: 11, color: "#666" }}>
+              Ambiente
+              <select value={ambiente} onChange={e => cambiarAmbiente(e.target.value)}
+                style={{
+                  ...inp, marginTop: 2, fontWeight: 700,
+                  color: ambiente === "01" ? "#c0392b" : "#1a7f37",
+                }}>
+                <option value="00">Pruebas (sin efecto fiscal)</option>
+                <option value="01">PRODUCCIÓN — real</option>
+              </select>
+            </label>
+          </div>
+          <button
+            onClick={emitir}
+            disabled={emitiendo}
+            style={{
+              width: "100%", padding: "9px 10px", border: "none", borderRadius: 8,
+              background: emitiendo ? "#aaa" : ambiente === "01" ? "#c0392b" : "#1a7f37",
+              color: "#fff",
+              fontWeight: 700, fontSize: 12, cursor: emitiendo ? "wait" : "pointer",
+            }}
+          >
+            {emitiendo
+              ? "Emitiendo…"
+              : ambiente === "01"
+                ? (facturas.length ? "🧾 Emitir OTRO DTE REAL ante Hacienda" : "🧾 Emitir DTE REAL ante Hacienda")
+                : (facturas.length ? "🧾 Emitir OTRA factura (pruebas)" : "🧾 Emitir factura de prueba")}
+          </button>
+        </>
       )}
     </div>
   );
