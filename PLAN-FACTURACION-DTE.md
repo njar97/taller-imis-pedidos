@@ -117,16 +117,23 @@ emisor, no Hacienda: **hay que armarlo en la app**.
 
 ### 3.5.3 Mandar por WhatsApp
 
-- Ya hay helpers: **`src/lib/whatsapp.js`** (arma texto y copia al portapapeles) y el
-  patrón `https://wa.me/<solo-numeros>` usado en `DetalleClienteModal.jsx:57`,
+**Cómo se manda de verdad** (confirmado por Javier, que ya lo hace a diario):
+
+- **`navigator.share()` con `files`** SÍ manda el PDF a WhatsApp en Android. Esa es
+  la vía. Pero ⚠️ **WhatsApp adjunta el archivo y DESCARTA el texto** del share —
+  el campo `text` no llega.
+- **Consecuencia de diseño, no detalle menor**: todo lo que el cliente necesita leer
+  tiene que estar **dentro del PDF**. Nada de información importante en el mensaje,
+  porque no va a llegar. El PDF ya lleva número de control, código de generación,
+  sello y QR — con eso basta y se verifica solo.
+- **Además**, al tocar «Mandar por WhatsApp», copiar el texto de respaldo al
+  portapapeles (con `copiarWA` de `src/lib/whatsapp.js`, que ya existe) y avisar
+  «el PDF va adjunto; el texto quedó copiado por si querés pegarlo». Así Javier
+  decide si además lo pega.
+- **Fallback**: si `navigator.share` no está disponible (PC de escritorio), caer al
+  patrón `https://wa.me/<solo-numeros>` con el texto — ahí sí viaja el texto, y el
+  PDF se descarga aparte. El patrón `wa.me` ya se usa en `DetalleClienteModal.jsx:57`,
   `FormPedido.jsx:605` y `EstimadorPrecio.jsx:747`. **Reusar, no reinventar.**
-- ⚠️ **`wa.me` no permite adjuntar archivos por URL**: solo texto. Así que el botón
-  debe **mandar el mensaje con los datos de la factura** (número de control, total,
-  y el link de la consulta pública del MH, que es verificable por cualquiera) y
-  dejar el PDF para compartir aparte con el botón de compartir del teléfono.
-- Si se quiere adjuntar el PDF de verdad, la vía es **`navigator.share()` con
-  `files`** (funciona en Android/Chrome, que es lo que usa Javier). Implementarlo con
-  detección de soporte y caer al mensaje de texto si no está disponible.
 
 ### 3.5.4 Y que no se pierda
 
