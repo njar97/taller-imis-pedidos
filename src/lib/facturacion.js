@@ -109,9 +109,12 @@ async function supa(path, opts = {}) {
   });
 }
 
+// TODAS las facturas del pedido, sin filtrar por el emisor activo: si no, al
+// cambiar de emisor en el selector las facturas ya emitidas desaparecían de la
+// vista y parecía que se habían perdido.
 export async function facturasDePedido(pedidoId) {
   try {
-    return await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&nit_emisor=eq.${emisorDatos().nit}&order=id.desc`);
+    return await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&order=id.desc`);
   } catch (e) {
     console.error("facturasDePedido:", e);
     return [];
@@ -286,6 +289,10 @@ export async function emitirFacturaPedido(pedido, tipoForzado) {
         receptor: prep.receptor,
         items,
         total: prep.total,
+        // El DTE oficial tal cual lo selló Hacienda: de acá sale el PDF que ve
+        // el cliente y el reenvío. Con el Sistema de Transmisión el MH ya no
+        // genera el PDF — lo genera el emisor, así que este JSON es el original.
+        dte_json: data.dte || null,
       };
       try {
         await supa("/taller_facturas", {

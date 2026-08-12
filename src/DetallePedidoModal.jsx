@@ -432,8 +432,27 @@ function FacturaElectronica({ pedido }) {
           <div style={{ fontWeight: 700 }}>
             {f.tipo_dte === "03" ? "CCF" : "FC"} {f.numero_control || "(sin nº control)"}
             {f.ambiente === "00" ? " · PRUEBAS" : ""}
+            {f.total != null ? ` · ${fmt$(f.total)}` : ""}
           </div>
           <div style={{ wordBreak: "break-all" }}>Sello: {f.sello || "—"}</div>
+          <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+            {f.dte_json && (
+              <a href={"data:application/json;charset=utf-8," +
+                    encodeURIComponent(JSON.stringify(f.dte_json, null, 2))}
+                download={`${f.numero_control || f.codigo_generacion}.json`}
+                style={{ color: "#2e5f38", fontWeight: 700 }}>
+                ⬇ JSON
+              </a>
+            )}
+            {f.codigo_generacion && (
+              <a href={`https://admin.factura.gob.sv/consultaPublica?ambiente=${f.ambiente}` +
+                    `&codGen=${f.codigo_generacion}&fechaEmi=${(f.creado_en || "").slice(0, 10)}`}
+                target="_blank" rel="noreferrer"
+                style={{ color: "#2e5f38", fontWeight: 700 }}>
+                🔎 Verificar en Hacienda
+              </a>
+            )}
+          </div>
         </div>
       ))}
       {pideLogin ? (
