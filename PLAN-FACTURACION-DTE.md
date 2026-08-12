@@ -80,6 +80,62 @@ la descripción escrita al crear el pedido. Lo único documentado es **$7.50** (
 
 ---
 
+## 🟠 FASE 3.5 — Vista previa antes de emitir + PDF con envío por WhatsApp
+
+Pedido de Javier (11-ago): **ver los datos antes de transmitir**, y después de emitir
+**ver el PDF con opción de mandarlo por WhatsApp**. La vista previa además sirve para
+cachar un error ANTES de que el DTE sea irreversible.
+
+### 3.5.1 Vista previa (antes de emitir)
+
+Mostrar, con el mismo aspecto que tendrá la factura, lo que se va a transmitir:
+emisor elegido, receptor (razón social, NIT, NRC, dirección), tipo de DTE, el detalle
+de líneas con cantidad / precio unitario / subtotal, y los totales con IVA desglosado.
+Recién debajo, el botón de emitir.
+
+- El armado del payload ya existe: **`prepararFacturaPedido` (`facturacion.js:114`)**
+  devuelve receptor, ítems y totales sin transmitir nada. **Reusar eso** — no duplicar
+  la lógica de cálculo, o la vista previa y lo emitido se van a desincronizar.
+- En la vista previa dejar claro el **ambiente** (pruebas / producción).
+
+### 3.5.2 El PDF
+
+⚠️ **El puente NO devuelve PDF.** De `/emitir-pedido` vuelven solo `numeroControl`,
+`codigoGeneracion` y `selloRecibido` (`facturacion.js:208-210`). El PDF lo genera el
+emisor, no Hacienda: **hay que armarlo en la app**.
+
+- **Mecanismo que ya usa el repo**: `src/lib/documentosProducto.js` monta un iframe a
+  pantalla completa y dispara `print()` (el usuario elige «Guardar como PDF»). Mismo
+  patrón que `imprimirHojaTaller` y `imprimirPedido` (`src/lib/imprimir.js:91`).
+  **Seguir ese patrón**, no meter una librería de PDF nueva.
+- El documento debe llevar lo que exige el MH: datos del emisor y del receptor,
+  detalle, totales, **número de control, código de generación, sello de recepción**
+  y **QR** hacia la consulta pública
+  (`https://admin.factura.gob.sv/consultaPublica?ambiente=<amb>&codGen=<cod>&fechaEmi=<fecha>`).
+- Para el QR: generarlo sin dependencias externas si se puede (canvas), o confirmar
+  con Javier antes de agregar una librería.
+
+### 3.5.3 Mandar por WhatsApp
+
+- Ya hay helpers: **`src/lib/whatsapp.js`** (arma texto y copia al portapapeles) y el
+  patrón `https://wa.me/<solo-numeros>` usado en `DetalleClienteModal.jsx:57`,
+  `FormPedido.jsx:605` y `EstimadorPrecio.jsx:747`. **Reusar, no reinventar.**
+- ⚠️ **`wa.me` no permite adjuntar archivos por URL**: solo texto. Así que el botón
+  debe **mandar el mensaje con los datos de la factura** (número de control, total,
+  y el link de la consulta pública del MH, que es verificable por cualquiera) y
+  dejar el PDF para compartir aparte con el botón de compartir del teléfono.
+- Si se quiere adjuntar el PDF de verdad, la vía es **`navigator.share()` con
+  `files`** (funciona en Android/Chrome, que es lo que usa Javier). Implementarlo con
+  detección de soporte y caer al mensaje de texto si no está disponible.
+
+### 3.5.4 Y que no se pierda
+
+Guardar el JSON del DTE en `taller_facturas` (ya hay columnas `receptor` e `items`
+jsonb) para poder **regenerar el PDF después** sin volver a emitir. Hoy, si el usuario
+cierra la pantalla, el PDF no se puede reconstruir.
+
+---
+
 ## 🟡 FASE 4 — Robustez (después de la primera emisión, no antes)
 
 1. **Reconciliación de DTE huérfanos** (lo más grave): `facturacion.js:222-227` — si
