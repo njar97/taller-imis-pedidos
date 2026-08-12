@@ -339,6 +339,102 @@ function DetalleFactura({ pedido }) {
   );
 }
 
+// Una factura ya emitida. Muestra lo que hace falta para reconocerla y para
+// reclamar: si está anulada, cuándo se emitió, y los dos códigos que pide
+// Hacienda — el de generación (el que sirve para verificar) y el sello, ambos
+// copiables de un toque, porque a mano son imposibles de dictar.
+function FichaFactura({ f }) {
+  const anulada = (f.estado || "").toUpperCase().startsWith("ANULAD");
+  const ident = f.dte_json?.identificacion || {};
+  // El DTE manda: la consulta pública de Hacienda valida contra SU fecEmi, que
+  // no siempre cae el mismo día que el registro local.
+  const fecEmi = ident.fecEmi || (f.creado_en || "").slice(0, 10);
+  const emitido = f.creado_en
+    ? new Date(f.creado_en).toLocaleString("es-SV", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    : null;
+
+  const copiar = async (valor, que) => {
+    try {
+      await navigator.clipboard.writeText(valor);
+      pushToast(`${que} copiado ✓`, "success", 2000);
+    } catch {
+      pushToast("No se pudo copiar — mantené presionado para seleccionar", "error");
+    }
+  };
+
+  const col = anulada ? "#8a1c1c" : "#2e5f38";
+  const chip = {
+    fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 10,
+    background: anulada ? "#f8d7da" : "#d4edda", color: col,
+  };
+  const codigo = {
+    fontFamily: "monospace", fontSize: 10, wordBreak: "break-all", flex: 1,
+  };
+  const btnCopiar = {
+    border: "none", background: "transparent", cursor: "pointer",
+    fontSize: 12, padding: "0 2px", color: col,
+  };
+
+  return (
+    <div style={{
+      fontSize: 11, background: anulada ? "#fdf3f3" : "#f0f9f1",
+      border: `1px solid ${anulada ? "#f0c8c8" : "#d4ead7"}`,
+      borderRadius: 7, padding: "7px 9px", marginBottom: 6, color: col,
+      opacity: anulada ? 0.85 : 1,
+    }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontWeight: 700, textDecoration: anulada ? "line-through" : "none" }}>
+          {f.tipo_dte === "03" ? "CCF" : "FC"} {f.numero_control || "(sin nº control)"}
+        </span>
+        {f.total != null && <span style={{ fontWeight: 700 }}>{fmt$(f.total)}</span>}
+        {anulada && <span style={chip}>ANULADA</span>}
+        {f.ambiente === "00" && <span style={chip}>PRUEBAS</span>}
+      </div>
+
+      {emitido && <div style={{ marginTop: 2 }}>Emitida el {emitido}</div>}
+      {anulada && f.estado.length > 8 && (
+        <div style={{ fontWeight: 700 }}>Invalidada ante Hacienda el {f.estado.slice(8)}</div>
+      )}
+
+      {f.codigo_generacion && (
+        <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 4 }}>
+          <span style={codigo}>Cód. generación: {f.codigo_generacion}</span>
+          <button onClick={() => copiar(f.codigo_generacion, "Código de generación")}
+            style={btnCopiar} title="Copiar el código de generación">📋</button>
+        </div>
+      )}
+      {f.sello && (
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <span style={codigo}>Sello: {f.sello}</span>
+          <button onClick={() => copiar(f.sello, "Sello")}
+            style={btnCopiar} title="Copiar el sello">📋</button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10, marginTop: 5, flexWrap: "wrap" }}>
+        {f.dte_json && (
+          <a href={"data:application/json;charset=utf-8," +
+                encodeURIComponent(JSON.stringify(f.dte_json, null, 2))}
+            download={`${f.numero_control || f.codigo_generacion}.json`}
+            style={{ color: col, fontWeight: 700 }}>
+            ⬇ JSON
+          </a>
+        )}
+        {f.codigo_generacion && (
+          <a href={`https://admin.factura.gob.sv/consultaPublica?ambiente=${f.ambiente}` +
+                `&codGen=${f.codigo_generacion}&fechaEmi=${fecEmi}`}
+            target="_blank" rel="noreferrer" style={{ color: col, fontWeight: 700 }}>
+            🔎 Verificar en Hacienda
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Emisión de la factura electrónica (DTE) vía puente MH. Muestra las facturas
 // ya emitidas del pedido y el botón para emitir. La primera vez pide conectar
 // con el usuario/contraseña de Tlacuilo (token de larga duración del bridge).
@@ -421,40 +517,7 @@ function FacturaElectronica({ pedido }) {
 
   return (
     <div style={{ marginTop: 10, borderTop: "1px dashed #e0e0e0", paddingTop: 10 }}>
-      {facturas.map((f, i) => (
-        <div
-          key={i}
-          style={{
-            fontSize: 11, background: "#f0f9f1", border: "1px solid #d4ead7",
-            borderRadius: 7, padding: "6px 8px", marginBottom: 6, color: "#2e5f38",
-          }}
-        >
-          <div style={{ fontWeight: 700 }}>
-            {f.tipo_dte === "03" ? "CCF" : "FC"} {f.numero_control || "(sin nº control)"}
-            {f.ambiente === "00" ? " · PRUEBAS" : ""}
-            {f.total != null ? ` · ${fmt$(f.total)}` : ""}
-          </div>
-          <div style={{ wordBreak: "break-all" }}>Sello: {f.sello || "—"}</div>
-          <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-            {f.dte_json && (
-              <a href={"data:application/json;charset=utf-8," +
-                    encodeURIComponent(JSON.stringify(f.dte_json, null, 2))}
-                download={`${f.numero_control || f.codigo_generacion}.json`}
-                style={{ color: "#2e5f38", fontWeight: 700 }}>
-                ⬇ JSON
-              </a>
-            )}
-            {f.codigo_generacion && (
-              <a href={`https://admin.factura.gob.sv/consultaPublica?ambiente=${f.ambiente}` +
-                    `&codGen=${f.codigo_generacion}&fechaEmi=${(f.creado_en || "").slice(0, 10)}`}
-                target="_blank" rel="noreferrer"
-                style={{ color: "#2e5f38", fontWeight: 700 }}>
-                🔎 Verificar en Hacienda
-              </a>
-            )}
-          </div>
-        </div>
-      ))}
+      {facturas.map((f, i) => <FichaFactura key={i} f={f} />)}
       {pideLogin ? (
         <div style={{ display: "grid", gap: 6 }}>
           <div style={{ fontSize: 11, color: "#888" }}>
