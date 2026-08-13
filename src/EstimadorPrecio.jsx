@@ -54,7 +54,11 @@ const LBL = {
   letterSpacing: 0.4,
 };
 
-const MARGENES = [30, 50, 80, 100];
+// Desde el 13-ago-2026 los costos de tela en taller_costos_base son el
+// precio REAL de compra (+15% merma), no el costo con margen adentro que
+// habia antes. El margen de aca es el unico margen, asi que los presets
+// subieron: al 50% viejo el precio sugerido salia 20-46% mas barato.
+const MARGENES = [80, 120, 150, 200];
 
 // ── Helpers de cálculo ──────────────────────────────────────
 
@@ -722,7 +726,7 @@ export default function EstimadorPrecio({
   // Cuellos: datos simples
   const [cuelloDatos, setCuelloDatos] = useState({ tipo: TIPOS_CUELLO[0], material: MATERIALES_CUELLO[0], qty: "1", costoUnit: "3.5" });
 
-  const [margen, setMargen] = useState(50);
+  const [margen, setMargen] = useState(120);
 
   // Datos del cliente para guardar la cotización formal
   const [cliente, setCliente] = useState("");
