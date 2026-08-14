@@ -119,6 +119,9 @@ import ModalConfirmarBorrar from "./ModalConfirmarBorrar.jsx";
 
 // Modal de detalle de un pedido (vista "ver pedido")
 import DetallePedidoModal from "./DetallePedidoModal.jsx";
+import { leerItems, leerAsignaciones } from "./lib/inventario.js";
+import { leerRecetas } from "./lib/recetas.js";
+import { leerCostos } from "./lib/costosBase.js";
 
 // Sección "Pedidos" (toolbar + tabs + vencidos + próximas + tabla/cards)
 import SeccionPedidos from "./SeccionPedidos.jsx";
@@ -345,6 +348,8 @@ function App() {
   });
   const [inventario, setInventario] = useState([]);
   const [asignaciones, setAsignaciones] = useState([]);
+  const [recetas, setRecetas] = useState([]);
+  const [costosBase, setCostosBase] = useState([]);
   const [modal, setModal] = useState(null);
   const [detalle, setDet] = useState(null);
   const [confirmar, setConf] = useState(null);
@@ -483,6 +488,25 @@ function App() {
   // Realtime: cuando otro dispositivo cambia algo en Postgres, refrescamos
   // sólo la tabla afectada. Lógica extraída a useRealtime.js.
   useRealtime(rolBase, { setPedidos, setBordados, setCuellos, setClientes, setCatalogo });
+
+  // El costo de un pedido sale de inventario + asignaciones, y hasta hoy esas
+  // dos solo se cargaban al ABRIR la pestana Inventario: si no entrabas ahi,
+  // la fila del pedido salia sin costo. Se cargan al arrancar. Solo para
+  // admin, que es el unico que ve costos.
+  useEffect(() => {
+    if (!esAdmin) return;
+    let vivo = true;
+    Promise.all([leerItems(), leerAsignaciones(), leerRecetas(), leerCostos()])
+      .then(([its, asigs, recs, cbs]) => {
+        if (!vivo) return;
+        setInventario(its);
+        setAsignaciones(asigs);
+        setRecetas(recs);
+        setCostosBase(Array.isArray(cbs) ? cbs : []);
+      })
+      .catch(() => {});   // sin costos la app sigue sirviendo; no vale tumbarla
+    return () => { vivo = false; };
+  }, [esAdmin]);
   async function guardarPedido(form, _esNuevo) {
     // Es nuevo si: invocado explícitamente con _esNuevo=true, o el modal
     // dice "nuevo", o el modal es un borrador (objeto sin id, ej. desde
@@ -1323,6 +1347,8 @@ function App() {
           pedidos={pedidos}
           asignaciones={asignaciones}
           inventario={inventario}
+          recetas={recetas}
+          costosBase={costosBase}
           catalogo={catalogo}
           esAdmin={esAdmin}
           bordados={bordados}

@@ -11,6 +11,7 @@ import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen, conjuntosResueltos, detalleFactura, textoFactura, carritoPedido, normNombre, sumarAbonos, abonosAnotadosSinRegistrar, montoNum } from "./lib/dominio.js";
 import { costeoPedido } from "./lib/costeo.js";
+import { costoEsperado, prendaDePedido } from "./lib/recetas.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { imprimirCorte, imprimirCantidades, opcionesAgrupacion } from "./lib/imprimir.js";
@@ -185,6 +186,28 @@ function InfoTabla({ pedido, esAdmin }) {
         filas.push(c.completo
           ? ["Margen bruto", `${fmt$(c.margen)} · ${Math.round(c.margenPct)}%`]
           : ["Margen bruto", "provisional — falta asignarle la tela"]);
+      }
+      return filas;
+    })() : []),
+    // Costo ESPERADO segun receta. Es otra cosa que el costo real: sale de
+    // cuanto insumo lleva la prenda x cuantas se hicieron, no de las
+    // facturas. Sirve para dos cosas: cotizar antes de comprar, y detectar
+    // pedidos a los que les falta asignar compras.
+    ...(esAdmin ? (() => {
+      const nombre = prendaDePedido(recetas, pedido.tipoPrenda);
+      if (!nombre) return [];
+      const unidades = (pedido.personas || []).length
+        || itemsResumen(pedido).reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+      const est = costoEsperado(recetas, nombre, unidades, costosBase);
+      if (!est) return [];
+      const real = costeoPedido(pedido, asignaciones, inventario);
+      const txt = `${fmt$(est.total)} para ${unidades} prenda${unidades !== 1 ? "s" : ""}`
+        + ` · ${nombre}` + (est.incompleto ? " ⚠ receta a medias" : "");
+      const filas = [["📐 Costo esperado", txt]];
+      if (real.n && est.total > 0) {
+        const dif = real.costo - est.total;
+        filas.push(["Real vs esperado",
+          `${dif >= 0 ? "+" : ""}${fmt$(dif)} (${Math.round(100 * dif / est.total)}%)`]);
       }
       return filas;
     })() : []),
@@ -1930,6 +1953,8 @@ export default function DetallePedidoModal({
   pedidos,
   asignaciones = [],
   inventario = [],
+  recetas = [],
+  costosBase = [],
   catalogo,
   esAdmin,
   bordados,
