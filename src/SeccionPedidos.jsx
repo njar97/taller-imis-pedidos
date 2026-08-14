@@ -8,6 +8,7 @@
 
 import { ESTATUS, EC } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
+import { costeoPedido, colorMargen } from "./lib/costeo.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { TallasChips } from "./SelectorTallas.jsx";
 import { WABtn } from "./lib/ui.jsx";
@@ -283,6 +284,7 @@ function FilaPedido({
   p,
   esAdmin,
   asignaciones,
+  inventario,
   diasPara,
   setDet,
   setModal,
@@ -300,7 +302,10 @@ function FilaPedido({
   const itemsP = itemsResumen(p);
   const imgs = (p.imagenes || []).filter(i => imgSrc(i));
   const nFotos = imgs.length;
-  const nAsig = asignaciones.filter(a => a.pedidoId === String(p.id)).length;
+  // Costo real de insumo, no el contador de asignaciones que habia antes:
+  // saber que hay 3 compras amarradas no dice nada; saber que costaron $854
+  // contra un precio de $753 si.
+  const cost = costeoPedido(p, asignaciones, inventario);
 
   return (
     <tr
@@ -332,8 +337,16 @@ function FilaPedido({
         {p.costurera && p.costurera !== "(Sin asignar)" && (
           <div style={{ fontSize: 10, color: "#9B59B6" }}>✂️ {p.costurera}</div>
         )}
-        {esAdmin && nAsig > 0 && (
-          <div style={{ fontSize: 10, color: "#27AE60" }}>🧵 {nAsig}</div>
+        {esAdmin && cost.n > 0 && (
+          <div style={{ fontSize: 10, color: colorMargen(cost), fontWeight: 600 }}>
+            🧵 {fmt$(cost.costo)}
+            {cost.hayPrecio && (
+              <>
+                {" · "}
+                {cost.completo ? `${Math.round(cost.margenPct)}%` : "parcial"}
+              </>
+            )}
+          </div>
         )}
       </td>
       <td style={{ padding: "10px" }}>
@@ -536,6 +549,7 @@ function TablaYCards({
   filtrados,
   esAdmin,
   asignaciones,
+  inventario,
   diasPara,
   nextId,
   setDet,
@@ -587,6 +601,7 @@ function TablaYCards({
               p={p}
               esAdmin={esAdmin}
               asignaciones={asignaciones}
+              inventario={inventario}
               diasPara={diasPara}
               setDet={setDet}
               setModal={setModal}
@@ -659,6 +674,7 @@ export default function SeccionPedidos({
   diasPara,
   esAdmin,
   asignaciones,
+  inventario,
   nextId,
   setDet,
   setModal,
@@ -738,6 +754,7 @@ export default function SeccionPedidos({
             filtrados={filtrados}
             esAdmin={esAdmin}
             asignaciones={asignaciones}
+              inventario={inventario}
             diasPara={diasPara}
             nextId={nextId}
             setDet={setDet}

@@ -10,6 +10,7 @@
 import { Modal } from "./lib/Modal.jsx";
 import { ESTATUS, EC, COLABORADORAS } from "./lib/constants.js";
 import { fmt$, resumenTallas, itemsResumen, conjuntosResueltos, detalleFactura, textoFactura, carritoPedido, normNombre, sumarAbonos, abonosAnotadosSinRegistrar, montoNum } from "./lib/dominio.js";
+import { costeoPedido } from "./lib/costeo.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { imprimirCorte, imprimirCantidades, opcionesAgrupacion } from "./lib/imprimir.js";
@@ -165,6 +166,28 @@ function InfoTabla({ pedido, esAdmin }) {
     esAdmin ? ["Precio", fmt$(pedido.precio)] : null,
     esAdmin ? ["Abonado", fmt$(sumarAbonos(pedido))] : null,
     esAdmin ? ["Saldo", fmt$(montoNum(pedido.precio) - sumarAbonos(pedido))] : null,
+    // Costo real de insumo y margen. Sale de lo que se le asigno en la
+    // pestana Inventario, no del estimador: son dos numeros distintos.
+    ...(esAdmin ? (() => {
+      const c = costeoPedido(pedido, asignaciones, inventario);
+      if (!c.n) return [];
+      // Solo desglosar cuando hay las dos cosas; "tela $0.00" no informa.
+      const partes = [];
+      if (c.costoTela > 0) partes.push("tela " + fmt$(c.costoTela));
+      if (c.costoAvio > 0) partes.push("avíos " + fmt$(c.costoAvio));
+      const detalle = partes.length > 1
+        ? `${fmt$(c.costo)}  (${partes.join(" · ")})`
+        : fmt$(c.costo);
+      const filas = [["🧵 Costo insumo", detalle + `  · ${c.n} compra${c.n !== 1 ? "s" : ""}`]];
+      if (c.hayPrecio) {
+        // Sin tela asignada el margen esta inflado por definicion: decirlo
+        // en vez de cantar un porcentaje que nadie deberia creer.
+        filas.push(c.completo
+          ? ["Margen bruto", `${fmt$(c.margen)} · ${Math.round(c.margenPct)}%`]
+          : ["Margen bruto", "provisional — falta asignarle la tela"]);
+      }
+      return filas;
+    })() : []),
     // Si la captura de medidas trae abonos por persona que nadie paso al
     // registro de pagos, el saldo de arriba esta inflado: avisarlo aqui,
     // donde se decide, y no en el recibo que ve el cliente.
@@ -1905,6 +1928,8 @@ function VistaCarrito({ pedido }) {
 export default function DetallePedidoModal({
   pedido,
   pedidos,
+  asignaciones = [],
+  inventario = [],
   catalogo,
   esAdmin,
   bordados,

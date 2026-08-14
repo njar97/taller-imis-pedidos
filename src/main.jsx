@@ -1102,6 +1102,7 @@ function App() {
             diasPara={diasPara}
             esAdmin={esAdmin}
             asignaciones={asignaciones}
+            inventario={inventario}
             nextId={nextId}
             setDet={setDet}
             setModal={setModal}
@@ -1320,6 +1321,8 @@ function App() {
         <DetallePedidoModal
           pedido={detalle}
           pedidos={pedidos}
+          asignaciones={asignaciones}
+          inventario={inventario}
           catalogo={catalogo}
           esAdmin={esAdmin}
           bordados={bordados}
