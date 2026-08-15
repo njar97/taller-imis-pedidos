@@ -9,7 +9,7 @@ import { dbMoldesLeer, dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
 import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
-import { diagramaCamisaPNG, techColor } from "./diagrama.js";
+import { techColor } from "./diagrama.js";
 import QRCode from "qrcode";
 
 // Genera el HTML de "Detalle por persona" — tabla donde cada fila es una
@@ -1933,7 +1933,6 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
         ${imagenes.map(img => `<div style="text-align:center;"><img src="${imgSrc(img)}" style="max-width:160px;max-height:160px;border-radius:8px;border:1.5px solid #e0e0e0;display:block;"/><div style="font-size:9px;color:#aaa;margin-top:3px;">${img.nombre || ""}</div></div>`).join("")}
       </div>
     </div>` : "";
-  const diagramaURL = diagramaCamisaPNG(p.disenos, { ancho: 280, alto: 320 });
   const tituloProd = nombrePDF("Produccion", p.id, p.cliente);
   const w = nuevaVentanaImpresion(tituloProd, { autoPrint: !llenar });
   // En modo marcar la hoja se lee en el teléfono, no en papel: sin viewport

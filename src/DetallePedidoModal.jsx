@@ -25,7 +25,8 @@ import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js"
 import { generarTokenCaptura, urlCaptura } from "./lib/captura.js";
 import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import PanelDocumentos from "./PanelDocumentos.jsx";
-import { diagramaCamisaPNG, techColor } from "./lib/diagrama.js";
+import { diagramasDePedido, techColor } from "./lib/diagrama.js";
+import { dbMoldesLeer } from "./lib/db.js";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import {
   facturasDePedido, prepararFacturaPedido, emitirFacturaPedido, tipoSugerido, totalFacturado,
@@ -91,11 +92,36 @@ function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   );
 }
 
-function EspecsDiseno({ disenos, onVerFoto }) {
+// Los moldes se leen una vez por sesion: son ~350 filas con su contorno y no
+// cambian mientras la app esta abierta.
+let _moldesCache = null;
+function useMoldes() {
+  const [moldes, setMoldes] = useState(_moldesCache || []);
+  useEffect(() => {
+    if (_moldesCache) return;
+    let vivo = true;
+    dbMoldesLeer()
+      .then(r => { _moldesCache = r || []; if (vivo) setMoldes(_moldesCache); })
+      .catch(e => console.warn("No se pudieron leer los moldes:", e.message));
+    return () => { vivo = false; };
+  }, []);
+  return moldes;
+}
+
+function EspecsDiseno({ disenos, onVerFoto, pedido }) {
   const items = (disenos || []).filter(d => d.ubicacion);
-  const pngUrl = useMemo(
-    () => items.length ? diagramaCamisaPNG(disenos, { ancho: 200, alto: 232 }) : "",
-    [disenos] // eslint-disable-line react-hooks/exhaustive-deps
+  const moldes = useMoldes();
+  // ⚠ El dibujo sale del MOLDE con que se corta, no de una silueta generica:
+  // «deberia ir la realidad de donde va el diseno en cada patron, no en esa
+  // camisa dibujada sin sentido» (Javier, 14-ago). Si la prenda no tiene molde
+  // trazado no se dibuja nada y se avisa — un dibujo que no corresponde es peor
+  // que ninguno, porque alguien se guia por el.
+  const { prenda, talla, piezas } = useMemo(
+    () => diagramasDePedido(disenos, moldes, {
+      tipoPrenda: pedido?.tipoPrenda,
+      tallas: itemsResumen(pedido || {}).map(it => it.talla).filter(Boolean),
+    }),
+    [disenos, moldes, pedido] // eslint-disable-line react-hooks/exhaustive-deps
   );
   if (!items.length) return null;
   // Previews reales de bordado (las que existen). Se pueden ampliar.
@@ -105,14 +131,26 @@ function EspecsDiseno({ disenos, onVerFoto }) {
       <div style={{ fontSize: 10, color: "#9B59B6", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
         🎨 Especificaciones de diseño
       </div>
-      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 12px", background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 10 }}>
-        {pngUrl && (
-          <div style={{ flexShrink: 0, textAlign: "center" }}>
-            <img src={pngUrl} style={{ width: 100, height: "auto", borderRadius: 6, display: "block" }} alt="diagrama" />
-            <div style={{ fontSize: 7, color: "#ccc", marginTop: 2 }}>D ← | → I (portador)</div>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 12px", background: "#faf6ff", border: "1px solid #e8d5f5", borderRadius: 10, flexWrap: "wrap" }}>
+        {piezas.length > 0 ? (
+          <div style={{ flexShrink: 0, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {piezas.map(pz => (
+              <div key={pz.rol} style={{ textAlign: "center" }}>
+                <img src={pz.url} style={{ width: 108, height: "auto", borderRadius: 6, display: "block", background: "#fff" }} alt={pz.titulo} />
+                <div style={{ fontSize: 8, color: "#9B59B6", fontWeight: 800, marginTop: 2 }}>{pz.titulo}</div>
+              </div>
+            ))}
+            <div style={{ fontSize: 7, color: "#bbb", width: "100%", textAlign: "center" }}>
+              molde real · {prenda} talla {talla} · F = del escote al eje · D ← | → I (portador)
+            </div>
+          </div>
+        ) : (
+          <div style={{ flexShrink: 0, maxWidth: 150, fontSize: 10, color: "#8a6d3b", background: "#fdf6e3", border: "1px solid #f0d9a0", borderRadius: 8, padding: "8px 10px" }}>
+            ⚠ Esta prenda todavía no tiene molde trazado, así que no hay dibujo.
+            Las medidas de la derecha son la referencia buena.
           </div>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 180 }}>
           {items.map((d, i) => {
             const col = techColor(d.tecnica);
             const pIdx = d.disenoImg ? previews.indexOf(d.disenoImg) : -1;
@@ -2144,7 +2182,7 @@ export default function DetallePedidoModal({
       />
       <InfoTabla pedido={pedido} esAdmin={esAdmin} asignaciones={asignaciones}
                  inventario={inventario} recetas={recetas} costosBase={costosBase} />
-      <EspecsDiseno disenos={pedido.disenos} onVerFoto={onVerFoto} />
+      <EspecsDiseno disenos={pedido.disenos} onVerFoto={onVerFoto} pedido={pedido} />
       {esAdmin && !hayCarrito && <DetalleFactura pedido={pedido} />}
       <Abonos abonos={pedido.abonos} personas={pedido.personas} />
       <Imagenes pedido={pedido} onVerFoto={onVerFoto} />
