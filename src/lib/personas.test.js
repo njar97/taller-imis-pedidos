@@ -121,6 +121,21 @@ describe("orden y resumen", () => {
     expect(r.map(x => x.orden)).toEqual([2, 3]);
   });
 
+  it("ordena por cualquier campo, no solo nombre y talla", () => {
+    // el encabezado de la tabla ordena por la columna que se toque, y las
+    // columnas dependen de lo que traiga el pedido
+    const r = ordenarPersonas(GENTE, "cargo", indicesDe(GENTE));
+    expect(r.map(x => x.p.cargo)).toEqual(
+      ["1° BACH B", "1° BACH B", "2° GRAL A", "2° GRAL A"]);
+    // a igual valor, manda el orden de carga
+    expect(r.map(x => x.orden)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("los vacios caen al final, no al principio", () => {
+    const r = ordenarPersonas(GENTE, "talla", indicesDe(GENTE));
+    expect(r[r.length - 1].p.nombre).toBe("Rivera, Sofía");   // no tiene talla
+  });
+
   it("el resumen por talla deja las sin talla al final", () => {
     expect(resumenPorTalla(GENTE)).toEqual([
       { talla: "14", n: 2 }, { talla: "16", n: 1 }, { talla: "S", n: 1 },
