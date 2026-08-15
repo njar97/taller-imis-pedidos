@@ -27,6 +27,7 @@ import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import PanelDocumentos from "./PanelDocumentos.jsx";
 import { diagramasDePedido, techColor } from "./lib/diagrama.js";
 import { dbMoldesLeer } from "./lib/db.js";
+import { facetasDe, filtrarPersonas, indicesDe, ordenarPersonas, resumenPorTalla } from "./lib/personas.js";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import {
   facturasDePedido, prepararFacturaPedido, emitirFacturaPedido, tipoSugerido, totalFacturado,
@@ -1297,8 +1298,14 @@ export function ComponentesKit({ componentes, catalogo }) {
 // (prendas con talla y spec, medidas tomadas, abono). Antes las medidas
 // vivían en una tabla aparte debajo, así que la misma gente salía listada
 // dos veces; ahora el detalle cuelga de su propia fila.
-function Personas({ personas, abonos, esAdmin }) {
+export function Personas({ personas, abonos, esAdmin }) {
   const [abiertos, setAbiertos] = useState(() => new Set());
+  const [busca, setBusca] = useState("");
+  const [filtros, setFiltros] = useState({});
+  const [orden, setOrden] = useState("");
+  // ⚠ Arranca CERRADA solo cuando la lista es larga: con 5 nombres cerrarla
+  // agrega un toque y no ahorra nada.
+  const [abierta, setAbierta] = useState(() => (personas || []).length <= 12);
   const abonoPorNombre = useMemo(() => {
     const m = new Map();
     for (const a of abonos || []) {
@@ -1311,7 +1318,7 @@ function Personas({ personas, abonos, esAdmin }) {
   if (!personas || personas.length === 0) return null;
   // Normaliza: si la persona no tiene prendas[], crea una virtual desde
   // su talla/precio sueltos (compat con shape viejo).
-  const norm = personas.map(p => {
+  const gente = personas.map(p => {
     if (Array.isArray(p.prendas) && p.prendas.length > 0) return p;
     return {
       ...p,
@@ -1332,23 +1339,93 @@ function Personas({ personas, abonos, esAdmin }) {
     return m != null && m !== "" ? parseFloat(m) : null;
   };
   const cols = 6 + (esAdmin ? 1 : 0);
+
+  // Los filtros NO estan escritos a mano: salen de lo que este pedido traiga
+  // cargado. El grado y la seccion viven dentro de `cargo` ("1° BACH B"), y hay
+  // pedidos con `color` o `expediente` que la tabla ni muestra.
+  const facetas = facetasDe(gente);
+  const visibles = filtrarPersonas(gente, busca, filtros);
+  // el numero de fila sale del indice de CARGA, no de la lista filtrada
+  const ordenadas = ordenarPersonas(visibles, orden, indicesDe(gente));
+  const filtrando = !!busca || Object.values(filtros).some(Boolean);
+  const porTalla = resumenPorTalla(gente);
+
+  const th = { padding: "5px 8px", fontSize: 10, fontWeight: 700, color: "#1A5276", textTransform: "uppercase" };
+  const ctrl = { fontSize: 12, padding: "5px 8px", border: "1px solid #cfe0ee", borderRadius: 7, background: "#fff", color: "#2C1654" };
+
   return (
     <div style={{ marginTop: 12 }}>
       <div
+        onClick={() => setAbierta(v => !v)}
         style={{
-          fontSize: 10,
-          color: "#1A5276",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          marginBottom: 6,
+          fontSize: 10, color: "#1A5276", fontWeight: 700, textTransform: "uppercase",
+          marginBottom: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
         }}
       >
-        👥 Beneficiarios
-        <span style={{ color: "#9bb", fontWeight: 600, textTransform: "none", marginLeft: 6 }}>
-          · tocá una fila para ver su detalle
-        </span>
+        <span>{abierta ? "▼" : "▶"} 👥 {gente.length} beneficiario{gente.length !== 1 ? "s" : ""}</span>
+        {/* Cerrada, el reparto por talla dice lo que uno va a buscar la mayoria
+            de las veces sin tener que abrir las 57 filas. */}
+        {!abierta && porTalla.map(t => (
+          <span key={t.talla} style={{ color: "#7fa3bd", fontWeight: 600, textTransform: "none" }}>
+            {t.talla}·{t.n}
+          </span>
+        ))}
       </div>
-      <div style={{ overflowX: "auto" }}>
+
+      {/* El buscador queda SIEMPRE visible: escribir un nombre abre la lista ya
+          filtrada, sin tener que desplegarla primero. */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+        <input
+          value={busca}
+          onChange={e => { setBusca(e.target.value); if (e.target.value) setAbierta(true); }}
+          placeholder="🔍 Buscar en todo…"
+          style={{ ...ctrl, flex: "1 1 150px", minWidth: 120 }}
+        />
+        {facetas.map(f => (
+          <select
+            key={f.clave}
+            value={filtros[f.clave] || ""}
+            onChange={e => {
+              setFiltros(v => ({ ...v, [f.clave]: e.target.value }));
+              if (e.target.value) setAbierta(true);
+            }}
+            style={{ ...ctrl, background: filtros[f.clave] ? "#EBF5FB" : "#fff" }}
+          >
+            <option value="">{f.etiqueta}</option>
+            {f.valores.map(v => (
+              <option key={v.v} value={v.v}>
+                {(v.v.length > 34 ? v.v.slice(0, 33) + "…" : v.v)} ({v.n})
+              </option>
+            ))}
+          </select>
+        ))}
+        <select value={orden} onChange={e => setOrden(e.target.value)} style={ctrl}>
+          <option value="">Orden de carga</option>
+          <option value="nombre">Por nombre</option>
+          <option value="talla">Por talla</option>
+        </select>
+        {filtrando && (
+          <>
+            <span style={{ fontSize: 11, color: "#1A5276", fontWeight: 700 }}>
+              {visibles.length} de {gente.length}
+            </span>
+            <button
+              onClick={() => { setBusca(""); setFiltros({}); }}
+              style={{ ...ctrl, cursor: "pointer", color: "#C0392B", fontWeight: 700 }}
+            >
+              Limpiar
+            </button>
+          </>
+        )}
+      </div>
+
+      {abierta && visibles.length === 0 && (
+        <div style={{ fontSize: 12, color: "#999", fontStyle: "italic", padding: "10px 4px" }}>
+          Ninguna persona coincide. Probá con menos filtros.
+        </div>
+      )}
+
+      <div style={{ overflowX: "auto", display: abierta && visibles.length ? "block" : "none" }}>
         <table
           style={{
             width: "100%",
@@ -1376,8 +1453,13 @@ function Personas({ personas, abonos, esAdmin }) {
             </tr>
           </thead>
           <tbody>
-            {norm.map((p, i) => {
-              const key = p.id || i;
+            {/* ⚠ Se recorre lo ORDENADO/FILTRADO, pero el numero de fila que
+                se pinta es `orig`, el de carga: las hojas ya impresas y los
+                abonos anotados se refieren a ese numero. Si se renumerara al
+                ordenar, dejarian de coincidir. */}
+            {ordenadas.map(({ p, orden: orig }) => {
+              const i = orig;
+              const key = p.id || orig;
               const open = abiertos.has(key);
               const abono = abonoDe(p);
               return (
