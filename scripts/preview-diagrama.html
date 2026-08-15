@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Preview del diagrama sobre el molde real</title>
+<style>
+  body{font:14px system-ui;background:#faf6ff;margin:0;padding:20px;color:#2C1654}
+  h1{font-size:16px;margin:0 0 14px}
+  .caso{background:#fff;border:1px solid #e8d5f5;border-radius:10px;padding:12px;margin-bottom:14px}
+  .caso h2{font-size:12px;margin:0 0 8px;color:#9B59B6;text-transform:uppercase;letter-spacing:.05em}
+  .fila{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+  .pz{text-align:center}
+  .pz img{background:#fff;border-radius:6px;display:block}
+  .pz div{font-size:9px;color:#9B59B6;font-weight:800;margin-top:3px}
+  .aviso{max-width:200px;font-size:11px;color:#8a6d3b;background:#fdf6e3;
+         border:1px solid #f0d9a0;border-radius:8px;padding:9px 11px}
+  .meta{font-size:11px;color:#888;margin-top:8px}
+</style>
+<div id="app">cargando moldes…</div>
+<script type="module">
+// Previsualiza el diagrama con los MOLDES REALES de la base, sin tener que
+// entrar a la app (que pide OTP por correo). Se sirve con `npm run dev`.
+import { diagramasDePedido } from "/src/lib/diagrama.js";
+import { dbMoldesLeer } from "/src/lib/db.js";
+
+const CASOS = [
+  { titulo: "Camiseta · pecho + espalda + manga",
+    tipoPrenda: "Camiseta Intramuros 2026 (DTF)", tallas: ["6", "8", "10"],
+    disenos: [
+      { ubicacion: "Pecho izquierdo", tecnica: "DTF", ancho: 7, alto: 7 },
+      { ubicacion: "Espalda", tecnica: "DTF", ancho: 21.4, alto: 17.2 },
+      { ubicacion: "Manga derecha", tecnica: "DTF", ancho: 9, alto: 3, posicionCuello: 4 },
+    ] },
+  { titulo: "Polo · escudo del deportivo al pecho",
+    tipoPrenda: "Polo deportivo Salomon", tallas: ["M"],
+    disenos: [{ ubicacion: "Pecho izquierdo", tecnica: "Bordado", ancho: 7.8, alto: 7.4 }] },
+  { titulo: "Camisa de cadetes · SIN molde trazado (el caso de la captura)",
+    tipoPrenda: "Camisa de vestir cadetes", tallas: ["12"],
+    disenos: [
+      { ubicacion: "Corbata", tecnica: "Bordado", ancho: 5.9, alto: 7.7 },
+      { ubicacion: "Pecho", tecnica: "Bordado", ancho: 7.0, alto: 2.5 },
+    ] },
+];
+
+const moldes = await dbMoldesLeer();
+const app = document.getElementById("app");
+app.innerHTML = `<h1>Diagrama sobre el molde real · ${moldes.length} moldes leídos</h1>`;
+
+for (const c of CASOS) {
+  const { prenda, talla, piezas } = diagramasDePedido(
+    c.disenos, moldes, { tipoPrenda: c.tipoPrenda, tallas: c.tallas });
+  const div = document.createElement("div");
+  div.className = "caso";
+  div.innerHTML = `<h2>${c.titulo}</h2>` + (piezas.length
+    ? `<div class="fila">${piezas.map(p =>
+        `<div class="pz"><img src="${p.url}"><div>${p.titulo}</div></div>`).join("")}</div>
+       <div class="meta">molde real · ${prenda} talla ${talla} · F = del escote al eje</div>`
+    : `<div class="aviso">⚠ Esta prenda todavía no tiene molde trazado, así que no
+        hay dibujo. Las medidas de la derecha son la referencia buena.</div>`);
+  app.appendChild(div);
+}
+</script>

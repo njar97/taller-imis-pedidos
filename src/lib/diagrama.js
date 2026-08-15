@@ -1,8 +1,22 @@
-// Genera un diagrama PNG de posicionamiento de diseños en una prenda.
-// Usa Canvas 2D (browser only). Devuelve data URL o "" si no hay datos.
+// Dibuja DONDE va cada arte sobre el molde REAL con que se corta la prenda.
+//
+// Antes esto era una camiseta inventada con coordenadas fijas y el arte se
+// colocaba buscando palabras: "pecho izquierdo" caia en el punto 155,93 del
+// dibujo, tuviera el pedido la prenda que tuviera. Javier: «deberia ir la
+// realidad de donde va el diseno en cada patron, no en esa camisa dibujada sin
+// sentido».
+//
+// Ahora se dibuja el contorno de `taller_moldes` — el mismo trazo con el que se
+// corta — y el arte cae donde manda la norma de la casa: por su EJE, a la F
+// medida desde el filo del escote. Ver `moldes.js`.
+//
+// Si la prenda no tiene molde trazado NO se dibuja nada: un dibujo que no
+// corresponde es peor que ninguno, porque alguien se guia por el.
 
-const COLLAR_Y = 42;   // Y del vértice del cuello V (referencia de cota)
-const PX_CM    = 3.2;  // ~70 cm de camisa = ~225 px de canvas
+import {
+  bbox, moldeDePieza, orillaALaAltura, piezaDeUbicacion, prendaConMolde,
+  tallaConMolde, ubicarArte,
+} from "./moldes.js";
 
 const TECH_COLORS = {
   "Sublimación": "#2980B9",
@@ -12,157 +26,158 @@ const TECH_COLORS = {
 };
 export const techColor = t => TECH_COLORS[t] || "#7F8C8D";
 
-// Coordenadas en el espacio SVG interno (viewBox 0 0 240 280).
-// OJO: SVG-derecha = izquierda del portador (y viceversa).
-const LOC_MAP = [
-  [["pecho izquierdo", "pecho izq", "izquierdo"], [155, 93]],
-  [["pecho derecho",   "pecho der", "derecho"],   [85,  93]],
-  [["centro pecho",    "centro",    "pecho"],      [120, 93]],
-  [["manga izquierda", "manga izq"],               [210, 62]],
-  [["manga derecha",   "manga der"],               [30,  62]],
-  [["espalda"],                                    [120, 155]],
-  [["cuello"],                                     [120, 52]],
-  [["bajo", "vientre", "abdomen"],                 [120, 168]],
-];
+const TITULO = { delantera: "DELANTERA", trasera: "ESPALDA", manga: "MANGA" };
 
-export function getPosXY(d) {
-  const key = (d.ubicacion || "").toLowerCase().trim();
-  let cx = 120, cy = 93;
-  for (const [keys, [x, y]] of LOC_MAP) {
-    if (keys.some(k => key.includes(k))) { cx = x; cy = y; break; }
-  }
-  if (d.posicionCuello && parseFloat(d.posicionCuello) > 0) {
-    cy = COLLAR_Y + parseFloat(d.posicionCuello) * PX_CM;
-  }
-  return [cx, cy];
-}
-
-function rrect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-export function diagramaCamisaPNG(disenos, { ancho = 240, alto = 280 } = {}) {
-  if (typeof document === "undefined") return "";
+/**
+ * Un PNG por pieza, con los artes que le tocan ya ubicados.
+ *
+ * @param {Array}  disenos  los `disenos` del pedido
+ * @param {Array}  moldes   todo `taller_moldes`
+ * @param {Object} ctx      { tipoPrenda, tallas }
+ * @returns {{prenda:string, talla:string, piezas:Array}} `piezas` vacio = no
+ *          hay molde para esta prenda y hay que mostrar el aviso en su lugar.
+ */
+export function diagramasDePedido(disenos, moldes, { tipoPrenda, tallas } = {}) {
   const items = (disenos || []).filter(d => d.ubicacion);
-  if (!items.length) return "";
+  const vacio = { prenda: "", talla: "", piezas: [] };
+  if (!items.length || !(moldes || []).length) return vacio;
 
+  const prenda = prendaConMolde(tipoPrenda, moldes);
+  if (!prenda) return vacio;
+  const talla = tallaConMolde(tallas, moldes, prenda);
+  if (!talla) return vacio;
+
+  // cada arte a su pieza, conservando el numero que ve el usuario en la lista
+  const porPieza = new Map();
+  items.forEach((d, i) => {
+    const rol = piezaDeUbicacion(d.ubicacion);
+    if (!rol) return;                       // corbata, gafete: no van sobre molde
+    if (!porPieza.has(rol)) porPieza.set(rol, []);
+    porPieza.get(rol).push({ ...d, __n: i + 1, __talla: talla });
+  });
+
+  const piezas = [];
+  for (const rol of ["delantera", "trasera", "manga"]) {
+    const artes = porPieza.get(rol);
+    if (!artes) continue;
+    const molde = moldeDePieza(moldes, prenda, talla, rol);
+    if (!molde) continue;
+    const url = dibujarPieza(molde.contorno.puntos, artes, rol);
+    if (url) piezas.push({ rol, titulo: TITULO[rol], url, artes, molde });
+  }
+  return { prenda, talla, piezas };
+}
+
+/** Dibuja una pieza con sus artes. Devuelve data URL, o "" fuera del navegador. */
+export function dibujarPieza(puntos, artes, rol, { ancho = 260 } = {}) {
+  if (typeof document === "undefined") return "";
+  const pts = puntos.map(p => [p[0], p[1]]);
+  const [x0, y0, x1, y1] = bbox(pts);
+  const wCm = x1 - x0, hCm = y1 - y0;
+  if (!(wCm > 0 && hCm > 0)) return "";
+
+  const M = 16;                                  // margen para las cotas
+  const esc = (ancho - M * 2) / wCm;
+  const alto = Math.round(hCm * esc + M * 2);
   const canvas = document.createElement("canvas");
-  canvas.width  = ancho;
+  canvas.width = ancho;
   canvas.height = alto;
   const ctx = canvas.getContext("2d");
-  const sx = ancho / 240;
-  const sy = alto  / 280;
-  const pt = (x, y) => [x * sx, y * sy];
+  const X = cm => M + (cm - x0) * esc;
+  const Y = cm => M + (cm - y0) * esc;
 
-  // ── Silueta de la camiseta ──────────────────────────────────────
-  // Vista frontal cuello-V. SVG-derecha = lado izquierdo del portador.
+  // ── la pieza ──
   ctx.beginPath();
-  ctx.moveTo(...pt(90,  8));
-  ctx.lineTo(...pt(60, 28));
-  ctx.lineTo(...pt( 5, 42));
-  ctx.lineTo(...pt( 5, 82));
-  ctx.lineTo(...pt(60, 82));
-  ctx.lineTo(...pt(55, 265));
-  ctx.lineTo(...pt(185, 265));
-  ctx.lineTo(...pt(180, 82));
-  ctx.lineTo(...pt(235, 82));
-  ctx.lineTo(...pt(235, 42));
-  ctx.lineTo(...pt(180, 28));
-  ctx.lineTo(...pt(150, 8));
-  ctx.bezierCurveTo(...pt(145, 24), ...pt(130, 38), ...pt(120, 42));
-  ctx.bezierCurveTo(...pt(110, 38), ...pt( 95, 24), ...pt( 90,  8));
+  pts.forEach(([px, py], i) => (i ? ctx.lineTo(X(px), Y(py)) : ctx.moveTo(X(px), Y(py))));
   ctx.closePath();
-  ctx.fillStyle   = "#F5F5F5";
+  ctx.fillStyle = "#f7f7f9";
   ctx.fill();
-  ctx.strokeStyle = "#C0C0C0";
-  ctx.lineWidth   = 1.5;
+  ctx.strokeStyle = "#9aa1ad";
+  ctx.lineWidth = 1.4;
   ctx.stroke();
 
-  // Cuello V (línea interna decorativa)
-  ctx.beginPath();
-  ctx.moveTo(...pt(90, 8));
-  ctx.bezierCurveTo(...pt(95, 24), ...pt(110, 38), ...pt(120, 42));
-  ctx.bezierCurveTo(...pt(130, 38), ...pt(145, 24), ...pt(150, 8));
-  ctx.strokeStyle = "#C0C0C0";
-  ctx.lineWidth   = 1.5;
-  ctx.stroke();
+  const punteada = (x1p, y1p, x2p, y2p, color) => {
+    ctx.save();
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x1p, y1p);
+    ctx.lineTo(x2p, y2p);
+    ctx.stroke();
+    ctx.restore();
+  };
 
-  // Etiquetas laterales diminutas (D / I desde portador)
-  ctx.fillStyle = "#BDBDBD";
-  ctx.font      = `${Math.round(7 * sx)}px sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillText("D", pt(77, 22)[0], pt(77, 22)[1]);
-  ctx.fillText("I", pt(163, 22)[0], pt(163, 22)[1]);
+  artes.forEach(d => {
+    const u = ubicarArte(d, pts, rol);
+    const col = techColor(d.tecnica);
+    const aw = u.ancho * esc, ah = u.alto * esc;
+    const cx = X(u.cx), cy = Y(u.cy);
 
-  // ── Marcadores de diseño ────────────────────────────────────────
-  items.forEach((d, i) => {
-    const [cx, cy]   = getPosXY(d);
-    const col        = techColor(d.tecnica);
-    const [scx, scy] = pt(cx, cy);
-    const sw = d.ancho ? Math.max(22, parseFloat(d.ancho) * PX_CM) * sx : 32 * sx;
-    const sh = d.alto  ? Math.max(14, parseFloat(d.alto)  * PX_CM) * sy : 20 * sy;
+    // eje del arte: es por donde se alinea al planchar, no por el filo
+    punteada(X(x0), cy, X(x1), cy, col + "88");
 
-    // Línea de cota desde el cuello
-    if (d.posicionCuello && parseFloat(d.posicionCuello) > 0) {
-      const [, colY] = pt(cx, COLLAR_Y);
-      ctx.save();
-      ctx.setLineDash([4, 3]);
-      ctx.strokeStyle = col + "99";
-      ctx.lineWidth   = 1;
-      ctx.beginPath();
-      ctx.moveTo(scx, colY);
-      ctx.lineTo(scx, scy);
-      ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle    = col;
-      ctx.font         = `bold ${Math.round(7 * sx)}px sans-serif`;
-      ctx.textAlign    = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(`${d.posicionCuello}cm`, scx + 3 * sx, colY + (scy - colY) * 0.5);
-      ctx.textBaseline = "alphabetic";
-    }
-
-    // Rectángulo del área de diseño
-    ctx.fillStyle   = col + "38";
+    ctx.fillStyle = col + "33";
     ctx.strokeStyle = col;
-    ctx.lineWidth   = 1.5;
-    rrect(ctx, scx - sw / 2, scy, sw, sh, 3 * sx);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.rect(cx - aw / 2, cy - ah / 2, aw, ah);
     ctx.fill();
     ctx.stroke();
 
-    // Medidas dentro del rectángulo
-    if (d.ancho && d.alto) {
-      ctx.fillStyle    = col;
-      ctx.font         = `bold ${Math.round(7 * sx)}px sans-serif`;
-      ctx.textAlign    = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(`${d.ancho}×${d.alto}`, scx, scy + sh * 0.65);
-      ctx.textBaseline = "alphabetic";
-    }
-
-    // Círculo numerado
-    const r = 7 * Math.min(sx, sy);
-    ctx.fillStyle = col;
+    // cruz en el centro: el punto que se hace coincidir con la marca del molde
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(scx, scy - r * 0.3, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle    = "#fff";
-    ctx.font         = `900 ${Math.round(8.5 * sx)}px sans-serif`;
-    ctx.textAlign    = "center";
+    ctx.moveTo(cx - 4, cy); ctx.lineTo(cx + 4, cy);
+    ctx.moveTo(cx, cy - 4); ctx.lineTo(cx, cy + 4);
+    ctx.stroke();
+
+    // la cota F, que es la que el operario mide con cinta
+    const desde = rol === "manga" ? Y(y1) : Y(u.escote);
+    punteada(cx, desde, cx, cy, col + "66");
+    ctx.fillStyle = col;
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(String(i + 1), scx, scy - r * 0.3);
-    ctx.textBaseline = "alphabetic";
+    // ⚠ Con la cota corta —la manga, donde el arte va a 4 cm del ruedo— el
+    // texto caia ENCIMA del arte. Cuando no hay tramo suficiente se saca al
+    // costado del rectangulo.
+    const tramo = Math.abs(desde - cy);
+    if (tramo > 24) ctx.fillText(`F ${u.f.toFixed(1)}`, cx + 4, (desde + cy) / 2);
+    else ctx.fillText(`F ${u.f.toFixed(1)}`, cx + aw / 2 + 5, cy);
+
+    // el numero, el mismo que lleva en la lista de al lado. Va al COSTADO y no
+    // arriba: arriba chocaba con la etiqueta de la cota.
+    const nx = cx - aw / 2 - 8, ny = cy - ah / 2 + 3;
+    ctx.beginPath();
+    ctx.arc(nx, ny, 7, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(String(d.__n), nx, ny);
   });
+
+  // eje central de la pieza, de referencia
+  const ejeX = X((x0 + x1) / 2);
+  punteada(ejeX, Y(y0), ejeX, Y(y1), "#c8ccd4");
+
+  // el filo del escote, que es de donde se mide todo
+  if (rol !== "manga") {
+    const esc0 = artes.length ? ubicarArte(artes[0], pts, rol).escote : null;
+    if (esc0 != null) {
+      const orilla = orillaALaAltura(pts, esc0);
+      if (orilla) punteada(X(orilla[0]), Y(esc0), X(orilla[1]), Y(esc0), "#c8ccd4");
+    }
+  }
+
+  ctx.fillStyle = "#98a0ac";
+  ctx.font = "8px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(`${wCm.toFixed(1)} × ${hCm.toFixed(1)} cm`, ancho / 2, alto - 4);
 
   return canvas.toDataURL("image/png");
 }
