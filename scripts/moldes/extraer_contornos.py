@@ -20,12 +20,21 @@ from contornos import contorno_de, medidas_del_nombre
 POR_DEFECTO = (r'C:\Users\confe\OneDrive\Documentos\UDP Confecciones'
                r'\Uniformes Escolares\Patrones_Tallas\_Pack_Comprado_camiseta')
 
-CLAVE = re.compile(r'camiseta-T([\dA-Z]+)-(.+?)-[\d.]+x[\d.]+\.pdf$')
+# El pack nombra las piezas igual para camiseta y para polo, salvo que el polo
+# mete el genero: `polo-masculino-TXL-delantera-52.0x71.3.pdf`. Un solo patron
+# cubre los dos y deja el genero aparte.
+CLAVE = re.compile(r'(?:camiseta|polo)-(?:(masculin[oa]|femenin[oa])-)?'
+                   r'T([\dA-Z]+)-(.+?)-[\d.]+x[\d.]+\.pdf$')
+PREFIJOS = ('camiseta-', 'polo-')
 
 
 def clave(nom):
+    """(talla, pieza) — la pieza lleva el genero pegado si el archivo lo trae."""
     m = CLAVE.match(nom)
-    return (m.group(1), m.group(2)) if m else (None, None)
+    if not m:
+        return (None, None)
+    gen, talla, pieza = m.group(1), m.group(2), m.group(3)
+    return (talla, '%s · %s' % (pieza, gen) if gen else pieza)
 
 
 def escote(d):
@@ -37,7 +46,7 @@ def escote(d):
 
 def main(carpeta, salida):
     archivos = sorted(f for f in os.listdir(carpeta)
-                      if f.lower().endswith('.pdf') and f.startswith('camiseta-'))
+                      if f.lower().endswith('.pdf') and f.startswith(PREFIJOS))
     ok, fallo = [], []
     for nom in archivos:
         a, h = medidas_del_nombre(nom)

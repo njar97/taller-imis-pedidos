@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Carga los contornos extraidos a `taller_moldes` via PostgREST.
 
-    python cargar_contornos.py            # ensayo, no escribe
-    python cargar_contornos.py --aplicar  # escribe
+    python cargar_contornos.py [--prenda camiseta|polo] [--aplicar]
+
+Sin `--aplicar` es un ensayo y no escribe nada.
 
 Escribe `contorno`, `perimetro_cm` y `ancho_25/50/75`, y ademas ordena tres
 cosas que salieron de la extraccion:
@@ -30,7 +31,25 @@ TOL_SIMPL = 0.05        # cm; por debajo de esto no hay tijera que lo note
 
 APLICAR = '--aplicar' in sys.argv
 AQUI = os.path.dirname(os.path.abspath(__file__))
-CLAVE = re.compile(r'camiseta-T([\dA-Z]+)-(.+?)-[\d.]+x[\d.]+\.pdf$')
+PRENDA = (sys.argv[sys.argv.index('--prenda') + 1]
+          if '--prenda' in sys.argv else 'camiseta')
+
+from extraer_contornos import clave as _clave        # (talla, pieza), con genero
+
+
+def clave(nombre):
+    t, pz = _clave(nombre)
+    return None if t is None else (t, pz)
+
+
+# ⚠ En la CAMISETA un rectangulo casi siempre es el marco de la hoja de ploter
+# (la unica excepcion es la tira-cuello). En el POLO NO: el cuello exterior, el
+# interior, la tapeta y la vista-tapeta son tiras rectas de verdad. Mandarlas a
+# la papelera por rectangulares seria borrar 4 piezas buenas de cada talla.
+RECTOS_BUENOS = {
+    'camiseta': ('tira-cuello',),
+    'polo': ('cuello-exterior', 'cuello-interior', 'tapeta', 'vista-tapeta'),
+}
 
 MARCA_FANTASMA = 'NO ES MOLDE: es el marco de la hoja de ploter'
 ESCOTES = {'cuerpo-fila1': 'cuello redondo', 'cuerpo-fila2': 'cuello redondo',
@@ -81,26 +100,25 @@ def perimetro(pts):
 
 
 def main():
-    datos = json.load(open(os.path.join(AQUI, 'contornos_camiseta.json'),
+    datos = json.load(open(os.path.join(AQUI, 'contornos_%s.json' % PRENDA),
                            encoding='utf-8'))
     filas = pedir('GET', '',
-                  params='?prenda=eq.camiseta&select=id,talla,pieza,archivo_pdf,nota&limit=500')
+                  params='?prenda=eq.%s&select=id,talla,pieza,archivo_pdf,nota&limit=500' % PRENDA)
     por_pdf = {f['archivo_pdf']: f for f in filas}
-    print('en la base: %d filas de camiseta' % len(filas))
+    print('prenda %s — en la base: %d filas' % (PRENDA, len(filas)))
 
     # piezas identicas dentro de una misma talla
     firmas = defaultdict(list)
     for d in datos:
-        m = CLAVE.match(d['archivo_pdf'])
-        if m:
-            firmas[(m.group(1), round(d['perimetro_cm'], 1),
+        k = clave(d['archivo_pdf'])
+        if k:
+            firmas[(k[0], round(d['perimetro_cm'], 1),
                     round(d['area_cm2'], 1))].append(d['archivo_pdf'])
     gemelas = {}
     for grupo in firmas.values():
         if len(grupo) > 1:
             for a in grupo:
-                gemelas[a] = [CLAVE.match(x).group(2) for x in sorted(grupo)
-                              if x != a]
+                gemelas[a] = [clave(x)[1] for x in sorted(grupo) if x != a]
 
     antes = despues = 0
     sin_fila, actualizadas, fantasmas = [], 0, []
@@ -109,8 +127,8 @@ def main():
         if not fila:
             sin_fila.append(d['archivo_pdf'])
             continue
-        m = CLAVE.match(d['archivo_pdf'])
-        pieza = m.group(2) if m else ''
+        k = clave(d['archivo_pdf'])
+        pieza = k[1] if k else ''
 
         pts = d['puntos']
         antes += len(pts)
@@ -120,7 +138,9 @@ def main():
         notas = [n for n in [fila.get('nota')] if n]
         marcado = ' · '.join(notas)
 
-        es_fantasma = d['forma'] == 'rectangulo' and 'tira-cuello' not in d['archivo_pdf']
+        buenos = RECTOS_BUENOS.get(PRENDA, ())
+        es_fantasma = (d['forma'] == 'rectangulo'
+                       and not any(b in d['archivo_pdf'] for b in buenos))
         if es_fantasma and MARCA_FANTASMA not in marcado:
             notas.append(MARCA_FANTASMA)
         if pieza in ESCOTES and ESCOTES[pieza] not in marcado:
