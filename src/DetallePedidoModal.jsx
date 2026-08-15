@@ -145,7 +145,11 @@ function EspecsDiseno({ disenos, onVerFoto }) {
   );
 }
 
-function InfoTabla({ pedido, esAdmin }) {
+// ⚠ Estas cuatro NO son opcionales de adorno: las filas de costo de abajo las
+// usan directo. Sin recibirlas el componente reventaba con «asignaciones is not
+// defined» y se caia el detalle entero del pedido — no solo la fila de costo.
+function InfoTabla({ pedido, esAdmin, asignaciones = [], inventario = [],
+                     recetas = [], costosBase = [] }) {
   const filas = [
     ["Cliente",
       (pedido.tipoCliente === "escuela" ? "🏫 " :
@@ -2138,7 +2142,8 @@ export default function DetallePedidoModal({
         onCambiarEstatus={onCambiarEstatus}
         onCambiarCosturera={onCambiarCosturera}
       />
-      <InfoTabla pedido={pedido} esAdmin={esAdmin} />
+      <InfoTabla pedido={pedido} esAdmin={esAdmin} asignaciones={asignaciones}
+                 inventario={inventario} recetas={recetas} costosBase={costosBase} />
       <EspecsDiseno disenos={pedido.disenos} onVerFoto={onVerFoto} />
       {esAdmin && !hayCarrito && <DetalleFactura pedido={pedido} />}
       <Abonos abonos={pedido.abonos} personas={pedido.personas} />

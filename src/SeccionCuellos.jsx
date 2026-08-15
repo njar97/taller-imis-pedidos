@@ -611,7 +611,7 @@ export default function SeccionCuellos({
         ) : (
           <>
             <TablaCuellos lista={lista} esAdmin={esAdmin} setDetalle={setDetalle} setModal={setModal} setConfirm={setConfirm} cambiarEstatus={cambiarEstatus} />
-            <CardsCuellos lista={lista} esAdmin={esAdmin} setDetalle={setDetalle} setModal={setModal} setConfirm={setConfirm} cambiarEstatus={cambiarEstatus} />
+            <CardsCuellos lista={lista} esAdmin={esAdmin} setDetalle={setDetalle} setModal={setModal} setConfirm={setConfirm} cambiarEstatus={cambiarEstatus} setVerVersionesId={setVerVersionesId} />
           </>
         )}
       </div>
@@ -803,7 +803,8 @@ function TablaCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambia
   );
 }
 
-function CardsCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambiarEstatus }) {
+function CardsCuellos({ lista, esAdmin, setDetalle, setModal, setConfirm, cambiarEstatus,
+                        setVerVersionesId }) {
   return (
     <div className="cards-pedidos" style={{ flexDirection: "column", display: "none" }}>
       {lista.map(cu => {
