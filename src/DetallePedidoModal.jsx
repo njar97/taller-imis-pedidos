@@ -1301,7 +1301,9 @@ export function ComponentesKit({ componentes, catalogo }) {
 export function Personas({ personas, abonos, esAdmin }) {
   const [abiertos, setAbiertos] = useState(() => new Set());
   const [busca, setBusca] = useState("");
-  const [filtros, setFiltros] = useState({});
+  // ⚠ Los filtros son una LISTA, no un objeto por campo: se agregan de a uno
+  // con el +, y vacia significa "solo el primero, sin valor elegido".
+  const [lineas, setLineas] = useState([]);
   const [orden, setOrden] = useState("");
   // ⚠ Arranca CERRADA solo cuando la lista es larga: con 5 nombres cerrarla
   // agrega un toque y no ahorra nada.
@@ -1344,6 +1346,7 @@ export function Personas({ personas, abonos, esAdmin }) {
   // cargado. El grado y la seccion viven dentro de `cargo` ("1° BACH B"), y hay
   // pedidos con `color` o `expediente` que la tabla ni muestra.
   const facetas = facetasDe(gente);
+  const filtros = Object.fromEntries(lineas.filter(l => l.valor).map(l => [l.clave, l.valor]));
   const visibles = filtrarPersonas(gente, busca, filtros);
   // el numero de fila sale del indice de CARGA, no de la lista filtrada
   const ordenadas = ordenarPersonas(visibles, orden, indicesDe(gente));
@@ -1381,36 +1384,13 @@ export function Personas({ personas, abonos, esAdmin }) {
           placeholder="🔍 Buscar en todo…"
           style={{ ...ctrl, flex: "1 1 150px", minWidth: 120 }}
         />
-        {facetas.map(f => (
-          <select
-            key={f.clave}
-            value={filtros[f.clave] || ""}
-            onChange={e => {
-              setFiltros(v => ({ ...v, [f.clave]: e.target.value }));
-              if (e.target.value) setAbierta(true);
-            }}
-            style={{ ...ctrl, background: filtros[f.clave] ? "#EBF5FB" : "#fff" }}
-          >
-            <option value="">{f.etiqueta}</option>
-            {f.valores.map(v => (
-              <option key={v.v} value={v.v}>
-                {(v.v.length > 34 ? v.v.slice(0, 33) + "…" : v.v)} ({v.n})
-              </option>
-            ))}
-          </select>
-        ))}
-        <select value={orden} onChange={e => setOrden(e.target.value)} style={ctrl}>
-          <option value="">Orden de carga</option>
-          <option value="nombre">Por nombre</option>
-          <option value="talla">Por talla</option>
-        </select>
         {filtrando && (
           <>
             <span style={{ fontSize: 11, color: "#1A5276", fontWeight: 700 }}>
               {visibles.length} de {gente.length}
             </span>
             <button
-              onClick={() => { setBusca(""); setFiltros({}); }}
+              onClick={() => { setBusca(""); setLineas([]); }}
               style={{ ...ctrl, cursor: "pointer", color: "#C0392B", fontWeight: 700 }}
             >
               Limpiar
@@ -1418,6 +1398,72 @@ export function Personas({ personas, abonos, esAdmin }) {
           </>
         )}
       </div>
+
+      {/* ⚠ Un desplegable por cada campo llenaba DOS filas de la pantalla del
+          celular aunque no se usara ninguno. Javier: «debería salir solo una
+          disponible con opción de cambiar, y ahí un signo más para agregar las
+          opciones de filtro solo si se necesitan». Va una linea a la vez: se
+          elige el campo, se elige el valor, y el + suma otra. */}
+      {facetas.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 8 }}>
+          {(lineas.length ? lineas : [{ clave: facetas[0].clave, valor: "" }]).map((ln, i) => {
+            const f = facetas.find(x => x.clave === ln.clave) || facetas[0];
+            // los campos ya usados en otra linea no se vuelven a ofrecer
+            const libres = facetas.filter(x => x.clave === f.clave
+              || !lineas.some((o, j) => j !== i && o.clave === x.clave));
+            const set = cambios => setLineas(prev => {
+              const base = prev.length ? [...prev] : [{ clave: facetas[0].clave, valor: "" }];
+              base[i] = { ...base[i], ...cambios };
+              return base;
+            });
+            return (
+              <div key={i} style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                <select
+                  value={f.clave}
+                  onChange={e => set({ clave: e.target.value, valor: "" })}
+                  style={{ ...ctrl, flex: "0 1 auto", color: "#1A5276", fontWeight: 700 }}
+                >
+                  {libres.map(x => <option key={x.clave} value={x.clave}>{x.etiqueta}</option>)}
+                </select>
+                <select
+                  value={ln.valor || ""}
+                  onChange={e => { set({ valor: e.target.value }); if (e.target.value) setAbierta(true); }}
+                  style={{ ...ctrl, flex: "1 1 90px", minWidth: 0,
+                           background: ln.valor ? "#EBF5FB" : "#fff" }}
+                >
+                  <option value="">Todos</option>
+                  {f.valores.map(v => (
+                    <option key={v.v} value={v.v}>
+                      {(v.v.length > 30 ? v.v.slice(0, 29) + "…" : v.v)} ({v.n})
+                    </option>
+                  ))}
+                </select>
+                {i > 0 ? (
+                  <button
+                    title="Quitar este filtro"
+                    onClick={() => setLineas(prev => prev.filter((_, j) => j !== i))}
+                    style={{ ...ctrl, cursor: "pointer", color: "#C0392B", fontWeight: 800, padding: "5px 9px" }}
+                  >×</button>
+                ) : <span style={{ width: 0 }} />}
+                {/* el + solo en la ultima linea, y solo si queda algun campo sin usar */}
+                {i === (lineas.length ? lineas.length : 1) - 1
+                  && lineas.length < facetas.length && (
+                  <button
+                    title="Agregar otro filtro"
+                    onClick={() => setLineas(prev => {
+                      const base = prev.length ? prev : [{ clave: facetas[0].clave, valor: "" }];
+                      const usadas = base.map(x => x.clave);
+                      const nueva = facetas.find(x => !usadas.includes(x.clave));
+                      return nueva ? [...base, { clave: nueva.clave, valor: "" }] : base;
+                    })}
+                    style={{ ...ctrl, cursor: "pointer", color: "#1A5276", fontWeight: 800, padding: "5px 10px" }}
+                  >+</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {abierta && visibles.length === 0 && (
         <div style={{ fontSize: 12, color: "#999", fontStyle: "italic", padding: "10px 4px" }}>
@@ -1435,19 +1481,29 @@ export function Personas({ personas, abonos, esAdmin }) {
         >
           <thead>
             <tr style={{ background: "#EBF5FB" }}>
-              {["#", "Nombre", "Cargo", "Talla taller", "Prendas", ...(esAdmin ? ["Abonado"] : []), ""].map((h, hi) => (
+              {/* El orden se pide tocando la columna. Antes era un desplegable
+                  mas en la barra: ocupaba espacio en el celular para algo que
+                  el encabezado ya puede hacer gratis. */}
+              {[["#", ""], ["Nombre", "nombre"], ["Cargo", "cargo"],
+                ["Talla taller", "gafete"], ["Prendas", ""],
+                ...(esAdmin ? [["Abonado", ""]] : []), ["", ""]].map(([h, clave], hi) => (
                 <th
                   key={hi}
+                  onClick={() => (clave || h === "#") && setOrden(o => (o === clave ? "" : clave))}
+                  title={clave || h === "#" ? "Ordenar por " + (h || "carga") : undefined}
                   style={{
                     padding: "5px 8px",
                     textAlign: h === "Abonado" ? "right" : "left",
                     fontSize: 10,
                     fontWeight: 700,
-                    color: "#1A5276",
+                    color: orden === clave && clave ? "#0d3b5c" : "#1A5276",
                     textTransform: "uppercase",
+                    cursor: clave || h === "#" ? "pointer" : "default",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {h}
+                  {h}{clave && orden === clave ? " ▲" : ""}
+                  {h === "#" && !orden ? " ▲" : ""}
                 </th>
               ))}
             </tr>

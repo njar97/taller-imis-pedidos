@@ -141,12 +141,16 @@ export function ordenarPersonas(personas, criterio, indices) {
   const con = (personas || []).map((p, i) => ({
     p, orden: indices instanceof Map && indices.has(p) ? indices.get(p) : i,
   }));
-  if (criterio === "nombre") {
-    con.sort((a, b) => norm(a.p.nombre).localeCompare(norm(b.p.nombre), "es"));
-  } else if (criterio === "talla") {
-    const t = x => String(x.p.talla || x.p.prendas?.[0]?.talla || "￿");
-    con.sort((a, b) => t(a).localeCompare(t(b), "es", { numeric: true }));
-  }
+  if (!criterio) return con;
+  // Sirve para cualquier campo, no solo nombre y talla: el encabezado de la
+  // tabla ordena por la columna que se toque, y las columnas salen de los datos.
+  const valor = x => {
+    if (criterio === "talla") return String(x.p.talla || x.p.prendas?.[0]?.talla || "￿");
+    const v = x.p?.[criterio];
+    return v == null || v === "" ? "￿" : String(v);   // los vacios, al final
+  };
+  con.sort((a, b) => norm(valor(a)).localeCompare(norm(valor(b)), "es", { numeric: true })
+    || a.orden - b.orden);
   return con;
 }
 
