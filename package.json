@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "node scripts/identificadores-libres.mjs && vitest run",
+    "check:scope": "node scripts/identificadores-libres.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.10",

@@ -1047,6 +1047,7 @@ export default function SeccionBordados({
               setModal={setModal}
               setConfirm={setConfirm}
               cambiarEstatus={cambiarEstatus}
+              setVerVersionesId={setVerVersionesId}
             />
           </>
         )}
@@ -1265,7 +1266,8 @@ function TablaBordados({ lista, esAdmin, setDetalle, setModal, setConfirm, cambi
   );
 }
 
-function CardsBordados({ lista, esAdmin, setDetalle, setModal, setConfirm, cambiarEstatus }) {
+function CardsBordados({ lista, esAdmin, setDetalle, setModal, setConfirm, cambiarEstatus,
+                         setVerVersionesId }) {
   return (
     <div className="cards-pedidos" style={{ flexDirection: "column", display: "none" }}>
       {lista.map(b => {
