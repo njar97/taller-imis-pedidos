@@ -19,7 +19,6 @@ import { imprimirHojaTaller } from "./lib/documentosProducto.js";
 import { exportarExcelMedidas } from "./lib/exportarExcelMedidas.js";
 import { imgSrc } from "./lib/imagenes.js";
 import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
-import { TallasChips } from "./SelectorTallas.jsx";
 import { agruparPrendas } from "./ListaPrendas.jsx";
 import { leerSnapshotReciente, limpiarSnapshot } from "./lib/edicionReciente.js";
 import { generarTokenCaptura, urlCaptura } from "./lib/captura.js";
@@ -27,6 +26,7 @@ import ModalVersionesPedido from "./ModalVersionesPedido.jsx";
 import PanelDocumentos from "./PanelDocumentos.jsx";
 import { diagramasDePedido, techColor } from "./lib/diagrama.js";
 import { dbMoldesLeer } from "./lib/db.js";
+import { DesgloseTallas } from "./DesgloseTallas.jsx";
 import { facetasDe, filtrarPersonas, indicesDe, ordenarPersonas, resumenPorTalla } from "./lib/personas.js";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import {
@@ -299,7 +299,7 @@ function InfoTabla({ pedido, esAdmin, asignaciones = [], inventario = [],
         {k}
       </span>
       {k === "Tallas" && v === "§chips§" ? (
-        <TallasChips items={itemsResumen(pedido)} compact={false} />
+        <DesgloseTallas items={itemsResumen(pedido)} />
       ) : (
         <span style={{ fontSize: 13, color: "#333", textAlign: "right", fontWeight: 600 }}>
           {v}

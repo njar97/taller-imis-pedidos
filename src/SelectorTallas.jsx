@@ -18,11 +18,13 @@ const GRUPOS_TALLAS = {
 // se ingresaron — se ordenan al renderizar).
 //   adulto: XS < S < M < L < XL < 2XL < 3XL
 //   niño / núm: orden numérico natural
+// ⚠ El rank viejo les daba 1-7 a las letras y 1000+n a los numeros: por eso
+// el detalle mostraba M, L, XL ANTES que 2, 4, 6. Numericas (ninos) primero.
 const RANK_TALLAS = { XS: 1, S: 2, M: 3, L: 4, XL: 5, "2XL": 6, "3XL": 7 };
 function rankTalla(t) {
-  if (RANK_TALLAS[t]) return RANK_TALLAS[t];
   const n = parseInt(t, 10);
-  if (Number.isFinite(n)) return 1000 + n;
+  if (Number.isFinite(n)) return n;
+  if (RANK_TALLAS[t]) return 1000 + RANK_TALLAS[t];
   return 9999;
 }
 function ordenarTallas(items) {
