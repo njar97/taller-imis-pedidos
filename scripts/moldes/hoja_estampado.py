@@ -56,8 +56,12 @@ def bloque_artes(img, d, y, regla, piezas6):
     artes = [
         ('DELANTERA', 'monograma al PECHO IZQUIERDO',
          os.path.join(UA.ARTES, UA.MONOGRAMA_PNG), UA.ANCHO_MONOGRAMA),
-        ('ESPALDA', 'ilustracion, centrada',
-         os.path.join(UA.ARTES, UA.ESPALDA_PNG), UA.ANCHO_ESPALDA),
+        # la espalda son DOS transfers sueltos: el arco va ARRIBA, la
+        # ilustracion abajo, con 0.5 cm entre uno y otro
+        ('ESPALDA · arriba', 'arco INTRAMUROS 2026, centrado',
+         UA.ruta_arco()[0], UA.ANCHO_ARCO),
+        ('ESPALDA · abajo', 'ilustracion, centrada · debajo del arco',
+         os.path.join(UA.ARTES, UA.ILUSTRACION_PNG), UA.ANCHO_ESPALDA),
         ('MANGA', 'nombre del alumno, centrado',
          os.path.join(UA.ARTES, 'nombres-manga', 'canva',
                       sorted(os.listdir(os.path.join(UA.ARTES, 'nombres-manga',
@@ -127,8 +131,9 @@ def bloque_medidas(d, y, piezas, regla):
     d.text((MARG, y), 'F = del filo del escote (o del ruedo en la manga) al EJE del '
                       'arte. Es por donde se alinea.', font=fnt('arial.ttf', 20), fill=GRIS)
     y += 40
-    cols = [MARG+8, MARG+220, MARG+460, MARG+700, MARG+940, MARG+1200]
-    cab = ['talla', 'monograma F', 'espalda F', 'manga F', 'monograma C']
+    cols = [MARG+8, MARG+190, MARG+420, MARG+660, MARG+900, MARG+1130]
+    cab = ['talla', 'monograma F', 'arco F', 'ilustracion F', 'manga F',
+           'monograma C']
     for i, c in enumerate(cab):
         d.text((cols[i], y), c, font=fnt('arialbd.ttf', 21), fill=NEGRO)
     y += 34
@@ -137,30 +142,12 @@ def bloque_medidas(d, y, piezas, regla):
     for t in TALLAS:
         if t not in piezas:
             continue
-        fam = 'num' if t in UA.NUMERICAS else 'let'
-        lados = UA.LADOS_NUM if fam == 'num' else UA.LADOS_LET
-        delantera = piezas[t][lados['delantera']]
-        espalda = piezas[t][lados['espalda']]
-        manga = piezas[t][lados['manga']]
-
-        b_m = UA.b_de('monograma', delantera, regla)
-        alto_m = UA.ANCHO_MONOGRAMA*Image.open(
-            os.path.join(UA.ARTES, UA.MONOGRAMA_PNG)).size[1]/float(
-            Image.open(os.path.join(UA.ARTES, UA.MONOGRAMA_PNG)).size[0])
-        f_m = UA.escote_de(delantera)+b_m+alto_m/2.0 - UA.escote_de(delantera)
-
-        b_e = UA.b_de('espalda', espalda, regla)
-        im_e = Image.open(os.path.join(UA.ARTES, UA.ESPALDA_PNG))
-        alto_e = UA.ANCHO_ESPALDA*im_e.size[1]/float(im_e.size[0])
-        f_e = b_e + alto_e/2.0
-
-        f_mg = UA.NOMBRE_DEL_RUEDO + 2.44/2.0
-
-        _, x_der = UA.orilla_a_la_altura(delantera['puntos'],
-                                         UA.escote_de(delantera)+b_m)
-        c_m = (x_der - delantera['bbox_cm'][0]/2.0)/2.0
-
-        vals = ['%.1f cm' % f_m, '%.1f cm' % f_e, '%.1f cm' % f_mg, '%.1f cm' % c_m]
+        # una sola fuente para las medidas: si la ficha y esta hoja las
+        # calcularan cada una por su lado, tarde o temprano se contradicen
+        m = UA.efes(t, piezas[t], regla)
+        vals = ['%.1f cm' % m['monograma_f'], '%.1f cm' % m['arco_f'],
+                '%.1f cm' % m['ilustracion_f'], '%.1f cm' % m['manga_f'],
+                '%.1f cm' % m['monograma_c']]
         d.text((cols[0], y), t, font=fnt('arialbd.ttf', 22), fill=NEGRO)
         for i, v in enumerate(vals):
             d.text((cols[i+1], y), v, font=fnt('consolab.ttf', 21), fill=NEGRO)
@@ -183,6 +170,8 @@ def pagina1(piezas, regla):
     d.line([(MARG, y), (CARTA[0]-MARG, y)], fill=LINEA, width=2)
     for i, t in enumerate([
             'El PECHO IZQUIERDO es el de quien usa la camiseta.',
+            'La espalda son DOS transfers: primero el arco, luego la ilustracion. '
+            'No vienen pegados — cada uno se mide por su F.',
             'DTF sobre tela de color · plancha 130-140 C, presion media, papel siliconado.',
             'Probar en un retazo antes de la primera pieza buena.']):
         d.text((MARG, y+18+i*32), '·  ' + t, font=fnt('arial.ttf', 21), fill=GRIS)

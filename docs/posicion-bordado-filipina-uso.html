@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Posición de bordado — Filipina Chef USO (talla M)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef0f3;color:#222;padding:20px}
+  .page{max-width:1180px;margin:0 auto;background:#fff;border-radius:14px;padding:30px 36px;box-shadow:0 4px 32px rgba(0,0,0,.10)}
+  header{border-bottom:3px solid #1A5276;padding-bottom:16px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  header h1{font-size:21px;color:#1A5276;font-family:Georgia,serif;line-height:1.2}
+  header .sub{font-size:12px;color:#888;margin-top:4px}
+  header .meta{font-size:11px;color:#aaa;text-align:right;line-height:1.7}
+  h2{font-size:11px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1.2px;margin:26px 0 12px;border-bottom:2px solid #e8f0f8;padding-bottom:5px}
+
+  .ctrls{background:#f5f8fb;border:1.5px solid #dbe6f0;border-radius:11px;padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px 22px}
+  .ctrl label{display:block;font-size:10px;font-weight:800;color:#5a6b7a;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+  .ctrl .row{display:flex;align-items:center;gap:8px}
+  .ctrl input[type=range]{flex:1;accent-color:#1A5276}
+  .ctrl input[type=number]{width:66px;padding:5px 7px;border:1.5px solid #cdd8e3;border-radius:6px;font-size:14px;font-weight:800;color:#E67E22;text-align:center}
+  .ctrl select{width:100%;padding:6px 7px;border:1.5px solid #cdd8e3;border-radius:6px;font-size:12px;background:#fff}
+  .ctrl .hint{font-size:10px;color:#9aa7b3;margin-top:4px;line-height:1.4}
+  .destacado{background:#FFF6E5;border-color:#F0C078}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+  .box{background:#fbfcfd;border:1.5px solid #dde8f0;border-radius:11px;padding:14px}
+  .box h3{font-size:10px;font-weight:800;color:#7a8894;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+  .box .cap{font-size:11px;color:#9aa7b3;margin-bottom:10px;line-height:1.45}
+  svg{width:100%;height:auto;display:block}
+  #svg_cuello svg{max-width:680px;margin:0 auto}
+  #svg_manga svg{max-width:380px;margin:0 auto}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:#1A5276;color:#fff;padding:9px 12px;text-align:left;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px}
+  thead th:first-child{border-radius:6px 0 0 0}
+  thead th:last-child{border-radius:0 6px 0 0}
+  tbody td{padding:9px 12px;border-bottom:1px solid #eee;vertical-align:middle}
+  tbody tr:nth-child(even) td{background:#f9fafb}
+  .med{font-weight:900;color:#E67E22}
+  .ref{font-size:11px;color:#8a97a3}
+
+  table.bases{font-size:12px}
+  table.bases td{padding:6px 10px}
+  table.bases td:last-child{font-weight:800;color:#1A5276;text-align:right;width:90px}
+
+  .nota{background:#FFF8E1;border-left:4px solid #F39C12;padding:12px 15px;border-radius:0 8px 8px 0;margin:16px 0;font-size:12.5px;line-height:1.65}
+  .nota strong{color:#9A6000}
+  .alerta{background:#FDEDEC;border-left:4px solid #C0392B}
+  .alerta strong{color:#922B21}
+  .ok{background:#EAF7EE;border-left:4px solid #27AE60}
+  .ok strong{color:#1E7E44}
+  .pend{background:#EEF3FF;border-left:4px solid #3B5BA5}
+  .pend strong{color:#2C4480}
+  .pend ol{margin:6px 0 0 18px}
+  .pend li{margin:3px 0}
+
+  .btns{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+  button{background:#1A5276;color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:12.5px;font-weight:700;cursor:pointer}
+  button.sec{background:#fff;color:#1A5276;border:1.5px solid #1A5276}
+  footer{margin-top:26px;padding-top:12px;border-top:1px solid #eee;font-size:10px;color:#bbb;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+  @media print{
+    body{background:#fff;padding:0}
+    .page{box-shadow:none;padding:14px 18px;border-radius:0;max-width:none}
+    .ctrls,.btns{display:none}
+  }
+  @media (max-width:820px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div>
+    <h1>Posición de bordado — Filipina Chef USO</h1>
+    <div class="sub">Talla M · Catálogo id 4 · Universidad de Sonsonate — Gastronomía</div>
+  </div>
+  <div class="meta">
+    IMELTEX / UDP Confecciones IMIS<br />
+    Trazo propio · borrador para revisión<br />
+    Cotas en centímetros
+  </div>
+</header>
+
+<div class="nota">
+  <strong>Cómo leer los diagramas:</strong> la prenda armada se dibuja <em>vista de frente, como quien la trae puesta enfrente de uno</em>,
+  así que el <strong>pecho derecho</strong> (el del portador) aparece del lado <strong>izquierdo del dibujo</strong>.
+  El trazo del delantero, en cambio, va acostado como se pone sobre la tela. Todas las cotas salen de <strong>líneas terminadas</strong>, no de filos de corte.
+</div>
+
+<h2>Controles — mové la horizontal y vemos</h2>
+<div class="ctrls">
+  <div class="ctrl destacado">
+    <label>◀ Horizontal del logo (desde la línea de cierre)</label>
+    <div class="row">
+      <input type="range" id="r_horiz" min="0" max="12" step="0.5" />
+      <input type="number" id="n_horiz" step="0.5" />
+    </div>
+    <div class="hint">Este es el dato que falta definir. Separación entre el filo visible del cruce y el borde del bordado.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>Vertical del logo (del hombro-cuello)</label>
+    <div class="row">
+      <input type="range" id="r_vert" min="12" max="30" step="0.5" />
+      <input type="number" id="n_vert" step="0.5" />
+    </div>
+    <div class="hint">Dato confirmado: 20 cm en talla M.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>La vertical llega a...</label>
+    <select id="s_vertref">
+      <option value="top">el borde SUPERIOR del bordado</option>
+      <option value="center">el CENTRO del bordado</option>
+    </select>
+    <div class="hint">Cambia la posición real 2.6 cm. Por confirmar.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>Cruce de la doble botonadura</label>
+    <div class="row">
+      <input type="range" id="r_cruce" min="5" max="12" step="0.5" />
+      <input type="number" id="n_cruce" step="0.5" />
+    </div>
+    <div class="hint">Cuánto pasa cada delantero del centro frente. Trazado en 8; verificar contra una filipina hecha.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>Ancho de la vista delantera</label>
+    <div class="row">
+      <input type="range" id="r_vista" min="8" max="20" step="0.5" />
+      <input type="number" id="n_vista" step="0.5" />
+    </div>
+    <div class="hint">Medido desde el filo del cruce hacia adentro. Debe pasar la última hilera de botones.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>Alto terminado de la banda del cuello</label>
+    <div class="row">
+      <input type="range" id="r_banda" min="2.5" max="6" step="0.25" />
+      <input type="number" id="n_banda" step="0.25" />
+    </div>
+    <div class="hint">La bandera mide 1.0 cm de alto. Por confirmar.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>Bandera — separación del centro frente</label>
+    <div class="row">
+      <input type="range" id="r_flagcf" min="1" max="12" step="0.5" />
+      <input type="number" id="n_flagcf" step="0.5" />
+    </div>
+    <div class="hint">Del CF a la punta más cercana de la bandera.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>Manga — bajada desde la sisa</label>
+    <div class="row">
+      <input type="range" id="r_manga" min="4" max="20" step="0.5" />
+      <input type="number" id="n_manga" step="0.5" />
+    </div>
+    <div class="hint">Dato confirmado: 9 cm en talla M.</div>
+  </div>
+
+  <div class="ctrl">
+    <label>Manga — la bajada se mide desde...</label>
+    <select id="s_mangaref">
+      <option value="cap">la copa, sobre el eje de la manga</option>
+      <option value="under">la sisa en la axila</option>
+    </select>
+    <div class="hint">En manga plana dan puntos muy distintos. Por confirmar.</div>
+  </div>
+</div>
+
+<div id="avisos"></div>
+
+<h2>1 · Delantero derecho — logo USO (8.7 × 5.2 cm)</h2>
+<div class="grid2">
+  <div class="box">
+    <h3>Prenda armada — vista de frente</h3>
+    <div class="cap">El delantero izquierdo va encima, así que el filo visible del cruce cae sobre el <strong>pecho derecho</strong>. Ahí se cota el logo.</div>
+    <div id="svg_frente"></div>
+  </div>
+  <div class="box">
+    <h3>Trazo del delantero derecho — talla M</h3>
+    <div class="cap">Trazo propio sobre medidas de la tabla de abajo. La <strong>vista</strong> va cortada aparte y se pega después, por eso aparece punteada.</div>
+    <div id="svg_trazo"></div>
+  </div>
+</div>
+
+<div class="nota ok" id="nota_vista"></div>
+
+<h2>2 · Banda del cuello mao — bandera SV (8.8 × 1.0 cm, a ambos lados)</h2>
+<div class="box">
+  <h3>Banda desplegada — cara exterior</h3>
+  <div class="cap">Antes de montar el cuello y con la banda todavía plana. Los márgenes contra costura son lo crítico acá.</div>
+  <div id="svg_cuello"></div>
+</div>
+
+<h2>3 · Manga — letras de especialidad (Cocinero 8.8 × 2.5 · Pastelero 9.2 × 2.5 cm)</h2>
+<div class="box">
+  <h3>Manga en plano, antes de cerrar el brazo</h3>
+  <div class="cap">Se borda con la manga abierta. Si ya viene cerrada hay que usar bastidor tubular o brazo libre.</div>
+  <div id="svg_manga"></div>
+</div>
+
+<h2>Resumen de cotas</h2>
+<table>
+  <thead>
+    <tr><th style="width:24%">Bordado</th><th style="width:18%">Pieza</th><th>Cota vertical</th><th>Cota horizontal</th></tr>
+  </thead>
+  <tbody id="tbl"></tbody>
+</table>
+
+<h2>Bases del trazo — talla M</h2>
+<div class="grid2">
+  <table class="bases"><tbody id="bases1"></tbody></table>
+  <table class="bases"><tbody id="bases2"></tbody></table>
+</div>
+
+<div class="nota">
+  <strong>Estas medidas son mi trazo, no el molde de ustedes.</strong> Las saqué de un bloque estándar de casaca de chef sobre pecho corporal 98 cm
+  con holgura de trabajo. Si el molde de don Rafael da distinto, corregime los valores y vuelvo a trazar — lo único que mueve la posición del
+  bordado es el <em>cruce</em>; el resto cambia la silueta pero no las cotas del logo.
+</div>
+
+<div class="pend">
+  <strong>Falta confirmar antes de dar esta lámina por buena:</strong>
+  <ol>
+    <li>La horizontal del logo del pecho — es lo que estamos definiendo acá.</li>
+    <li>Si los 20 cm llegan al borde superior del bordado o a su centro.</li>
+    <li>Cruce real y alto terminado de la banda del cuello — se miden de una filipina ya hecha.</li>
+    <li>Desde qué punto de la sisa se miden los 9 cm de la manga.</li>
+    <li>En cuál manga van las letras de especialidad — ¿izquierda, derecha o las dos?</li>
+    <li>Cómo escalan las cotas para las demás tallas (12 a 24).</li>
+  </ol>
+</div>
+
+<div class="btns">
+  <button onclick="window.print()">Imprimir / PDF</button>
+  <button class="sec" onclick="reset()">Volver a valores por defecto</button>
+</div>
+
+<footer>
+  <span>IMELTEX · UDP Confecciones IMIS — Ficha de posición de bordado</span>
+  <span>Filipina Chef USO · talla M · borrador</span>
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+var DEF = {
+  horiz: 4,
+  vert: 20,
+  vertref: "top",
+  cruce: 8,
+  vista: 12,
+  banda: 4,
+  flagcf: 3,
+  manga: 9,
+  mangaref: "cap"
+};
+var P = Object.assign({}, DEF);
+
+var LOGO_W = 8.7, LOGO_H = 5.2;
+var FLAG_W = 8.8, FLAG_H = 1.0;
+var LET_W  = 9.2, LET_H  = 2.5;
+
+var C = {
+  tela:   "#ffffff",
+  linea:  "#33414d",
+  guia:   "#9fb3c4",
+  cota:   "#E67E22",
+  brd:    "#1A5276",
+  brdFill:"rgba(26,82,118,.13)",
+  cf:     "#C0392B"
+};
+
+/* ══════════════════════════════════════════════════════════
+   TRAZO BASE — casaca de chef, talla M
+   pecho corporal 98 + holgura de trabajo 16 = prenda 114
+   ══════════════════════════════════════════════════════════ */
+var M = {
+  pechoCuerpo: 98,
+  holgura: 16,
+  cuello: 40,
+  largo: 76,          // del hombro-cuello al ruedo
+  caidaHombro: 4.5,
+  largoHombro: 15,
+  alturaSisa: 24,     // del hombro-cuello al nivel de axila
+  largoManga: 60,
+  puno: 26
+};
+M.pechoPrenda = M.pechoCuerpo + M.holgura;
+M.cuarto      = M.pechoPrenda / 4;                 // 28.5 — del CF al costado
+M.escoteAncho = M.cuello / 6 + 1;                  // 7.7
+M.escoteProf  = M.cuello / 6 + 1;                  // 7.7 — cuello mao cerrado, escote alto
+M.hombroX     = M.escoteAncho + Math.sqrt(M.largoHombro*M.largoHombro - M.caidaHombro*M.caidaHombro);
+M.sisaAncho   = 52;                                // contorno de sisa aprox.
+M.copaManga   = 16;
+M.mangaAncho  = 44;                                // manga abierta a la altura de axila
+
+/* ---------- helpers (unidades = cm) ---------- */
+
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function txt(x, y, s, opt){
+  var o = opt || {};
+  return '<text x="' + x + '" y="' + y + '"'
+    + ' font-size="' + (o.size || 2) + '"'
+    + ' fill="' + (o.fill || C.linea) + '"'
+    + ' text-anchor="' + (o.anchor || "middle") + '"'
+    + ' font-weight="' + (o.weight || 600) + '"'
+    + ' font-family="Segoe UI, system-ui, sans-serif"'
+    + (o.rotate ? ' transform="rotate(' + o.rotate + ' ' + x + ' ' + y + ')"' : "")
+    + '>' + esc(s) + '</text>';
+}
+
+function cotaV(x, y1, y2, label, side){
+  var s = side === "left" ? -1 : 1;
+  var t = 0.7;
+  return '<g stroke="' + C.cota + '" stroke-width=".16" fill="none">'
+    + '<line x1="' + x + '" y1="' + y1 + '" x2="' + x + '" y2="' + y2 + '"/>'
+    + '<line x1="' + (x-t) + '" y1="' + (y1+t) + '" x2="' + x + '" y2="' + y1 + '"/>'
+    + '<line x1="' + (x+t) + '" y1="' + (y1+t) + '" x2="' + x + '" y2="' + y1 + '"/>'
+    + '<line x1="' + (x-t) + '" y1="' + (y2-t) + '" x2="' + x + '" y2="' + y2 + '"/>'
+    + '<line x1="' + (x+t) + '" y1="' + (y2-t) + '" x2="' + x + '" y2="' + y2 + '"/>'
+    + '</g>'
+    + txt(x + s*1.1, (y1+y2)/2 + 0.7, label, {fill:C.cota, weight:800, size:2.2, anchor: s<0 ? "end":"start"});
+}
+
+function cotaH(y, x1, x2, label, below){
+  var t = 0.7;
+  var dy = below ? 2.8 : -1.1;
+  return '<g stroke="' + C.cota + '" stroke-width=".16" fill="none">'
+    + '<line x1="' + x1 + '" y1="' + y + '" x2="' + x2 + '" y2="' + y + '"/>'
+    + '<line x1="' + (x1+t) + '" y1="' + (y-t) + '" x2="' + x1 + '" y2="' + y + '"/>'
+    + '<line x1="' + (x1+t) + '" y1="' + (y+t) + '" x2="' + x1 + '" y2="' + y + '"/>'
+    + '<line x1="' + (x2-t) + '" y1="' + (y-t) + '" x2="' + x2 + '" y2="' + y + '"/>'
+    + '<line x1="' + (x2-t) + '" y1="' + (y+t) + '" x2="' + x2 + '" y2="' + y + '"/>'
+    + '</g>'
+    + txt((x1+x2)/2, y + dy, label, {fill:C.cota, weight:800, size:2.2});
+}
+
+function bordado(x, y, w, h, etiqueta){
+  return '<g>'
+    + '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx=".25"'
+    + ' fill="' + C.brdFill + '" stroke="' + C.brd + '" stroke-width=".22" stroke-dasharray=".6 .35"/>'
+    + (etiqueta ? txt(x + w/2, y + h/2 + 0.7, etiqueta, {size:1.8, fill:C.brd, weight:800}) : "")
+    + '</g>';
+}
+
+function svg(vb, body){
+  return '<svg viewBox="' + vb + '" xmlns="http://www.w3.org/2000/svg">' + body + '</svg>';
+}
+
+function n1(v){ return (Math.round(v*10)/10).toFixed(1).replace(/\.0$/, ""); }
+function cm(v){ return n1(v) + " cm"; }
+
+/* posición del logo, común a los dos dibujos */
+function logoY(){ return P.vertref === "top" ? P.vert : P.vert - LOGO_H/2; }
+
+/* ══════════════════════════════════════════════════════════
+   1a · PRENDA ARMADA, VISTA DE FRENTE
+   x = 0 en el centro frente; negativo = lado derecho del portador
+   ══════════════════════════════════════════════════════════ */
+
+function drawFrente(){
+  var hx = M.escoteAncho, hy = 0;
+  var stx = M.hombroX, sty = M.caidaHombro;
+  var sx = M.cuarto, say = M.alturaSisa;
+  var ruedo = M.largo;
+  var ep = M.escoteProf;
+
+  var cierre = -P.cruce;
+  var logoRight = cierre - P.horiz;
+  var logoLeft  = logoRight - LOGO_W;
+  var yTop = logoY();
+
+  var b = "";
+
+  // mangas
+  b += '<path d="' + mangaFrente(-1) + '" fill="#f7f9fa" stroke="' + C.linea + '" stroke-width=".24"/>';
+  b += '<path d="' + mangaFrente(1)  + '" fill="#f7f9fa" stroke="' + C.linea + '" stroke-width=".24"/>';
+
+  // cuerpo
+  var cuerpo = "M " + (-stx) + " " + sty
+    + " L " + (-hx) + " " + hy
+    + " C " + (-hx+2.5) + " " + (ep*0.55) + " " + (-2.5) + " " + ep + " 0 " + ep
+    + " C 2.5 " + ep + " " + (hx-2.5) + " " + (ep*0.55) + " " + hx + " " + hy
+    + " L " + stx + " " + sty
+    + " C " + (stx+2) + " " + (sty+7) + " " + sx + " " + (say-7) + " " + sx + " " + say
+    + " L " + sx + " " + ruedo
+    + " L " + (-sx) + " " + ruedo
+    + " L " + (-sx) + " " + say
+    + " C " + (-sx) + " " + (say-7) + " " + (-stx-2) + " " + (sty+7) + " " + (-stx) + " " + sty
+    + " Z";
+  b += '<path d="' + cuerpo + '" fill="' + C.tela + '" stroke="' + C.linea + '" stroke-width=".3"/>';
+
+  // centro frente
+  b += '<line x1="0" y1="' + ep + '" x2="0" y2="' + ruedo + '" stroke="' + C.cf + '" stroke-width=".14" stroke-dasharray="1.4 .9"/>';
+  b += txt(0, ruedo + 3, "centro frente", {size:1.9, fill:C.cf, weight:700});
+
+  // filo visible del cruce
+  b += '<path d="M 2 ' + (ep+0.5) + ' C ' + (cierre*0.35) + ' ' + (ep+4) + ' ' + cierre + ' ' + (ep+6) + ' ' + cierre + ' ' + (ep+11)
+     + ' L ' + cierre + ' ' + ruedo + '" fill="none" stroke="' + C.linea + '" stroke-width=".32"/>';
+  b += txt(cierre - 1, ruedo - 2, "línea de cierre", {size:1.9, fill:C.linea, weight:800, anchor:"end"});
+
+  // vista por dentro (punteada)
+  b += '<path d="M ' + (cierre + P.vista) + ' ' + (ep+9) + ' L ' + (cierre + P.vista) + ' ' + ruedo + '"'
+     + ' fill="none" stroke="' + C.guia + '" stroke-width=".2" stroke-dasharray="1.5 1"/>';
+  b += txt(cierre + P.vista + 0.9, ruedo - 2, "borde de la vista", {size:1.7, fill:C.guia, weight:700, anchor:"start"});
+
+  // botones de nudo
+  var i, by;
+  for (i = 0; i < 5; i++){
+    by = 21 + i*9;
+    b += '<circle cx="' + (cierre + 3.5) + '" cy="' + by + '" r=".95" fill="none" stroke="' + C.linea + '" stroke-width=".2"/>';
+    b += '<circle cx="' + (cierre + 3.5 + 8) + '" cy="' + by + '" r=".95" fill="none" stroke="' + C.linea + '" stroke-width=".2"/>';
+  }
+
+  // banda del cuello mao
+  var h = P.banda;
+  var banda = "M " + (-hx) + " " + hy
+    + " C " + (-hx+2.5) + " " + (ep*0.55) + " " + (-2.5) + " " + ep + " 0 " + ep
+    + " C 2.5 " + ep + " " + (hx-2.5) + " " + (ep*0.55) + " " + hx + " " + hy
+    + " L " + hx + " " + (hy-h)
+    + " C " + (hx-2.5) + " " + (ep*0.55-h) + " 2.5 " + (ep-h) + " 0 " + (ep-h)
+    + " C -2.5 " + (ep-h) + " " + (-hx+2.5) + " " + (ep*0.55-h) + " " + (-hx) + " " + (hy-h)
+    + " Z";
+  b += '<path d="' + banda + '" fill="#eef3f7" stroke="' + C.linea + '" stroke-width=".24"/>';
+  b += '<line x1="' + (-hx+1.5) + '" y1="' + (ep-h+1.2) + '" x2="' + (-hx+5) + '" y2="' + (ep-h+0.4) + '" stroke="' + C.brd + '" stroke-width=".5"/>';
+  b += '<line x1="' + (hx-1.5) + '" y1="' + (ep-h+1.2) + '" x2="' + (hx-5) + '" y2="' + (ep-h+0.4) + '" stroke="' + C.brd + '" stroke-width=".5"/>';
+  b += txt(0, -h - 2.4, "bandera SV en la banda — ver detalle 2", {size:1.7, fill:C.brd, weight:700});
+
+  // línea del hombro-cuello
+  b += '<line x1="' + (-sx-8) + '" y1="0" x2="' + hx + '" y2="0" stroke="' + C.guia + '" stroke-width=".14" stroke-dasharray="1.2 .8"/>';
+  b += txt(-sx-8.3, -1.2, "punto hombro-cuello", {size:1.8, fill:C.guia, weight:700, anchor:"start"});
+
+  // logo
+  b += bordado(logoLeft, yTop, LOGO_W, LOGO_H, "LOGO USO");
+
+  var cxv = logoLeft - 3.4;
+  b += '<line x1="' + cxv + '" y1="' + yTop + '" x2="' + logoLeft + '" y2="' + yTop + '" stroke="' + C.guia + '" stroke-width=".12" stroke-dasharray=".8 .6"/>';
+  b += cotaV(cxv, 0, yTop, cm(P.vert), "left");
+  b += cotaH(yTop - 2.6, logoRight, cierre, cm(P.horiz));
+
+  return svg("-46 -12 92 100", b);
+}
+
+function mangaFrente(sgn){
+  var s = sgn;
+  var stx = M.hombroX, sty = M.caidaHombro;
+  var sx = M.cuarto, say = M.alturaSisa;
+  return "M " + (s*stx) + " " + sty
+    + " C " + (s*(stx+5)) + " " + (sty+4) + " " + (s*(stx+11)) + " " + (sty+13) + " " + (s*(stx+13)) + " " + (say+3)
+    + " L " + (s*(stx+10)) + " 60"
+    + " L " + (s*(sx-3)) + " 60"
+    + " L " + (s*sx) + " " + say
+    + " C " + (s*sx) + " " + (say-7) + " " + (s*(stx+2)) + " " + (sty+7) + " " + (s*stx) + " " + sty
+    + " Z";
+}
+
+/* ══════════════════════════════════════════════════════════
+   1b · TRAZO DEL DELANTERO DERECHO
+   x = 0 en el centro frente; el cruce sale hacia -x,
+   el cuerpo hacia +x hasta el costado
+   ══════════════════════════════════════════════════════════ */
+
+function drawTrazo(){
+  var hx = M.escoteAncho, ep = M.escoteProf;
+  var stx = M.hombroX, sty = M.caidaHombro;
+  var sx = M.cuarto, say = M.alturaSisa;
+  var ruedo = M.largo;
+  var filo = -P.cruce;                 // filo propio del cruce
+  var caida = ep + 2;                  // el escote baja un poco al llegar al filo
+
+  // dónde aterriza el filo del OTRO delantero sobre esta pieza
+  var aterriza = P.cruce;
+  var logoLeft2 = aterriza + P.horiz;              // borde cercano al cierre
+  var logoRight2 = logoLeft2 + LOGO_W;
+  var yTop = logoY();
+  var desdeFilo = logoLeft2 - filo;                // = 2·cruce + horiz
+
+  var b = "";
+
+  var pieza = "M " + stx + " " + sty
+    + " L " + hx + " 0"
+    + " C " + (hx-2.5) + " " + (ep*0.55) + " 2.5 " + ep + " 0 " + ep
+    + " L " + filo + " " + caida
+    + " L " + filo + " " + ruedo
+    + " L " + sx + " " + ruedo
+    + " L " + sx + " " + say
+    + " C " + sx + " " + (say-7) + " " + (stx+2) + " " + (sty+7) + " " + stx + " " + sty
+    + " Z";
+  b += '<path d="' + pieza + '" fill="' + C.tela + '" stroke="' + C.linea + '" stroke-width=".32"/>';
+
+  // centro frente
+  b += '<line x1="0" y1="' + (ep-1) + '" x2="0" y2="' + (ruedo+2) + '" stroke="' + C.cf + '" stroke-width=".16" stroke-dasharray="1.4 .9"/>';
+  b += txt(0, ruedo + 4.4, "CF", {size:2, fill:C.cf, weight:800});
+
+  // vista: se corta aparte, cubre el cruce y pasa los botones
+  b += '<path d="M ' + (filo + P.vista) + ' ' + (caida + 1.5) + ' L ' + (filo + P.vista) + ' ' + ruedo + '"'
+     + ' fill="none" stroke="' + C.guia + '" stroke-width=".26" stroke-dasharray="1.6 1"/>';
+  b += txt(filo + P.vista/2, ruedo - 3, "VISTA", {size:2, fill:C.guia, weight:800, rotate:-90});
+
+  // aterrizaje del cierre
+  b += '<line x1="' + aterriza + '" y1="' + (ep+3) + '" x2="' + aterriza + '" y2="' + ruedo + '"'
+     + ' stroke="' + C.guia + '" stroke-width=".22" stroke-dasharray="2 1.2"/>';
+  b += txt(aterriza, ruedo + 4.4, "aquí cae el cierre", {size:1.7, fill:C.guia, weight:700});
+
+  // hombro-cuello
+  b += '<line x1="' + (filo-6) + '" y1="0" x2="' + (stx+1) + '" y2="0" stroke="' + C.guia + '" stroke-width=".14" stroke-dasharray="1.2 .8"/>';
+  b += txt(filo - 6.3, -1.3, "hombro-cuello", {size:1.8, fill:C.guia, weight:700, anchor:"start"});
+
+  // nivel de sisa
+  b += '<line x1="' + (filo-1) + '" y1="' + say + '" x2="' + sx + '" y2="' + say + '" stroke="' + C.guia + '" stroke-width=".12" stroke-dasharray="1 .8"/>';
+  b += txt(filo - 1.3, say - 0.8, "nivel de sisa", {size:1.6, fill:C.guia, weight:700, anchor:"end"});
+
+  b += bordado(logoLeft2, yTop, LOGO_W, LOGO_H, "LOGO USO");
+
+  // cotas
+  var cxv = filo - 4;
+  b += '<line x1="' + cxv + '" y1="' + yTop + '" x2="' + logoLeft2 + '" y2="' + yTop + '" stroke="' + C.guia + '" stroke-width=".12" stroke-dasharray=".8 .6"/>';
+  b += cotaV(cxv, 0, yTop, cm(P.vert), "left");
+  b += cotaH(yTop - 3, aterriza, logoLeft2, cm(P.horiz));
+  b += cotaH(yTop + LOGO_H + 4.5, filo, logoLeft2, cm(desdeFilo), true);
+  b += cotaH(ruedo + 8, filo, 0, cm(P.cruce), true);
+
+  return svg("-26 -12 68 100", b);
+}
+
+/* ══════════════════════════════════════════════════════════
+   2 · BANDA DEL CUELLO
+   ══════════════════════════════════════════════════════════ */
+
+function drawCuello(){
+  var largo = 44;
+  var h = P.banda;
+  var cost = 0.5;
+  var yFlag = h/2 - FLAG_H/2;
+
+  var b = "";
+  b += '<rect x="' + (-largo/2) + '" y="0" width="' + largo + '" height="' + h + '" rx=".4" fill="' + C.tela + '" stroke="' + C.linea + '" stroke-width=".28"/>';
+  b += '<line x1="' + (-largo/2) + '" y1="' + cost + '" x2="' + (largo/2) + '" y2="' + cost + '" stroke="' + C.guia + '" stroke-width=".12" stroke-dasharray="1 .7"/>';
+  b += '<line x1="' + (-largo/2) + '" y1="' + (h-cost) + '" x2="' + (largo/2) + '" y2="' + (h-cost) + '" stroke="' + C.guia + '" stroke-width=".12" stroke-dasharray="1 .7"/>';
+
+  b += '<line x1="0" y1="-1.5" x2="0" y2="' + (h+1.5) + '" stroke="' + C.cf + '" stroke-width=".16" stroke-dasharray="1.4 .9"/>';
+  b += txt(0, -3.4, "centro ATRÁS", {size:1.7, fill:C.cf, weight:800});
+  b += txt(-largo/2, -3.4, "CF izq.", {size:1.7, fill:C.cf, weight:800, anchor:"start"});
+  b += txt(largo/2, -3.4, "CF der.", {size:1.7, fill:C.cf, weight:800, anchor:"end"});
+
+  var xIzq = -largo/2 + P.flagcf;
+  var xDer = largo/2 - P.flagcf;
+
+  b += bordado(xIzq, yFlag, FLAG_W, FLAG_H, "");
+  b += bordado(xDer - FLAG_W, yFlag, FLAG_W, FLAG_H, "");
+  b += txt(xIzq + FLAG_W/2, -1.3, "bandera SV", {size:1.5, fill:C.brd, weight:800});
+  b += txt(xDer - FLAG_W/2, -1.3, "bandera SV", {size:1.5, fill:C.brd, weight:800});
+
+  b += cotaH(h + 3.4, -largo/2, xIzq, cm(P.flagcf), true);
+  b += cotaH(h + 3.4, xDer, largo/2, cm(P.flagcf), true);
+  b += cotaV(-largo/2 - 3.4, 0, h, "banda " + cm(h), "left");
+  b += cotaV(largo/2 + 3.4, yFlag, yFlag + FLAG_H, "bandera " + cm(FLAG_H), "right");
+
+  var margen = yFlag - cost;
+  b += txt(-largo/2, h + 8, "Margen libre contra cada costura: " + cm(margen), {size:1.6, fill: margen < 0.6 ? "#C0392B" : "#1E7E44", weight:800, anchor:"start"});
+
+  return svg("-39 -8 90 " + (h + 18), b);
+}
+
+/* ══════════════════════════════════════════════════════════
+   3 · MANGA
+   ══════════════════════════════════════════════════════════ */
+
+function drawManga(){
+  var aw = M.mangaAncho, pw = M.puno, lg = M.largoManga, copa = M.copaManga;
+  var b = "";
+
+  var mp = "M " + (-aw/2) + " " + copa
+    + " C " + (-aw/2+7) + " " + (copa-8) + " -7 0 0 0"
+    + " C 7 0 " + (aw/2-7) + " " + (copa-8) + " " + (aw/2) + " " + copa
+    + " L " + (pw/2) + " " + lg
+    + " L " + (-pw/2) + " " + lg
+    + " Z";
+  b += '<path d="' + mp + '" fill="' + C.tela + '" stroke="' + C.linea + '" stroke-width=".3"/>';
+
+  b += '<line x1="0" y1="0" x2="0" y2="' + lg + '" stroke="' + C.cf + '" stroke-width=".14" stroke-dasharray="1.4 .9"/>';
+  b += txt(0, lg + 3.2, "eje de la manga", {size:1.8, fill:C.cf, weight:800});
+  b += txt(0, -1.8, "copa / costura de sisa", {size:1.9, fill:C.linea, weight:800});
+  b += txt(-aw/2 - 0.9, copa, "axila", {size:1.8, fill:C.linea, weight:800, anchor:"end"});
+
+  var origen = P.mangaref === "cap" ? 0 : copa;
+  var yTop = origen + P.manga;
+
+  b += bordado(-LET_W/2, yTop, LET_W, LET_H, "COCINERO / PASTELERO");
+
+  b += '<line x1="' + (-LET_W/2 - 6) + '" y1="' + origen + '" x2="' + (-LET_W/2) + '" y2="' + origen + '" stroke="' + C.guia + '" stroke-width=".12" stroke-dasharray=".8 .6"/>';
+  b += '<line x1="' + (-LET_W/2 - 6) + '" y1="' + yTop + '" x2="' + (-LET_W/2) + '" y2="' + yTop + '" stroke="' + C.guia + '" stroke-width=".12" stroke-dasharray=".8 .6"/>';
+  b += cotaV(-LET_W/2 - 4.5, origen, yTop, cm(P.manga), "left");
+  b += cotaH(yTop + LET_H + 3.4, -LET_W/2, LET_W/2, cm(LET_W), true);
+
+  return svg("-30 -6 60 " + (lg + 10), b);
+}
+
+/* ══════════════════════════════════════════════════════════
+   TABLAS Y AVISOS
+   ══════════════════════════════════════════════════════════ */
+
+function pintarTabla(){
+  var desdeFilo = 2*P.cruce + P.horiz;
+  var refTxt = P.vertref === "top" ? "al borde superior" : "al centro";
+  var mangaTxt = P.mangaref === "cap" ? "desde la copa, sobre el eje" : "desde la sisa en la axila";
+
+  var filas = [
+    ["Logo USO<br /><span class=\"ref\">8.7 × 5.2 cm · diseño 133</span>", "Delantero derecho",
+     "<span class=\"med\">" + cm(P.vert) + "</span> del punto hombro-cuello <span class=\"ref\">(" + refTxt + ")</span>",
+     "<span class=\"med\">" + cm(P.horiz) + "</span> de la línea de cierre<br /><span class=\"ref\">= " + cm(desdeFilo) + " del filo del cruce, sobre la pieza en plano</span>"],
+    ["Bandera SV ×2<br /><span class=\"ref\">8.8 × 1.0 cm · diseño 50</span>", "Banda del cuello",
+     "centrada en el alto de la banda <span class=\"ref\">(banda " + cm(P.banda) + ")</span>",
+     "<span class=\"med\">" + cm(P.flagcf) + "</span> del centro frente, cada lado"],
+    ["Letras Cocinero<br /><span class=\"ref\">8.8 × 2.5 cm · diseño 71</span>", "Manga",
+     "<span class=\"med\">" + cm(P.manga) + "</span> " + mangaTxt, "centrada en el eje de la manga"],
+    ["Letras Pastelero<br /><span class=\"ref\">9.2 × 2.5 cm · diseño 62</span>", "Manga",
+     "<span class=\"med\">" + cm(P.manga) + "</span> " + mangaTxt, "centrada en el eje de la manga"]
+  ];
+
+  var html = "", i;
+  for (i = 0; i < filas.length; i++){
+    html += "<tr><td>" + filas[i][0] + "</td><td>" + filas[i][1] + "</td><td>" + filas[i][2] + "</td><td>" + filas[i][3] + "</td></tr>";
+  }
+  document.getElementById("tbl").innerHTML = html;
+}
+
+function pintarBases(){
+  var a = [
+    ["Pecho corporal", cm(M.pechoCuerpo)],
+    ["Holgura de trabajo", "+ " + cm(M.holgura)],
+    ["Pecho de la prenda", cm(M.pechoPrenda)],
+    ["Cuarto de pecho (CF al costado)", cm(M.cuarto)],
+    ["Contorno de cuello", cm(M.cuello)],
+    ["Ancho de escote (C/6 + 1)", cm(M.escoteAncho)]
+  ];
+  var c = [
+    ["Profundidad de escote", cm(M.escoteProf)],
+    ["Caída de hombro", cm(M.caidaHombro)],
+    ["Largo de hombro", cm(M.largoHombro)],
+    ["Altura de sisa", cm(M.alturaSisa)],
+    ["Largo total (hombro-cuello a ruedo)", cm(M.largo)],
+    ["Largo de manga / puño", cm(M.largoManga) + " / " + cm(M.puno)]
+  ];
+  function fill(id, arr){
+    var h = "", i;
+    for (i = 0; i < arr.length; i++){ h += "<tr><td>" + arr[i][0] + "</td><td>" + arr[i][1] + "</td></tr>"; }
+    document.getElementById(id).innerHTML = h;
+  }
+  fill("bases1", a);
+  fill("bases2", c);
+}
+
+function pintarAvisos(){
+  var a = [];
+  var logoFar = P.cruce + P.horiz + LOGO_W;    // borde exterior, medido del CF hacia el costado
+  var sisaX = M.cuarto - 2.5;                  // costura de sisa a la altura del pecho
+  var libreSisa = sisaX - logoFar;
+  var margen = P.banda/2 - FLAG_H/2 - 0.5;
+
+  if (libreSisa < 0){
+    a.push(["alerta", "El bordado se pasa hacia la sisa.", "Con " + cm(P.horiz) + " de horizontal el logo invade la zona de la manga. Hay que bajar la horizontal."]);
+  } else if (libreSisa < 3){
+    a.push(["nota", "Queda apretado contra la sisa: " + cm(libreSisa) + " libres.", "Menos de 3 cm complica el bastidor y se ve descentrado hacia afuera."]);
+  }
+
+  if (P.horiz < 2){
+    a.push(["nota", "Muy pegado a la línea de cierre.", "Con menos de 2 cm cualquier variación al armar se nota."]);
+  }
+
+  if (margen < 0.6){
+    a.push(["alerta", "La bandera no cabe cómoda en la banda del cuello.", "Con banda de " + cm(P.banda) + " quedan " + cm(margen) + " libres contra costura. Se necesita banda más alta."]);
+  }
+
+  if (a.length === 0){
+    a.push(["ok", "Las tres posiciones caben con holgura razonable.", "Quedan " + cm(libreSisa) + " entre el logo y la sisa, y " + cm(margen) + " de margen en la banda del cuello."]);
+  }
+
+  var html = "", i;
+  for (i = 0; i < a.length; i++){
+    html += '<div class="nota ' + a[i][0] + '"><strong>' + a[i][1] + '</strong> ' + a[i][2] + '</div>';
+  }
+  document.getElementById("avisos").innerHTML = html;
+
+  // aviso sobre la vista
+  var bordeVista = -P.cruce + P.vista;             // borde interior de la vista, respecto al CF
+  var logoNear = P.cruce + P.horiz;
+  var el = document.getElementById("nota_vista");
+  if (logoNear < bordeVista){
+    el.className = "nota alerta";
+    el.innerHTML = "<strong>El bordado cae encima de la vista.</strong> Con vista de " + cm(P.vista)
+      + " su borde interior llega a " + cm(bordeVista) + " del CF, y el logo arranca a " + cm(logoNear)
+      + ". Van a quedar dos capas de tela más entretela debajo del bordado: se endurece y puede fruncir.";
+  } else {
+    el.className = "nota ok";
+    el.innerHTML = "<strong>El bordado queda fuera de la vista.</strong> El borde interior de la vista llega a "
+      + cm(bordeVista) + " del CF y el logo arranca a " + cm(logoNear)
+      + ", así que se borda sobre una sola capa de tela. Eso es lo que se quiere: nada de bulto extra bajo el bastidor.";
+  }
+}
+
+/* ---------- render y controles ---------- */
+
+function render(){
+  document.getElementById("svg_frente").innerHTML = drawFrente();
+  document.getElementById("svg_trazo").innerHTML  = drawTrazo();
+  document.getElementById("svg_cuello").innerHTML = drawCuello();
+  document.getElementById("svg_manga").innerHTML  = drawManga();
+  pintarTabla();
+  pintarAvisos();
+}
+
+var NUMS = ["horiz","vert","cruce","vista","banda","flagcf","manga"];
+var SELS = ["vertref","mangaref"];
+
+function sync(){
+  var i, k;
+  for (i = 0; i < NUMS.length; i++){
+    k = NUMS[i];
+    document.getElementById("r_" + k).value = P[k];
+    document.getElementById("n_" + k).value = P[k];
+  }
+  for (i = 0; i < SELS.length; i++){
+    k = SELS[i];
+    document.getElementById("s_" + k).value = P[k];
+  }
+  render();
+}
+
+function bind(){
+  var i;
+  for (i = 0; i < NUMS.length; i++){
+    (function(k){
+      var r = document.getElementById("r_" + k);
+      var n = document.getElementById("n_" + k);
+      r.addEventListener("input", function(){ P[k] = parseFloat(r.value); n.value = r.value; render(); });
+      n.addEventListener("input", function(){
+        var v = parseFloat(n.value);
+        if (!isNaN(v)){ P[k] = v; r.value = v; render(); }
+      });
+    })(NUMS[i]);
+  }
+  for (i = 0; i < SELS.length; i++){
+    (function(k){
+      var s = document.getElementById("s_" + k);
+      s.addEventListener("change", function(){ P[k] = s.value; render(); });
+    })(SELS[i]);
+  }
+}
+
+function reset(){ P = Object.assign({}, DEF); sync(); }
+
+pintarBases();
+bind();
+sync();
+</script>
+</body>
+</html>

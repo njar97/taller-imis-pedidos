@@ -64,8 +64,12 @@ def silueta(w, h, esc_prof, manga_largo, manga_boca):
     return pts
 
 
-def prenda(color, vista, arte_ruta, arte_ancho, arte_f, arte_c, piezas):
-    """Dibuja una camiseta con su arte. arte_f = del escote al EJE del arte."""
+def prenda(color, vista, artes, piezas):
+    """Dibuja una camiseta con sus artes.
+
+    artes = [(ruta, ancho_cm, f, c), ...] y f = del escote al EJE de ese arte.
+    La espalda lleva dos: el arco INTRAMUROS arriba y la ilustracion abajo.
+    """
     lados = UA.LADOS_NUM if TALLA in UA.NUMERICAS else UA.LADOS_LET
     cuerpo = piezas[lados['delantera' if vista == 'frente' else 'espalda']]
     manga = piezas[lados['manga']]
@@ -102,14 +106,15 @@ def prenda(color, vista, arte_ruta, arte_ancho, arte_f, arte_c, piezas):
                     ((esc_prof+1.0)*(1-t*t))*ESC+40))
     d.line(rib, fill=borde, width=5, joint='curve')
 
-    # el arte
-    im = Image.open(arte_ruta).convert('RGBA')
-    alto = arte_ancho*im.size[1]/float(im.size[0])
-    aw, ah = int(arte_ancho*ESC), int(alto*ESC)
-    eje_y = (esc_prof + arte_f)*ESC + 40
-    eje_x = cx + arte_c*ESC
-    esc_im = im.resize((aw, ah), Image.LANCZOS)
-    img.alpha_composite(esc_im, (int(eje_x-aw/2), int(eje_y-ah/2)))
+    # los artes
+    for arte_ruta, arte_ancho, arte_f, arte_c in artes:
+        im = Image.open(arte_ruta).convert('RGBA')
+        alto = arte_ancho*im.size[1]/float(im.size[0])
+        aw, ah = int(arte_ancho*ESC), int(alto*ESC)
+        eje_y = (esc_prof + arte_f)*ESC + 40
+        eje_x = cx + arte_c*ESC
+        esc_im = im.resize((aw, ah), Image.LANCZOS)
+        img.alpha_composite(esc_im, (int(eje_x-aw/2), int(eje_y-ah/2)))
     return img
 
 
@@ -119,26 +124,22 @@ def main():
     delantera = piezas[lados['delantera']]
     espalda = piezas[lados['espalda']]
 
-    # las mismas alturas de la ficha de taller (regla proporcional)
-    b_m = UA.b_de('monograma', delantera, 'proporcional')
-    im_m = Image.open(os.path.join(UA.ARTES, UA.MONOGRAMA_PNG))
-    alto_m = UA.ANCHO_MONOGRAMA*im_m.size[1]/float(im_m.size[0])
-    f_m = b_m + alto_m/2.0
-    _, x_der = UA.orilla_a_la_altura(delantera['puntos'],
-                                     UA.escote_de(delantera)+b_m)
-    c_m = (x_der - delantera['bbox_cm'][0]/2.0)/2.0
-
-    b_e = UA.b_de('espalda', espalda, 'proporcional')
-    im_e = Image.open(os.path.join(UA.ARTES, UA.ESPALDA_PNG))
-    alto_e = UA.ANCHO_ESPALDA*im_e.size[1]/float(im_e.size[0])
-    f_e = b_e + alto_e/2.0
+    # las mismas alturas de la ficha de taller (regla proporcional), sacadas de
+    # la misma funcion: el mockup tiene que mostrar lo que se va a estampar
+    m = UA.efes(TALLA, piezas, 'proporcional')
+    f_m, c_m = m['monograma_f'], m['monograma_c']
+    f_a, f_e = m['arco_f'], m['ilustracion_f']
+    arco_ruta = UA.ruta_arco()[0]
 
     filas = []
     for nombre, rgb, cant in COLORES:
-        frente = prenda(rgb, 'frente', os.path.join(UA.ARTES, UA.MONOGRAMA_PNG),
-                        UA.ANCHO_MONOGRAMA, f_m, c_m, piezas)
-        atras = prenda(rgb, 'espalda', os.path.join(UA.ARTES, UA.ESPALDA_PNG),
-                       UA.ANCHO_ESPALDA, f_e, 0.0, piezas)
+        frente = prenda(rgb, 'frente',
+                        [(os.path.join(UA.ARTES, UA.MONOGRAMA_PNG),
+                          UA.ANCHO_MONOGRAMA, f_m, c_m)], piezas)
+        atras = prenda(rgb, 'espalda',
+                       [(arco_ruta, UA.ANCHO_ARCO, f_a, 0.0),
+                        (os.path.join(UA.ARTES, UA.ILUSTRACION_PNG),
+                         UA.ANCHO_ESPALDA, f_e, 0.0)], piezas)
         filas.append((nombre, cant, frente, atras))
 
     cw = max(f[2].size[0] for f in filas)
