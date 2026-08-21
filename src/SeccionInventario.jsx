@@ -13,6 +13,7 @@ import { leerPendientes, marcarProcesados, marcarIgnorado } from "./lib/dtePendi
 import { subirFotoSupabase } from "./supabaseStorage.js";
 import { comprimirImagen } from "./lib/imagenes.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
+import SeccionProveedores from "./SeccionProveedores.jsx";
 
 import { useState, useEffect, useRef } from "react";
 
@@ -312,6 +313,7 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
   const [editando, setEditando] = useState(null); // item | "nuevo" | null
   const [pendientes, setPendientes] = useState([]); // facturas empujadas por dte_web
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
+  const [vista, setVista] = useState("inventario"); // "inventario" | "proveedores"
 
   // Cargar desde Supabase en mount. Solo si el state local está vacío
   // (evita re-fetch cuando volvés a entrar a la sección).
@@ -458,8 +460,35 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
     })
     .filter(p => p.costo > 0);
 
+  // Pestañas: el inventario (ítems del DTE) y el directorio de proveedores
+  // comparten apartado porque el proveedor ya es un campo de cada ítem.
+  const tabs = (
+    <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+      {[["inventario", "📦 Inventario"], ["proveedores", "🏭 Proveedores"]].map(([k, label]) => {
+        const on = vista === k;
+        return (
+          <button key={k} onClick={() => setVista(k)}
+            style={{ padding: "8px 14px", borderRadius: 20, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit",
+              border: "1.5px solid " + (on ? "#2C1654" : "#ddd"), background: on ? "#2C1654" : "#fff", color: on ? "#fff" : "#555" }}>
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (vista === "proveedores") {
+    return (
+      <div style={{ flex: 1, overflow: "auto", padding: 16 }} className="main-area">
+        {tabs}
+        <SeccionProveedores />
+      </div>
+    );
+  }
+
   return (
     <div style={{ flex: 1, overflow: "auto", padding: 16 }} className="main-area">
+      {tabs}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <div style={{ flex: 1 }}>
           <h2 style={{ margin: 0, fontSize: 17, color: "#2C1654", fontWeight: 800 }}>📦 Inventario</h2>
