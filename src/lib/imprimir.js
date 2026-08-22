@@ -160,20 +160,53 @@ export function nuevaVentanaImpresion(titulo = null, { autoPrint = true } = {}) 
       if (iframe.offsetWidth < 800) iframe.style.width = "800px";
       await new Promise(r => setTimeout(r, 80));
 
+      // Esperar las imágenes (fotos de referencia, logo, firma) ANTES de medir.
+      // Con red lenta el alto se medía sin las fotos y todo lo que venía
+      // después quedaba fuera del PDF: "sale cortado". Tope 12 s por si alguna
+      // no carga nunca.
+      setBtn("⏳ Cargando imágenes...", true);
+      await Promise.race([
+        Promise.all(Array.from(idoc.images).filter(im => !im.complete)
+          .map(im => new Promise(r => { im.addEventListener("load", r, { once: true }); im.addEventListener("error", r, { once: true }); }))),
+        new Promise(r => setTimeout(r, 12000)),
+      ]);
+      await new Promise(r => setTimeout(r, 120));
+      setBtn("⏳ Generando PDF...", true);
+
       const fullH = body.scrollHeight;
       const origH = iframe.style.height;
       // Expandir iframe para que html2canvas vea el contenido completo
       iframe.style.height = fullH + "px";
       await new Promise(r => setTimeout(r, 80));
 
-      // Medir bordes inferiores de las filas ANTES de capturar.
-      // scale=1.5 → canvas px = CSS px × 1.5
-      const HCS = 1.5;
+      // Escala de captura. 1.5 da buena nitidez; en hojas muy largas se baja
+      // para no pasar el tamaño máximo de canvas del celular (Android recorta o
+      // deja en blanco lo que no cabe — el PDF salía "cortado").
+      const fullW = Math.max(body.scrollWidth || 0, 800);
+      let HCS = 1.5;
+      const MAX_LADO = 14000, MAX_AREA = 28e6;
+      if (fullH * HCS > MAX_LADO) HCS = MAX_LADO / fullH;
+      if (fullW * HCS * fullH * HCS > MAX_AREA) HCS = Math.sqrt(MAX_AREA / (fullW * fullH));
+      HCS = Math.max(0.8, Math.min(1.5, HCS));
+
+      // Geometría de TODOS los elementos (en px de canvas), medida ANTES de
+      // capturar. Sirve para elegir dónde cortar las páginas: el corte va en el
+      // borde inferior de algún elemento, y solo si ningún elemento "chico" lo
+      // atraviesa. Así no se parte una fila, una foto ni una caja con borde —
+      // pero sí se corta entre bloques. Antes solo se cortaba en filas de tabla
+      // y los bloques de abajo (condiciones, foto, firma) saltaban enteros a
+      // otra página, dejando la primera medio vacía: en el preview de WhatsApp
+      // parecía que faltaba la mitad de la cotización.
       const bodyTop = body.getBoundingClientRect().top;
-      const rowEndsPx = Array.from(idoc.querySelectorAll("tbody tr, table tr"))
-        .map(r => (r.getBoundingClientRect().bottom - bodyTop) * HCS)
-        .filter(v => v > 10)
-        .sort((a, b) => a - b);
+      const NO_BLOQUEA = /^(HTML|BODY|TABLE|THEAD|TBODY|TFOOT|COL|COLGROUP|SCRIPT|STYLE|BR)$/;
+      const rects = [];
+      for (const el of idoc.body.querySelectorAll("*")) {
+        if (/^(SCRIPT|STYLE|BR|COL|COLGROUP)$/.test(el.tagName)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.height <= 0) continue;
+        rects.push({ top: (r.top - bodyTop) * HCS, bottom: (r.bottom - bodyTop) * HCS,
+                     h: r.height * HCS, bloquea: !NO_BLOQUEA.test(el.tagName) });
+      }
 
       const canvas = await html2canvas(body, {
         scale: HCS,
@@ -181,7 +214,7 @@ export function nuevaVentanaImpresion(titulo = null, { autoPrint = true } = {}) 
         allowTaint: false,
         scrollX: 0,
         scrollY: 0,
-        windowWidth: Math.max(body.scrollWidth || 0, 800),
+        windowWidth: fullW,
         windowHeight: fullH,
       });
 
@@ -191,46 +224,59 @@ export function nuevaVentanaImpresion(titulo = null, { autoPrint = true } = {}) 
       body.style.minWidth = origBodyMinW;
       noPrints.forEach(el => { el.style.display = el._pd || ""; delete el._pd; });
 
-      // Construir PDF A4 con cortes inteligentes (no partir filas).
-      // En vez del corte fijo cada A4H, buscamos el último fin-de-fila
-      // antes del límite de página y cortamos ahí.
       const A4W = 595.28; // pt
       const A4H = 841.89; // pt
       const pxPerPt = canvas.width / A4W;
       const pageHpx = A4H * pxPerPt; // alto de página en canvas px
-
-      const pageCuts = [0]; // posición de inicio de cada página en canvas px
-      let cur = 0;
-      while (cur < canvas.height) {
-        const pageEnd = cur + pageHpx;
-        if (pageEnd >= canvas.height) break;
-        let cut = pageEnd;
-        // Retroceder al borde inferior de la última fila completa
-        for (let i = rowEndsPx.length - 1; i >= 0; i--) {
-          if (rowEndsPx[i] <= pageEnd && rowEndsPx[i] > cur + 20) {
-            cut = rowEndsPx[i];
-            break;
-          }
-        }
-        pageCuts.push(cut);
-        cur = cut;
-      }
-      pageCuts.push(canvas.height);
-
       const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
-      for (let pg = 0; pg < pageCuts.length - 1; pg++) {
-        if (pg > 0) pdf.addPage();
-        const startPx = pageCuts[pg];
-        const sliceH = Math.ceil(pageCuts[pg + 1] - startPx);
-        // Sub-canvas con el slice exacto de esta página
-        const pc = document.createElement("canvas");
-        pc.width = canvas.width;
-        pc.height = sliceH;
-        pc.getContext("2d").drawImage(
-          canvas, 0, startPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH
-        );
-        const ptH = sliceH / pxPerPt;
-        pdf.addImage(pc.toDataURL("image/jpeg", 0.88), "JPEG", 0, 0, A4W, ptH);
+
+      if (canvas.height <= pageHpx * 1.3) {
+        // Cabe en una página (o se pasa poco): se encoge para que entre
+        // completa. Una cotización de un renglón no tiene por qué ir en dos hojas.
+        const k = Math.min(1, pageHpx / canvas.height);
+        const w = A4W * k, h = (canvas.height / pxPerPt) * k;
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.88), "JPEG", (A4W - w) / 2, 0, w, h);
+      } else {
+        // Varias páginas: cortar en el borde de un elemento que nadie atraviese.
+        // Los contenedores grandes (más de 80 % de página) no cuentan como
+        // bloqueo — si no, nunca habría dónde cortar.
+        const esSeguro = y => {
+          if (rects.some(r => r.bloquea && r.h < pageHpx * 0.8 && r.top < y - 2 && r.bottom > y + 2)) return false;
+          // Un título no se queda solo al pie de página: si lo que termina en y
+          // es bajito (título/encabezado) y justo debajo arranca un bloque grande,
+          // el corte va antes del título.
+          const titulo = rects.some(r => r.h < 70 * HCS && Math.abs(r.bottom - y) <= 6);
+          const bloqueDebajo = rects.some(r => r.top >= y - 2 && r.top <= y + 40 * HCS && r.h > 120 * HCS);
+          return !(titulo && bloqueDebajo);
+        };
+        const cands = Array.from(new Set(rects.map(r => Math.round(r.bottom)).filter(v => v > 10))).sort((a, b) => a - b);
+        const pageCuts = [0];
+        let cur = 0;
+        while (cur < canvas.height) {
+          const pageEnd = cur + pageHpx;
+          if (pageEnd >= canvas.height) break;
+          let cut = pageEnd;
+          for (let i = cands.length - 1; i >= 0; i--) {
+            const y = cands[i];
+            if (y > pageEnd) continue;
+            if (y <= cur + pageHpx * 0.35) break;   // no dejar páginas casi vacías
+            if (esSeguro(y)) { cut = y; break; }
+          }
+          pageCuts.push(cut);
+          cur = cut;
+        }
+        pageCuts.push(canvas.height);
+
+        for (let pg = 0; pg < pageCuts.length - 1; pg++) {
+          if (pg > 0) pdf.addPage();
+          const startPx = pageCuts[pg];
+          const sliceH = Math.ceil(pageCuts[pg + 1] - startPx);
+          const pc = document.createElement("canvas");
+          pc.width = canvas.width;
+          pc.height = sliceH;
+          pc.getContext("2d").drawImage(canvas, 0, startPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+          pdf.addImage(pc.toDataURL("image/jpeg", 0.88), "JPEG", 0, 0, A4W, sliceH / pxPerPt);
+        }
       }
 
       const blob = pdf.output("blob");
