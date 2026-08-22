@@ -446,7 +446,10 @@ ${items.length ? (() => {
   const multiTipo = tiposDistintos.length > 1;
   // Quitar paréntesis internos de la tela (ej: "Jersey básico (más económico que piqué)" → "Jersey básico")
   const telaCorta = p.tela ? p.tela.replace(/\s*\([^)]*\)/g, "").trim() : "";
-  const prodDesc = [p.tipoPrenda, telaCorta, p.color].filter(Boolean).join(" · ");
+  // Si el nombre ya trae la tela (cotizaciones etiquetadas "Producto — Tela"
+  // para el comparativo), no repetirla en el subtítulo.
+  const telaRepetida = telaCorta && String(p.tipoPrenda || "").toLowerCase().includes(telaCorta.toLowerCase());
+  const prodDesc = [p.tipoPrenda, telaRepetida ? "" : telaCorta, p.color].filter(Boolean).join(" · ");
 
   const filas = items.map((it, i) => {
     const pr = parseFloat(it.precio) || 0;
