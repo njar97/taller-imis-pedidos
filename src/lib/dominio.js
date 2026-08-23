@@ -511,3 +511,89 @@ export const normNombre = s =>
     .trim()
     .toUpperCase()
     .replace(/\s+/g, " ");
+
+// ── Opciones de un comparativo de cotizaciones ────────────────────────────
+// Cuando se eligen dos o más cotizaciones para mandarlas juntas como
+// opciones, el cliente necesita saber QUÉ está comparando. Antes el
+// comparativo (PDF y WhatsApp) mostraba solo la foto y el precio, así que
+// las opciones se veían idénticas salvo el monto.
+
+// "Producto — Diferencia": el producto va una sola vez arriba y por opción
+// queda solo lo que cambia. Sin "—", todo es producto y la etiqueta va vacía.
+export const partirTipoPrenda = tipo => {
+  const s = String(tipo || "");
+  const i = s.indexOf("—");
+  if (i === -1) return { comun: s.trim(), etiqueta: "" };
+  return { comun: s.slice(0, i).trim(), etiqueta: s.slice(i + 1).trim() };
+};
+
+// Tela sin el paréntesis explicativo, que es nota interna:
+// "Jersey básico (más económico que piqué)" → "Jersey básico".
+export const telaCorta = c => String((c && c.tela) || "").replace(/\s*\([^)]*\)/g, "").trim();
+
+// Ficha de una opción: precio y todo lo que la distingue de las demás.
+// `i` es el índice para el nombre de respaldo ("Opción 2") cuando no hay
+// ni etiqueta después del "—" ni tela que la identifique.
+export const fichaOpcion = (c, i = 0) => {
+  // itemsResumen y no c.tallasItems: si la cotización se registró por lista
+  // de personas, tallasItems viene vacío y el precio unitario salía igual
+  // al total.
+  const items = itemsResumen(c || {});
+  const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+  const total = parseFloat((c && c.precio) || 0);
+  // Sin cantidad no se puede prorratear: cae al precio del primer ítem y,
+  // si tampoco hay, al total tal cual.
+  const unit =
+    qty > 0
+      ? total / qty
+      : items[0] && items[0].precio != null
+      ? parseFloat(items[0].precio)
+      : total;
+  const tela = telaCorta(c);
+  const etiqueta = partirTipoPrenda(c && c.tipoPrenda).etiqueta || tela || "Opción " + (i + 1);
+  const specs = [];
+  // La tela no se repite si ya es el nombre de la opción.
+  if (tela && tela !== etiqueta) specs.push({ k: "Tela", v: tela });
+  if (c && c.color) specs.push({ k: "Color", v: c.color });
+  // Tallas en limpio ("10× M · 5× L"). resumenTallas trae el precio pegado
+  // a cada talla y acá el precio va en su propio renglón.
+  const tallas = items
+    .map(it => `${it.qty}\u00d7 ${it.talla || it.tipo || ""}`.trim())
+    .join(" \u00b7 ");
+  if (tallas) specs.push({ k: "Tallas", v: tallas });
+  if (c && c.tieneBordado) specs.push({ k: "Incluye", v: "Bordado" });
+  return {
+    etiqueta,
+    specs,
+    descripcion: (c && c.descripcion) || "",
+    qty,
+    total,
+    unit,
+  };
+};
+
+// Reparte las fichas de un comparativo: lo que TODAS las opciones comparten
+// (misma tela, mismas tallas, misma nota) sube al encabezado una sola vez y
+// en cada opción queda solo lo que la diferencia. Así el cliente ve el
+// detalle completo sin leer tres veces lo mismo.
+export const comparativoOpciones = cots => {
+  const lista = (cots || []).map((c, i) => fichaOpcion(c, i));
+  const primera = lista[0] || { specs: [], descripcion: "" };
+  const igualEnTodas = s => lista.every(f => f.specs.some(o => o.k === s.k && o.v === s.v));
+  const comunes = lista.length > 1 ? primera.specs.filter(igualEnTodas) : [];
+  const esComun = s => comunes.some(o => o.k === s.k && o.v === s.v);
+  const descComun =
+    lista.length > 1 && primera.descripcion && lista.every(f => f.descripcion === primera.descripcion)
+      ? primera.descripcion
+      : "";
+  return {
+    comun: partirTipoPrenda(cots && cots[0] && cots[0].tipoPrenda).comun || "Cotización",
+    comunes,
+    descComun,
+    opciones: lista.map(f => ({
+      ...f,
+      specs: f.specs.filter(s => !esComun(s)),
+      descripcion: descComun ? "" : f.descripcion,
+    })),
+  };
+};

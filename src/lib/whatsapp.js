@@ -2,7 +2,7 @@
 // Antes vivía como mensajeWA + copiarWA en main.js.
 // Usado por WABtn (lib/ui.jsx), CardPedido y App.
 
-import { resumenTallas, resumenAgregadoPorTipo, itemsResumen } from "./dominio.js";
+import { resumenTallas, resumenAgregadoPorTipo, itemsResumen, comparativoOpciones } from "./dominio.js";
 import { agruparPrendas } from "../ListaPrendas.jsx";
 
 // Formato de cada línea del resumen agregado (cuando es por persona o por
@@ -225,32 +225,27 @@ export function copiarCotizacionWA(c) {
 // mensaje, sin sumar los montos. Para mandarle al cliente las alternativas.
 export function mensajeComparativoWA(cots) {
   const cliente = (cots[0] && cots[0].cliente) || "Cliente";
-  // "Producto — Diferencia": el producto va una vez arriba; por opción solo
-  // la diferencia + el precio (resumido, para no aburrir al comprador).
-  const partir = t => {
-    const s = String(t || "");
-    const i = s.indexOf("—");
-    return i === -1
-      ? { comun: s.trim(), etiqueta: "" }
-      : { comun: s.slice(0, i).trim(), etiqueta: s.slice(i + 1).trim() };
-  };
-  const comun = partir(cots[0] && cots[0].tipoPrenda).comun || "Cotización";
-  const qty0 = ((cots[0] && cots[0].tallasItems) || []).reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+  const contacto = (cots[0] && cots[0].nombreContacto) || "";
+  const { comun, comunes, descComun, opciones } = comparativoOpciones(cots);
+  const qty0 = opciones[0] ? opciones[0].qty : 0;
 
   let msg = `🧵 *TALLER IMIS — Cotización*\n`;
   msg += `*${comun}*\n`;
-  msg += `Para ${cliente}${qty0 > 0 ? ` · ${qty0} u.` : ""}\n`;
+  msg += `Para ${cliente}${contacto ? ` · Attn. ${contacto}` : ""}${qty0 > 0 ? ` · ${qty0} u.` : ""}\n`;
+  // Lo que comparten todas las opciones (tela, color, tallas) va acá arriba
+  // una sola vez; abajo, en cada opción, solo lo que cambia.
+  if (comunes.length) msg += comunes.map(s => `${s.k}: ${s.v}`).join("\n") + `\n`;
+  if (descComun) msg += `📝 ${descComun}\n`;
   msg += `━━━━━━━━━━━━━━━━━━\n`;
-  cots.forEach((c, i) => {
-    const items = c.tallasItems || [];
-    const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
-    const total = parseFloat(c.precio || 0);
-    const unit = qty > 0 ? total / qty : total;
-    const etiqueta = partir(c.tipoPrenda).etiqueta || "Opción " + (i + 1);
-    msg += `\n*Opción ${i + 1} — ${etiqueta}*\n`;
-    msg += `   *$${unit.toFixed(2)} c/u${qty > 0 ? ` · $${total.toFixed(2)} (${qty} u.)` : ""}*\n`;
+  opciones.forEach((op, i) => {
+    msg += `\n*Opción ${i + 1} — ${op.etiqueta}*\n`;
+    msg += `   *$${op.unit.toFixed(2)} c/u${op.qty > 0 ? ` · $${op.total.toFixed(2)} (${op.qty} u.)` : ""}*\n`;
+    op.specs.forEach(s => { msg += `   ${s.k}: ${s.v}\n`; });
+    if (op.descripcion) msg += `   _${op.descripcion}_\n`;
   });
   msg += `\n━━━━━━━━━━━━━━━━━━\n`;
+  const vence = venceDe(cots[0]);
+  if (vence) msg += `📌 Válida hasta el ${vence}\n`;
   msg += `Se elige una sola opción · 50% anticipo al confirmar 🙌`;
   return msg;
 }
@@ -327,4 +322,13 @@ function copiarTexto(msg) {
     document.execCommand("copy");
     document.body.removeChild(ta);
   });
+}
+
+// Fecha de vencimiento de una cotización: su fecha + los días de validez
+// (15 por defecto). Devuelve "" si la cotización no tiene fecha.
+function venceDe(c) {
+  if (!c || !c.fecha) return "";
+  const d = new Date(c.fecha + "T12:00:00");
+  d.setDate(d.getDate() + (c.validezDias || 15));
+  return d.toISOString().split("T")[0];
 }

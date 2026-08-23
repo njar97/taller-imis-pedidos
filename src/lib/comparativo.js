@@ -4,6 +4,7 @@
 // (camelCase) y devuelve HTML listo para nuevaVentanaImpresion().
 
 import { imgSrc } from "./imagenes.js";
+import { comparativoOpciones } from "./dominio.js";
 
 const esc = s =>
   String(s == null ? "" : s)
@@ -11,44 +12,30 @@ const esc = s =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-// Precio unitario y total de una cotización a partir de sus ítems.
-function resumen(c) {
-  const items = c.tallasItems || [];
-  const qty = items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
-  const total = parseFloat(c.precio || 0);
-  const unit =
-    qty > 0
-      ? total / qty
-      : items[0] && items[0].precio != null
-      ? parseFloat(items[0].precio)
-      : total;
-  return { qty, total, unit };
-}
-
 const money = n => "$" + n.toFixed(2).replace(/\.00$/, "");
 
-// Separa "Producto — Diferencia" en { comun, etiqueta }. Si no hay "—",
-// todo va a comun y etiqueta queda vacío. Sirve para mostrar el producto
-// común una sola vez y por opción solo lo que cambia.
-function partirTipo(tipo) {
-  const s = String(tipo || "");
-  const i = s.indexOf("—");
-  if (i === -1) return { comun: s.trim(), etiqueta: "" };
-  return { comun: s.slice(0, i).trim(), etiqueta: s.slice(i + 1).trim() };
-}
+// Lista "Tela / Color / Tallas..." de una opción. Sin esto la tarjeta salía
+// con foto y precio nada más, y el cliente no sabía qué diferenciaba a una
+// opción de la otra.
+const specsHTML = (specs, clase) =>
+  specs.length
+    ? `<ul class="${clase}">${specs
+        .map(s => `<li><b>${esc(s.k)}:</b> ${esc(s.v)}</li>`)
+        .join("")}</ul>`
+    : "";
 
 export function htmlComparativoCotizaciones(cots) {
   const cliente = (cots[0] && cots[0].cliente) || "Cliente";
+  const contacto = (cots[0] && cots[0].nombreContacto) || "";
   const fecha = new Date().toLocaleDateString("es-SV");
-  // Producto común (antes del "—") y cantidad — se muestran 1 sola vez.
-  const comun = partirTipo(cots[0] && cots[0].tipoPrenda).comun || "Cotización";
-  const qtyComun = resumen(cots[0] || {}).qty;
+  const validez = (cots[0] && cots[0].validezDias) || 15;
+  // Producto común, specs compartidas y cantidad — se muestran 1 sola vez.
+  const { comun, comunes, descComun, opciones } = comparativoOpciones(cots);
+  const qtyComun = opciones[0] ? opciones[0].qty : 0;
 
-  const cards = cots
-    .map((c, i) => {
-      const { qty, total, unit } = resumen(c);
-      const etiqueta = partirTipo(c.tipoPrenda).etiqueta || "Opción " + (i + 1);
-      const im = (c.imagenes || [])[0];
+  const cards = opciones
+    .map((op, i) => {
+      const im = (cots[i].imagenes || [])[0];
       // imgSrc y no la URL cruda: driveUrl es un link /view de Drive, no una
       // imagen — usado como <img src> salía la foto rota en el comparativo.
       const img = imgSrc(im);
@@ -56,10 +43,12 @@ export function htmlComparativoCotizaciones(cots) {
       <div class="op">
         <div class="badge">Opción ${i + 1}</div>
         ${img ? `<div class="foto"><img src="${esc(img)}" alt=""></div>` : ""}
-        <h3>${esc(etiqueta)}</h3>
+        <h3>${esc(op.etiqueta)}</h3>
+        ${specsHTML(op.specs, "specs")}
+        ${op.descripcion ? `<div class="desc">${esc(op.descripcion)}</div>` : ""}
         <div class="precio">
-          <div class="cu">${money(unit)} <span>c/u</span></div>
-          ${qty > 0 ? `<div class="tot">${money(total)} · ${qty} u.</div>` : ""}
+          <div class="cu">${money(op.unit)} <span>c/u</span></div>
+          ${op.qty > 0 ? `<div class="tot">${money(op.total)} · ${op.qty} u.</div>` : ""}
         </div>
       </div>`;
     })
@@ -71,7 +60,7 @@ export function htmlComparativoCotizaciones(cots) {
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',system-ui,sans-serif;background:#f4f4f4;color:#2b2b2b;padding:24px}
-  @media print{body{background:#fff;padding:0}.no-print{display:none!important}@page{margin:12mm;size:A4}}
+  @media print{body{background:#fff;padding:0}.no-print{display:none!important}@page{margin:12mm;size:A4}.op{break-inside:avoid}}
   .hoja{max-width:820px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.08)}
   .top{background:#1c1c1c;color:#fff;padding:22px 28px;display:flex;justify-content:space-between;align-items:flex-start}
   .marca{font-family:Georgia,serif;font-size:24px;font-weight:800;color:#C9A227}
@@ -81,13 +70,19 @@ export function htmlComparativoCotizaciones(cots) {
   .sub h1{font-size:19px;color:#1c1c1c}
   .sub .gold{color:#C9A227}
   .sub p{font-size:13px;color:#666;margin-top:4px}
+  .comunes{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .comunes li{font-size:11.5px;color:#444;background:#f3f3f3;border-radius:20px;padding:4px 11px}
+  .comunes li b{color:#1c1c1c}
+  .nota{font-size:12.5px;color:#555;line-height:1.5;margin-top:10px;padding:9px 12px;background:#fbf7ec;border-left:3px solid #C9A227;border-radius:6px}
   .ops{padding:14px 28px 6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
   .op{border:1.5px solid #e6e6e6;border-radius:12px;padding:16px;display:flex;flex-direction:column}
   .badge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#C9A227;margin-bottom:6px}
   .op .foto{margin:0 0 10px;border-radius:8px;overflow:hidden;background:#f7f7f7;border:1px solid #eee}
   .op .foto img{width:100%;height:175px;object-fit:contain;display:block}
   .op h3{font-size:15px;color:#1c1c1c;margin-bottom:8px}
-  .op .desc{font-size:12px;color:#555;line-height:1.5;flex:1}
+  .op .specs{list-style:none;font-size:12px;color:#555;line-height:1.6}
+  .op .specs b{color:#1c1c1c;font-weight:700}
+  .op .desc{font-size:12px;color:#555;line-height:1.5;margin-top:8px;flex:1}
   .op .tag{display:inline-block;font-size:10.5px;font-weight:700;color:#444;background:#f3f3f3;border-radius:20px;padding:3px 9px;margin-top:10px;align-self:flex-start}
   .precio{margin-top:12px;padding-top:10px;border-top:1px dashed #e0e0e0}
   .precio .cu{font-size:24px;font-weight:900;color:#1c1c1c}
@@ -101,11 +96,13 @@ export function htmlComparativoCotizaciones(cots) {
   <div class="hoja">
     <div class="top">
       <div class="marca">🧵 Taller IMIS<small>UDP CONFECCIONES IMIS</small></div>
-      <div class="meta">Cotización<br><b style="color:#fff">${cots.length} opciones</b><br>${fecha} · válida 15 días</div>
+      <div class="meta">Cotización<br><b style="color:#fff">${cots.length} opciones</b><br>${fecha} · válida ${validez} días</div>
     </div>
     <div class="sub">
       <h1><span class="gold">${esc(comun)}</span></h1>
-      <p>Para ${esc(cliente)}${qtyComun > 0 ? ` · ${qtyComun} unidades` : ""} · elegí una opción</p>
+      <p>Para ${esc(cliente)}${contacto ? ` · Attn. ${esc(contacto)}` : ""}${qtyComun > 0 ? ` · ${qtyComun} unidades` : ""} · elegí una opción</p>
+      ${specsHTML(comunes, "comunes")}
+      ${descComun ? `<div class="nota">${esc(descComun)}</div>` : ""}
     </div>
     <div class="ops">${cards}</div>
     <div class="pie">Los precios son por unidad. <b>Se elige una sola opción</b> — los montos no se suman. Precios sujetos a confirmación de tallas.</div>

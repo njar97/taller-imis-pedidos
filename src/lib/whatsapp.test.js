@@ -228,15 +228,25 @@ describe("mensajeComparativoWA", () => {
   const cots = [
     {
       cliente: "ACME Corp",
+      nombreContacto: "Natali",
+      fecha: "2026-08-23",
+      validezDias: 15,
       tipoPrenda: "Camisa polo — Piqué",
+      tela: "Piqué (mejor caída)",
+      color: "Azul",
       tallasItems: [{ talla: "M", qty: 10, precio: "35" }],
       precio: "350.00",
+      tieneBordado: true,
+      descripcion: "Logo bordado en pecho",
     },
     {
       cliente: "ACME Corp",
       tipoPrenda: "Camisa polo — Dacrón",
+      tela: "Dacrón",
+      color: "Azul",
       tallasItems: [{ talla: "M", qty: 10, precio: "25" }],
       precio: "250.00",
+      descripcion: "Tela más liviana",
     },
   ];
 
@@ -260,6 +270,44 @@ describe("mensajeComparativoWA", () => {
     const msg = mensajeComparativoWA([cots[0]]);
     expect(msg).toContain("Opción 1");
     expect(msg).not.toContain("Opción 2");
+  });
+
+  // Antes el comparativo salía con la foto y el precio nada más: el cliente
+  // no veía tela, tallas ni notas y las opciones se leían idénticas.
+  it("muestra el detalle de cada opción, no solo el precio", () => {
+    const msg = mensajeComparativoWA(cots);
+    expect(msg).toContain("Piqué");           // etiqueta = la diferencia
+    expect(msg).toContain("Dacrón");
+    expect(msg).toContain("Bordado");         // solo la opción 1 lo lleva
+    expect(msg).toContain("Logo bordado en pecho");
+    expect(msg).toContain("Tela más liviana");
+  });
+
+  it("sube al encabezado lo que comparten todas las opciones", () => {
+    const msg = mensajeComparativoWA(cots);
+    const encabezado = msg.split("Opción 1")[0];
+    expect(encabezado).toContain("Azul");     // mismo color en las dos
+    expect(encabezado).toContain("10× M");    // mismas tallas
+    // y no se repite dentro de cada opción
+    expect(msg.match(/Azul/g)).toHaveLength(1);
+  });
+
+  it("incluye el contacto y la fecha de vencimiento", () => {
+    const msg = mensajeComparativoWA(cots);
+    expect(msg).toContain("Natali");
+    expect(msg).toContain("2026-09-07"); // 23-ago + 15 días
+  });
+
+  it("saca el precio unitario de las personas cuando no hay tallasItems", () => {
+    const porPersonas = {
+      ...cots[0],
+      tallasItems: [],
+      modoRegistro: "lista",
+      personas: [{ nombre: "A", talla: "M" }, { nombre: "B", talla: "L" }],
+      precio: "70",
+    };
+    const msg = mensajeComparativoWA([porPersonas, cots[1]]);
+    expect(msg).toContain("$35.00 c/u"); // 70 / 2 personas, no 70
   });
 });
 
