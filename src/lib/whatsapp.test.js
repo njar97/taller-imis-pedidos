@@ -292,6 +292,39 @@ describe("mensajeComparativoWA", () => {
     expect(msg.match(/Azul/g)).toHaveLength(1);
   });
 
+  // Caso real: SEDAS #80 vs #81 — la misma camisa en dos telas. Las notas
+  // solo se diferencian en que una dice "en dacrón" y "cambia solo la tela".
+  // Eso no debe repetirse: la tela ya es el nombre de la opción.
+  it("no repite la nota ni la prosa sobre la tela cuando la tela ya nombra la opción", () => {
+    const comun = " · 2 bolsillos pecho con tapa · logo SEDAS bordado en pecho izquierdo. Mismo estilo de las camisas de vigilantes (#28)";
+    const sedas = [
+      {
+        cliente: "SEDAS", tipoPrenda: "Camisa de mantenimiento — Dril Bonel Startex",
+        tela: "Dril Bonel Startex", color: "Azul navy", precio: "168",
+        tallasItems: [{ talla: "Única", qty: 6, precio: "28" }],
+        descripcion: "Camisa navy manga larga" + comun + ".",
+      },
+      {
+        cliente: "SEDAS", tipoPrenda: "Camisa de mantenimiento — Dacrón",
+        tela: "Dacrón", color: "Azul navy", precio: "150",
+        tallasItems: [{ talla: "Única", qty: 6, precio: "25" }],
+        descripcion: "Camisa navy manga larga en dacrón" + comun + "; cambia solo la tela.",
+      },
+    ];
+    const msg = mensajeComparativoWA(sedas);
+    // La opción se llama por su tela y trae su precio.
+    expect(msg).toContain("Opción 1 — Dril Bonel Startex");
+    expect(msg).toContain("Opción 2 — Dacrón");
+    expect(msg).toContain("$28.00 c/u");
+    expect(msg).toContain("$25.00 c/u");
+    // La nota compartida va una sola vez, arriba.
+    expect(msg.match(/2 bolsillos pecho con tapa/g)).toHaveLength(1);
+    expect(msg.split("Opción 1")[0]).toContain("2 bolsillos pecho con tapa");
+    // Y no queda prosa que repita la tela.
+    expect(msg).not.toContain("en dacrón");
+    expect(msg).not.toContain("cambia solo la tela");
+  });
+
   it("incluye el contacto y la fecha de vencimiento", () => {
     const msg = mensajeComparativoWA(cots);
     expect(msg).toContain("Natali");
