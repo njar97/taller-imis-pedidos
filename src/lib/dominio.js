@@ -572,28 +572,86 @@ export const fichaOpcion = (c, i = 0) => {
   };
 };
 
+// Las notas del taller se escriben con " · " entre características, punto
+// entre frases y ";" entre aclaraciones. Se parten así para poder comparar
+// opción contra opción cláusula por cláusula.
+const clausulasDesc = t =>
+  String(t || "")
+    .replace(/\.\s+/g, ".\u0000")
+    .split(/\s*\u00b7\s*|\u0000|\s*;\s*/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+const _sinTildes = s =>
+  String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+// Cláusula sin su mención a la tela ("Camisa navy manga larga en dacrón" →
+// "Camisa navy manga larga"). Se compara en minúsculas —no con un regex
+// armado con el nombre de la tela, que trae paréntesis y puntos— y se lleva
+// también el "en"/"de" que la introduce.
+const clausulaSinTela = (cl, tela) => {
+  const limpiar = s => s.replace(/\s+/g, " ").replace(/\s+([.,;])/g, "$1").trim();
+  if (!tela) return limpiar(cl);
+  const i = cl.toLowerCase().indexOf(tela.toLowerCase());
+  if (i < 0) return limpiar(cl);
+  const conector = cl.slice(0, i).toLowerCase().match(/\s(en|de)\s+$/);
+  const ini = conector ? i - conector[0].length : i;
+  return limpiar(cl.slice(0, ini) + cl.slice(i + tela.length));
+};
+
+// Llave para saber si dos cláusulas dicen lo mismo: sin tildes, sin
+// puntuación y sin la tela.
+const claveClausula = (cl, tela) =>
+  _sinTildes(clausulaSinTela(cl, tela)).replace(/[^a-z0-9#]+/g, " ").trim();
+
+// Relleno sobre la tela ("cambia solo la tela"): con el nombre de la tela ya
+// en el título de la opción, repetirlo en prosa no aporta nada. Se pide que
+// sea corto y con un verbo de comparación para no comerse una característica
+// real ("tela con protección UV").
+const esRellenoTela = cl =>
+  /\btela\b/i.test(cl) &&
+  /\b(cambia|cambian|solo|s\u00f3lo|\u00fanicamente|misma|mismo|igual|salvo)\b/i.test(cl) &&
+  cl.split(/\s+/).length <= 8;
+
 // Reparte las fichas de un comparativo: lo que TODAS las opciones comparten
-// (misma tela, mismas tallas, misma nota) sube al encabezado una sola vez y
-// en cada opción queda solo lo que la diferencia. Así el cliente ve el
-// detalle completo sin leer tres veces lo mismo.
+// (misma tela, mismas tallas, la parte común de la nota) sube al encabezado
+// una sola vez y en cada opción queda solo lo que la diferencia. Así el
+// cliente compara precios sin releer el mismo párrafo en cada opción.
 export const comparativoOpciones = cots => {
   const lista = (cots || []).map((c, i) => fichaOpcion(c, i));
   const primera = lista[0] || { specs: [], descripcion: "" };
   const igualEnTodas = s => lista.every(f => f.specs.some(o => o.k === s.k && o.v === s.v));
   const comunes = lista.length > 1 ? primera.specs.filter(igualEnTodas) : [];
   const esComun = s => comunes.some(o => o.k === s.k && o.v === s.v);
-  const descComun =
-    lista.length > 1 && primera.descripcion && lista.every(f => f.descripcion === primera.descripcion)
-      ? primera.descripcion
-      : "";
+
+  // Notas partidas en cláusulas, cada una con su llave (ya sin la tela).
+  const telas = (cots || []).map(c => telaCorta(c));
+  const notas = lista.map((f, i) =>
+    clausulasDesc(f.descripcion).map(cl => ({
+      cl,
+      limpia: clausulaSinTela(cl, telas[i]),
+      key: claveClausula(cl, telas[i]),
+    })),
+  );
+  const enTodas = x => notas.every(n => n.some(o => o.key === x.key));
+  const clausulasComunes = lista.length > 1 ? (notas[0] || []).filter(x => x.key && enTodas(x)) : [];
+  const esClausulaComun = x => clausulasComunes.some(o => o.key === x.key);
+  const sinPunto = s => s.replace(/\.$/, "");
+  const descComun = clausulasComunes.map(x => sinPunto(x.limpia)).join(" \u00b7 ");
+  const colaDesc = i =>
+    (notas[i] || [])
+      .filter(x => !esClausulaComun(x) && !esRellenoTela(x.cl))
+      .map(x => sinPunto(x.cl))
+      .join(" \u00b7 ");
+
   return {
     comun: partirTipoPrenda(cots && cots[0] && cots[0].tipoPrenda).comun || "Cotización",
     comunes,
     descComun,
-    opciones: lista.map(f => ({
+    opciones: lista.map((f, i) => ({
       ...f,
       specs: f.specs.filter(s => !esComun(s)),
-      descripcion: descComun ? "" : f.descripcion,
+      descripcion: lista.length > 1 ? colaDesc(i) : f.descripcion,
     })),
   };
 };
