@@ -33,12 +33,17 @@ export function htmlComparativoCotizaciones(cots) {
   const { comun, comunes, descComun, opciones } = comparativoOpciones(cots);
   const qtyComun = opciones[0] ? opciones[0].qty : 0;
 
+  // imgSrc y no la URL cruda: driveUrl es un link /view de Drive, no una
+  // imagen — usado como <img src> salía la foto rota en el comparativo.
+  const fotos = cots.map(c => imgSrc((c.imagenes || [])[0]));
+  // Cuando es el mismo producto en distinta tela, las opciones suelen
+  // compartir la MISMA foto (SEDAS #80 y #81 apuntan al mismo archivo).
+  // Repetirla en cada tarjeta no compara nada: va una vez, arriba.
+  const fotoUnica = fotos.length > 1 && fotos[0] && fotos.every(u => u === fotos[0]) ? fotos[0] : "";
+
   const cards = opciones
     .map((op, i) => {
-      const im = (cots[i].imagenes || [])[0];
-      // imgSrc y no la URL cruda: driveUrl es un link /view de Drive, no una
-      // imagen — usado como <img src> salía la foto rota en el comparativo.
-      const img = imgSrc(im);
+      const img = fotoUnica ? "" : fotos[i];
       return `
       <div class="op">
         <div class="badge">Opción ${i + 1}</div>
@@ -70,6 +75,8 @@ export function htmlComparativoCotizaciones(cots) {
   .sub h1{font-size:19px;color:#1c1c1c}
   .sub .gold{color:#C9A227}
   .sub p{font-size:13px;color:#666;margin-top:4px}
+  .hero{margin-top:12px;border-radius:10px;overflow:hidden;background:#f7f7f7;border:1px solid #eee}
+  .hero img{width:100%;height:260px;object-fit:contain;display:block}
   .comunes{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .comunes li{font-size:11.5px;color:#444;background:#f3f3f3;border-radius:20px;padding:4px 11px}
   .comunes li b{color:#1c1c1c}
@@ -101,6 +108,7 @@ export function htmlComparativoCotizaciones(cots) {
     <div class="sub">
       <h1><span class="gold">${esc(comun)}</span></h1>
       <p>Para ${esc(cliente)}${contacto ? ` · Attn. ${esc(contacto)}` : ""}${qtyComun > 0 ? ` · ${qtyComun} unidades` : ""} · elegí una opción</p>
+      ${fotoUnica ? `<div class="hero"><img src="${esc(fotoUnica)}" alt=""></div>` : ""}
       ${specsHTML(comunes, "comunes")}
       ${descComun ? `<div class="nota">${esc(descComun)}</div>` : ""}
     </div>
