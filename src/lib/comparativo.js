@@ -81,7 +81,7 @@ export function htmlComparativoCotizaciones(cots) {
   .comunes li{font-size:11.5px;color:#444;background:#f3f3f3;border-radius:20px;padding:4px 11px}
   .comunes li b{color:#1c1c1c}
   .nota{font-size:12.5px;color:#555;line-height:1.5;margin-top:10px;padding:9px 12px;background:#fbf7ec;border-left:3px solid #C9A227;border-radius:6px}
-  .ops{padding:14px 28px 6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+  .ops{padding:14px 28px 22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
   .op{border:1.5px solid #e6e6e6;border-radius:12px;padding:16px;display:flex;flex-direction:column}
   .badge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#C9A227;margin-bottom:6px}
   .op .foto{margin:0 0 10px;border-radius:8px;overflow:hidden;background:#f7f7f7;border:1px solid #eee}
@@ -95,8 +95,6 @@ export function htmlComparativoCotizaciones(cots) {
   .precio .cu{font-size:24px;font-weight:900;color:#1c1c1c}
   .precio .cu span{font-size:13px;font-weight:700;color:#888}
   .precio .tot{font-size:12px;color:#C9A227;font-weight:800;margin-top:2px}
-  .pie{padding:14px 28px 24px;font-size:12px;color:#777;border-top:1px solid #eee;margin-top:10px;line-height:1.6}
-  .pie b{color:#444}
   .imprimir{max-width:820px;margin:14px auto 0;text-align:center}
   .imprimir button{background:#C9A227;color:#1c1c1c;border:none;border-radius:8px;padding:11px 26px;font-weight:800;font-size:14px;cursor:pointer}
 </style></head><body>
@@ -113,7 +111,6 @@ export function htmlComparativoCotizaciones(cots) {
       ${descComun ? `<div class="nota">${esc(descComun)}</div>` : ""}
     </div>
     <div class="ops">${cards}</div>
-    <div class="pie">Los precios son por unidad. <b>Se elige una sola opción</b> — los montos no se suman. Precios sujetos a confirmación de tallas.</div>
   </div>
   <div class="imprimir no-print">
     <button onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>
