@@ -199,16 +199,11 @@ describe("mensajeCotizacionWA", () => {
     expect(msg).toContain("$180.00");
   });
 
-  it("calcula la fecha de vencimiento (fecha + validezDias)", () => {
-    // fecha: 2026-06-01, validezDias: 15 → vence: 2026-06-16
+  // La validez ("válida 15 días") era una política que el código inventó:
+  // Javier no la estableció. Se quitó del mensaje y del PDF (24-ago-2026).
+  it("no habla de validez ni de vencimiento", () => {
     const msg = mensajeCotizacionWA(cot);
-    expect(msg).toContain("2026-06-16");
-  });
-
-  it("sin fecha no muestra fecha de vence pero sí la validez en días", () => {
-    const msg = mensajeCotizacionWA({ ...cot, fecha: null });
-    expect(msg).toContain("15 días");
-    expect(msg).not.toMatch(/vence \d{4}-/);
+    expect(msg).not.toMatch(/[Vv]álida|vence/);
   });
 
   it("incluye descripcion si existe", () => {
@@ -325,10 +320,10 @@ describe("mensajeComparativoWA", () => {
     expect(msg).not.toContain("cambia solo la tela");
   });
 
-  it("incluye el contacto y la fecha de vencimiento", () => {
+  it("incluye el contacto y no habla de vencimiento", () => {
     const msg = mensajeComparativoWA(cots);
     expect(msg).toContain("Natali");
-    expect(msg).toContain("2026-09-07"); // 23-ago + 15 días
+    expect(msg).not.toMatch(/[Vv]álida|vence/);
   });
 
   it("saca el precio unitario de las personas cuando no hay tallasItems", () => {

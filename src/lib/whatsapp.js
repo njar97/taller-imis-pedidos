@@ -153,19 +153,12 @@ export function copiarWA(p, esAdmin = false) {
 
 // Mensaje de WhatsApp para una COTIZACIÓN (esCotizacion). A diferencia de
 // mensajeWA (pedido), encabeza "Cotización", muestra precios siempre y
-// agrega la validez/vencimiento. Pensado para copiar y pegar en cualquier
+// muestra precios siempre. Pensado para copiar y pegar en cualquier
 // chat o grupo.
 export function mensajeCotizacionWA(c) {
   const num = String(c.id).padStart(4, "0");
   const items = itemsResumen(c);
   const total = parseFloat(c.precio || 0);
-  const validez = c.validezDias || 15;
-  let venceStr = "";
-  if (c.fecha) {
-    const d = new Date(c.fecha + "T12:00:00");
-    d.setDate(d.getDate() + validez);
-    venceStr = d.toISOString().split("T")[0];
-  }
 
   let msg = `🧵 *Taller IMIS — Cotización N°${num}*\n`;
   msg += `Para: *${c.cliente || "Cliente"}*`;
@@ -185,7 +178,6 @@ export function mensajeCotizacionWA(c) {
     msg += `\n💰 *$${unitPrice.toFixed(2)} por unidad*\n`;
     if (totQty > 0) msg += `_(~${totQty} uds. estimadas — el total depende de cuántos confirmen)_\n`;
     if (c.descripcion) msg += `\n${c.descripcion}\n`;
-    msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
     return msg;
   }
 
@@ -213,7 +205,6 @@ export function mensajeCotizacionWA(c) {
     msg += `\n*Total: $${total.toFixed(2)}*`;
     msg += `\nPago en *2 partes*: $${(total * 0.5).toFixed(2)} de anticipo al confirmar`;
   }
-  msg += `\n📌 Válida ${venceStr ? `hasta el ${venceStr}` : `${validez} días`}`;
   return msg;
 }
 
@@ -244,8 +235,6 @@ export function mensajeComparativoWA(cots) {
     if (op.descripcion) msg += `   _${op.descripcion}_\n`;
   });
   msg += `\n━━━━━━━━━━━━━━━━━━\n`;
-  const vence = venceDe(cots[0]);
-  if (vence) msg += `📌 Válida hasta el ${vence}\n`;
   msg += `Se elige una sola opción · 50% anticipo al confirmar 🙌`;
   return msg;
 }
@@ -322,13 +311,4 @@ function copiarTexto(msg) {
     document.execCommand("copy");
     document.body.removeChild(ta);
   });
-}
-
-// Fecha de vencimiento de una cotización: su fecha + los días de validez
-// (15 por defecto). Devuelve "" si la cotización no tiene fecha.
-function venceDe(c) {
-  if (!c || !c.fecha) return "";
-  const d = new Date(c.fecha + "T12:00:00");
-  d.setDate(d.getDate() + (c.validezDias || 15));
-  return d.toISOString().split("T")[0];
 }
