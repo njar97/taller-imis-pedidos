@@ -359,10 +359,6 @@ export async function imprimirCotizacion(p) {
   }
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
-  const validez = p.validezDias || 15;
-  const vence = new Date();
-  vence.setDate(vence.getDate() + validez);
-  const venceStr = vence.toLocaleDateString("es-SV", { day: "2-digit", month: "long", year: "numeric" });
   const items = itemsResumen(p);
   // Código corto por renglón (P-01, P-02…). Va en la tabla y en las fotos, para
   // que el cliente sepa a qué prenda corresponde cada imagen sin adivinar.
@@ -375,11 +371,16 @@ export async function imprimirCotizacion(p) {
   // El precio total puede venir como string desde p.precio (sobreescrito
   // manualmente) o calcularse desde los items. Damos prioridad al manual.
   const precioFinal = parseFloat(p.precio) > 0 ? parseFloat(p.precio) : tot;
-  // Asumimos que el precio total incluye IVA (modelo SV). Si NO incluye
-  // IVA, basta con cambiar este cálculo. SUBTOTAL = TOTAL / 1.13.
+  // ¿El precio escrito ya trae el IVA? Lo decide cada cotización (casilla en
+  // el formulario). Antes se asumía SIEMPRE que sí, y eso no era una regla
+  // del taller: era un supuesto del código.
   const ivaRate = 0.13;
-  const subtotal = precioFinal / (1 + ivaRate);
-  const iva = precioFinal - subtotal;
+  const ivaIncluido = p.ivaIncluido !== false;   // null/undefined = cotizaciones viejas, que sí lo incluían
+  const subtotal = ivaIncluido ? precioFinal / (1 + ivaRate) : precioFinal;
+  const iva = subtotal * ivaRate;
+  // Lo que el cliente termina pagando: con IVA incluido es el precio escrito;
+  // si el IVA va aparte, hay que sumarlo.
+  const totalCobrar = ivaIncluido ? precioFinal : precioFinal + iva;
 
   const titulo = nombrePDF("COT", p.id, p.cliente);
   const waMsg = mensajeCotizacionWA(p);
@@ -546,27 +547,30 @@ ${p.cotizacionAbierta ? (() => {
   const unitPrice = items.length > 0 && parseFloat(items[0].precio) > 0
     ? parseFloat(items[0].precio)
     : totPzas > 0 ? precioFinal / totPzas : precioFinal;
-  const unitSub = unitPrice / (1 + ivaRate);
-  const unitIva = unitPrice - unitSub;
+  // El precio por unidad se muestra siempre CON IVA (es lo que paga el
+  // cliente); abajo va el desglose.
+  const unitSub = ivaIncluido ? unitPrice / (1 + ivaRate) : unitPrice;
+  const unitIva = unitSub * ivaRate;
+  const unitCobrar = unitSub + unitIva;
   return `
 <div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch;">
   <div style="flex:1;border:2.5px solid #111;border-radius:6px;padding:12px 16px;background:#f9f9f9;">
     <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:6px;">Precio por unidad</div>
-    <div style="font-size:32px;font-weight:900;color:#111;line-height:1;">$${unitPrice.toFixed(2)}</div>
+    <div style="font-size:32px;font-weight:900;color:#111;line-height:1;">$${unitCobrar.toFixed(2)}</div>
     <div style="font-size:10px;color:#666;margin-top:4px;">Subtotal: $${unitSub.toFixed(2)} + IVA: $${unitIva.toFixed(2)}</div>
   </div>
   <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:12px 16px;font-size:11.5px;">
     <div class="sec-title" style="margin-bottom:6px;">Condiciones de pago</div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ccc;">
       <span>Anticipo al confirmar <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u · $${(precioFinal * 0.5).toFixed(2)} total</span>
+      <span style="font-weight:900;">$${(unitCobrar * 0.5).toFixed(2)} c/u · $${(totalCobrar * 0.5).toFixed(2)} total</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;">
       <span>Saldo contra entrega <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(unitPrice * 0.5).toFixed(2)} c/u · $${(precioFinal * 0.5).toFixed(2)} total</span>
+      <span style="font-weight:900;">$${(unitCobrar * 0.5).toFixed(2)} c/u · $${(totalCobrar * 0.5).toFixed(2)} total</span>
     </div>
     <div style="margin-top:8px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:6px;">
-      Total estimado (${totPzas} uds.): <strong>~$${precioFinal.toFixed(2)}</strong><br>
+      Total estimado (${totPzas} uds.): <strong>~$${totalCobrar.toFixed(2)}</strong><br>
       <em>Cantidad sujeta a confirmación de participantes — anticipo total varía con la cantidad final</em>
     </div>
   </div>
@@ -589,7 +593,7 @@ ${p.descripcion ? `
     </tr>
     <tr style="background:#111;color:#fff;">
       <td style="padding:7px 14px;text-align:right;font-weight:800;font-size:12px;">TOTAL:</td>
-      <td style="padding:7px 14px;text-align:right;font-weight:900;font-size:16px;">$${precioFinal.toFixed(2)}</td>
+      <td style="padding:7px 14px;text-align:right;font-weight:900;font-size:16px;">$${totalCobrar.toFixed(2)}</td>
     </tr>
   </table>
 </div>
@@ -599,11 +603,11 @@ ${p.descripcion ? `
     <div class="sec-title">Condiciones de pago</div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ccc;">
       <span>Anticipo al confirmar <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
+      <span style="font-weight:900;">$${(totalCobrar * 0.5).toFixed(2)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;">
       <span>Saldo contra entrega <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(precioFinal * 0.5).toFixed(2)}</span>
+      <span style="font-weight:900;">$${(totalCobrar * 0.5).toFixed(2)}</span>
     </div>
   </div>
   ${p.descripcion ? `
@@ -679,16 +683,10 @@ ${(p.plazoEntrega || p.lugarEntrega) ? `
   ${p.lugarEntrega ? `<div><strong>Lugar de entrega:</strong> ${p.lugarEntrega}</div>` : ""}
 </div>` : ""}
 
-<!-- VALIDEZ -->
-<div style="border:1.5px dashed #999;border-radius:5px;padding:7px 12px;margin-bottom:10px;font-size:11.5px;color:#333;">
-  <strong>Validez:</strong> ${validez} días a partir de la fecha de emisión — vence el <strong>${venceStr}</strong>.
-</div>
-
 <div style="font-size:10.5px;color:#555;line-height:1.65;margin-bottom:16px;border-top:1px solid #ddd;padding-top:8px;">
   <strong>Condiciones generales:</strong><br>
-  • Los precios incluyen IVA, mano de obra y materiales según especificación.<br>
+  • ${ivaIncluido ? "Los precios incluyen IVA" : "A los precios mostrados se les suma el IVA (13%)"}, mano de obra y materiales según especificación.<br>
   ${parseFloat(p.recargoTalla || 0) > 0 ? `• Precio válido hasta talla L; tallas XL o mayores tienen un recargo de $${parseFloat(p.recargoTalla).toFixed(2)} por unidad.<br>` : ""}
-  • Fecha de entrega a coordinar al momento de la confirmación.<br>
   • Cambios al diseño o cantidades pueden modificar el precio final.<br>
   • Cotización emitida con base a especificaciones recibidas del cliente.
 </div>

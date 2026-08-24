@@ -28,7 +28,6 @@ export function htmlComparativoCotizaciones(cots) {
   const cliente = (cots[0] && cots[0].cliente) || "Cliente";
   const contacto = (cots[0] && cots[0].nombreContacto) || "";
   const fecha = new Date().toLocaleDateString("es-SV");
-  const validez = (cots[0] && cots[0].validezDias) || 15;
   // Producto común, specs compartidas y cantidad — se muestran 1 sola vez.
   const { comun, comunes, descComun, opciones } = comparativoOpciones(cots);
   const qtyComun = opciones[0] ? opciones[0].qty : 0;
@@ -101,7 +100,7 @@ export function htmlComparativoCotizaciones(cots) {
   <div class="hoja">
     <div class="top">
       <div class="marca">🧵 Taller IMIS<small>UDP CONFECCIONES IMIS</small></div>
-      <div class="meta">Cotización<br><b style="color:#fff">${cots.length} opciones</b><br>${fecha} · válida ${validez} días</div>
+      <div class="meta">Cotización<br><b style="color:#fff">${cots.length} opciones</b><br>${fecha}</div>
     </div>
     <div class="sub">
       <h1><span class="gold">${esc(comun)}</span></h1>

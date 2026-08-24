@@ -1740,6 +1740,23 @@ export default function FormPedido({
             El WA y el PDF mostrarán el precio por unidad en vez del total estimado.
           </div>
         )}
+
+        {/* Si el precio lleva IVA o no lo decide cada cotización: antes el PDF
+            asumía siempre que ya venía incluido y de ahí sacaba el subtotal. */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: 10, background: "#EBF5FB", border: "1px solid #9EC7E8", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>
+          <input
+            type="checkbox"
+            checked={f.ivaIncluido !== false}
+            onChange={e => s("ivaIncluido", e.target.checked)}
+            style={{ width: 18, height: 18, cursor: "pointer" }}
+          />
+          <span style={{ color: "#1A5276", fontWeight: 700 }}>🧾 El precio ya incluye IVA</span>
+        </label>
+        <div style={{ fontSize: 11, color: "#1A5276", marginTop: 4, paddingLeft: 26 }}>
+          {f.ivaIncluido !== false
+            ? "El PDF desglosa el 13% dentro del precio: subtotal + IVA = el total que ves."
+            : "El PDF suma el 13% encima: al total escrito se le agrega el IVA."}
+        </div>
       </SeccionOpcional>
 
       {/* ── Estatus ─────────────────────────────────── */}
