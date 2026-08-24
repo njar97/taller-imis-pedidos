@@ -155,18 +155,17 @@ function FiltroTabs({ pedidos, conteos, filtro, setFiltro, cotizaciones }) {
 function CardCotizacion({ c, onEditar, onImprimir }) {
   const items = itemsResumen(c);
   const prodDesc = [c.tipoPrenda, c.tela, c.color].filter(Boolean).join(" · ");
-  const validez = c.validezDias || 15;
-  const diasRestantes = (() => {
-    if (!c.fecha) return null;
-    const vence = new Date(c.fecha + "T12:00:00");
-    vence.setDate(vence.getDate() + validez);
-    return Math.ceil((vence - new Date()) / 86400000);
-  })();
-  const vencida = diasRestantes !== null && diasRestantes < 0;
+  // Sin "vencida": la validez no era una política del taller. Lo que se
+  // mira es cuánto lleva sin volverse pedido (a los 7 días se pregunta si
+  // se archiva, ver SeccionCotizaciones).
+  const diasSinRespuesta = c.fecha
+    ? Math.floor((new Date() - new Date(c.fecha + "T12:00:00")) / 86400000)
+    : null;
+  const paraArchivar = !c.archivada && diasSinRespuesta !== null && diasSinRespuesta >= 7;
   return (
     <div style={{
       background: "#fff", borderRadius: 12, padding: 12, marginBottom: 8,
-      border: "1.5px solid " + (vencida ? "#E74C3C" : "#d4b3df"),
+      border: "1.5px solid " + (c.archivada ? "#ddd" : paraArchivar ? "#E67E22" : "#d4b3df"),
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
         <div>
@@ -177,9 +176,9 @@ function CardCotizacion({ c, onEditar, onImprimir }) {
         </div>
         <div style={{ fontSize: 16, fontWeight: 900, color: "#27AE60" }}>{fmt$(c.precio)}</div>
       </div>
-      {diasRestantes !== null && (
-        <div style={{ fontSize: 10, marginBottom: 4, fontWeight: vencida || diasRestantes <= 3 ? 700 : 400, color: vencida ? "#E74C3C" : diasRestantes <= 3 ? "#E67E22" : "#888" }}>
-          {vencida ? `⏰ Vencida hace ${Math.abs(diasRestantes)}d` : diasRestantes === 0 ? "⏰ Vence hoy" : `⏰ Vence en ${diasRestantes}d`}
+      {diasSinRespuesta !== null && (
+        <div style={{ fontSize: 10, marginBottom: 4, fontWeight: paraArchivar ? 700 : 400, color: c.archivada ? "#888" : paraArchivar ? "#E67E22" : "#888" }}>
+          {c.archivada ? "📦 Archivada" : `⏳ hace ${diasSinRespuesta} día${diasSinRespuesta === 1 ? "" : "s"}`}
         </div>
       )}
       {prodDesc && <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 5 }}>{prodDesc}</div>}

@@ -1043,6 +1043,14 @@ function App() {
             }}
             onVerVersiones={(c) => setPedidoVerVersiones(c)}
             onEnviarEmail={(c) => setCotEnviarEmail(c)}
+            onArchivar={async (c, archivar) => {
+              // Cotización que no llegó a pedido: sale de la lista pero se
+              // sigue consultando en el filtro 📦 Archivadas.
+              const actualizado = { ...c, archivada: archivar, archivadaEn: archivar ? new Date().toISOString() : null };
+              setPedidos(prev => prev.map(p => p.id === c.id ? actualizado : p));
+              try { await gsGuardar(actualizado); } catch {}
+              pushToast(archivar ? "📦 Cotización archivada" : "♻️ Cotización de vuelta en la lista", "success");
+            }}
             onConvertirPedido={async (c) => {
               const ok = await pushConfirm({
                 titulo: "Convertir a pedido",
@@ -1143,7 +1151,7 @@ function App() {
               else imprimirPedido(p, esAdmin, pedidos);
             }}
             onCopiarWA={(p) => copiarWA(p, esAdmin)}
-            cotizaciones={pedidos.filter(p => p.esCotizacion)}
+            cotizaciones={pedidos.filter(p => p.esCotizacion && !p.archivada)}
             onEditarCotizacion={(c) => setModal(c)}
             onImprimirCotizacion={(c) => imprimirCotizacion(c)}
           />
@@ -1514,6 +1522,7 @@ function App() {
           pedidos={pedidos}
           onIrAVencidos={() => { setSec("pedidos"); setFiltro("Vencidos"); }}
           onIrAProximos={() => { setSec("calendario"); }}
+          onIrACotizaciones={() => { setSec("cotizaciones"); }}
         />
       )}
     </div>

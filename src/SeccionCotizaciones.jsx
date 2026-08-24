@@ -13,10 +13,9 @@ import { compartirCotizacion, compartirComparativo } from "./lib/whatsapp.js";
 import { imgSrc } from "./lib/imagenes.js";
 import DesgloseEstimador from "./lib/DesgloseEstimador.jsx";
 
-const diasHasta = fStr => {
-  if (!fStr) return null;
-  return Math.ceil((new Date(fStr + "T12:00:00") - new Date()) / 86400000);
-};
+// Días sin volverse pedido a partir de los cuales se pregunta si se archiva.
+// Lo fijó Javier el 24-ago-2026; no es un supuesto del código.
+export const DIAS_PARA_ARCHIVAR = 7;
 
 const fmtFecha = f => f || "—";
 
@@ -30,17 +29,25 @@ export default function SeccionCotizaciones({
   onReabrirEstimador,
   onVerVersiones,
   onEnviarEmail,
+  onArchivar,
 }) {
   const [busq, setBusq] = useState("");
   // Selección para el comparativo de opciones (varias cotizaciones → 1 hoja).
   const [sel, setSel] = useState(() => new Set());
-  const cotizaciones = useMemo(() => {
+  // Las archivadas salen de la lista: son cotizaciones que no llegaron a
+  // pedido y Javier decidió sacar del radar. Se consultan con el filtro.
+  const [verArchivadas, setVerArchivadas] = useState(false);
+  const { cotizaciones, nArchivadas } = useMemo(() => {
     const q = busq.trim().toLowerCase();
-    return pedidos
+    const todas = pedidos
       .filter(p => p.esCotizacion)
       .filter(p => !q || [p.cliente, p.telefono, p.tipoPrenda, String(p.id || "")].some(v => v && String(v).toLowerCase().includes(q)))
       .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")));
-  }, [pedidos, busq]);
+    return {
+      cotizaciones: todas.filter(c => !!c.archivada === verArchivadas),
+      nArchivadas: todas.filter(c => c.archivada).length,
+    };
+  }, [pedidos, busq, verArchivadas]);
 
   const totalCotizado = cotizaciones.reduce((s, c) => s + parseFloat(c.precio || 0), 0);
 
@@ -75,6 +82,19 @@ export default function SeccionCotizaciones({
             background: "#FAFAFA",
           }}
         />
+        {(nArchivadas > 0 || verArchivadas) && (
+          <button
+            onClick={() => { setVerArchivadas(v => !v); setSel(new Set()); }}
+            style={{
+              padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              border: "1.5px solid " + (verArchivadas ? "#9B59B6" : "#e0e0e0"),
+              background: verArchivadas ? "#9B59B6" : "#fff",
+              color: verArchivadas ? "#fff" : "#666", fontFamily: "inherit",
+            }}
+          >
+            {verArchivadas ? "← Volver a las activas" : `📦 Archivadas (${nArchivadas})`}
+          </button>
+        )}
       </div>
 
       {sel.size > 0 && (
@@ -138,6 +158,7 @@ export default function SeccionCotizaciones({
               onReabrirEstimador={() => onReabrirEstimador && onReabrirEstimador(c)}
               onVerVersiones={() => onVerVersiones && onVerVersiones(c)}
               onEnviarEmail={() => onEnviarEmail && onEnviarEmail(c)}
+              onArchivar={() => onArchivar && onArchivar(c, !c.archivada)}
             />
           ))}
         </div>
@@ -147,7 +168,7 @@ export default function SeccionCotizaciones({
   );
 }
 
-function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail }) {
+function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar, onImprimir, onEditar, onReabrirEstimador, onVerVersiones, onEnviarEmail, onArchivar }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const menuRef = useRef(null);
   useEffect(() => {
@@ -159,17 +180,13 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
   }, [menuAbierto]);
   const tieneDesglose = !!(c.desgloseEstimador && c.desgloseEstimador.modo);
   const items = itemsResumen(c);
-  const validez = c.validezDias || 15;
-  // Fecha de vencimiento de la cotización = fecha de creación + N días.
-  const vence = (() => {
-    if (!c.fecha) return null;
-    const d = new Date(c.fecha + "T12:00:00");
-    d.setDate(d.getDate() + validez);
-    return d.toISOString().split("T")[0];
-  })();
-  const dias = diasHasta(vence);
-  const venceHoy = dias !== null && dias === 0;
-  const vencida = dias !== null && dias < 0;
+  // Ya no se habla de "vencida": la validez era una política que nadie
+  // estableció. Lo que importa es cuánto lleva sin volverse pedido, para
+  // decidir si se archiva (Javier: a los 7 días preguntar).
+  const diasSinRespuesta = c.fecha
+    ? Math.floor((new Date() - new Date(c.fecha + "T12:00:00")) / 86400000)
+    : null;
+  const paraArchivar = !c.archivada && diasSinRespuesta !== null && diasSinRespuesta >= DIAS_PARA_ARCHIVAR;
   const telWA = c.telefono ? `https://wa.me/${c.telefono.replace(/[^0-9]/g, "")}` : null;
   // Mockup / imagen de referencia (si la cotización tiene imágenes).
   const imgRef = (c.imagenes || []).find(i => imgSrc(i));
@@ -178,7 +195,7 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
   return (
     <div style={{
       background: "#fff", borderRadius: 12, padding: 12,
-      border: (seleccionado ? "2px solid #2C1654" : "1.5px solid " + (vencida ? "#E74C3C" : venceHoy ? "#E67E22" : "#d4b3df")),
+      border: (seleccionado ? "2px solid #2C1654" : "1.5px solid " + (c.archivada ? "#ddd" : paraArchivar ? "#E67E22" : "#d4b3df")),
       boxShadow: seleccionado ? "0 0 0 3px rgba(44,22,84,.12)" : "0 2px 6px rgba(0,0,0,0.04)",
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
@@ -223,11 +240,13 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
           <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
             📅 Creada {fmtFecha(c.fecha)}
             {" · "}
-            {vencida
-              ? <span style={{ color: "#E74C3C", fontWeight: 700 }}>⏰ Vencida hace {Math.abs(dias)} día{Math.abs(dias) === 1 ? "" : "s"}</span>
-              : venceHoy
-              ? <span style={{ color: "#E67E22", fontWeight: 700 }}>⏰ Vence hoy</span>
-              : <span style={{ color: "#27AE60" }}>⏰ Vence en {dias} día{dias === 1 ? "" : "s"}</span>
+            {c.archivada
+              ? <span style={{ color: "#888", fontWeight: 700 }}>📦 Archivada</span>
+              : diasSinRespuesta === null
+              ? <span style={{ color: "#888" }}>sin fecha</span>
+              : paraArchivar
+              ? <span style={{ color: "#E67E22", fontWeight: 700 }}>⏳ {diasSinRespuesta} días sin volverse pedido</span>
+              : <span style={{ color: "#27AE60" }}>⏳ hace {diasSinRespuesta} día{diasSinRespuesta === 1 ? "" : "s"}</span>
             }
           </div>
         </div>
@@ -249,13 +268,34 @@ function CardCotizacion({ c, seleccionado, onToggleSel, onConvertir, onEliminar,
       )}
 
       {/* CTA principal */}
-      <button onClick={onConvertir} className="btn-action" style={{
-        width: "100%", padding: "10px", borderRadius: 8, border: "none",
-        background: "#27AE60", color: "#fff", fontWeight: 700, fontSize: 13,
-        cursor: "pointer", fontFamily: "inherit", marginBottom: 6,
-      }}>
-        ✅ Convertir a pedido
+      {c.archivada ? (
+        <button onClick={onArchivar} className="btn-action" style={{
+          width: "100%", padding: "10px", borderRadius: 8, border: "1.5px solid #9B59B6",
+          background: "#fff", color: "#9B59B6", fontWeight: 700, fontSize: 13,
+          cursor: "pointer", fontFamily: "inherit", marginBottom: 6,
+        }}>
+          ♻️ Sacar del archivo
+        </button>
+      ) : (
+            <>
+          <button onClick={onConvertir} className="btn-action" style={{
+            width: "100%", padding: "10px", borderRadius: 8, border: "none",
+            background: "#27AE60", color: "#fff", fontWeight: 700, fontSize: 13,
+            cursor: "pointer", fontFamily: "inherit", marginBottom: 6,
+          }}>
+            ✅ Convertir a pedido
       </button>
+          {paraArchivar && (
+            <button onClick={onArchivar} className="btn-action" style={{
+              width: "100%", padding: "8px", borderRadius: 8, border: "1.5px solid #E67E22",
+              background: "#fff", color: "#E67E22", fontWeight: 700, fontSize: 12,
+              cursor: "pointer", fontFamily: "inherit", marginBottom: 6,
+            }}>
+              📦 Archivar — no se volvió pedido
+            </button>
+          )}
+        </>
+      )}
 
       {/* Acciones secundarias: compartir + overflow */}
       <div style={{ display: "flex", gap: 6, position: "relative" }}>
