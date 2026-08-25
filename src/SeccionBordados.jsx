@@ -82,12 +82,15 @@ const redond25 = v => Math.round(v * 4) / 4;
 // "premium", muy por debajo de lo que vale el trabajo.
 // `costoProd` se conserva solo como referencia de tiempo de máquina.
 const PRECIO_MILLAR = 0.20;
+// Mínimo por pieza (Javier, 24-ago-2026): un logo chico igual ocupa bastidor
+// y cambios de hilo.
+const MINIMO_BORDADO = 0.75;
 const calcPrecioSugerido = puntStr => {
   const punt = parseInt(String(puntStr || "").replace(/[^0-9]/g, "")) || 0;
   if (!punt) return null;
   const minutos = punt / 600;
   const costoProd = minutos * (3.0 / 60);
-  const tarifa = (punt / 1000) * PRECIO_MILLAR;
+  const tarifa = Math.max((punt / 1000) * PRECIO_MILLAR, MINIMO_BORDADO);
   return {
     minutos: +minutos.toFixed(1),
     costoProd: +costoProd.toFixed(2),
@@ -308,7 +311,7 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
 
   const calc = calcPrecioSugerido(f.puntadas);
   const calcCards = calc ? [
-    { key: "rec", lbl: `Tarifa $${PRECIO_MILLAR.toFixed(2)}/mil`, base: calc.tarifa, col: "#1A5F5A" },
+    { key: "rec", lbl: calc.tarifa === MINIMO_BORDADO ? `Mínimo $${MINIMO_BORDADO.toFixed(2)}` : `Tarifa $${PRECIO_MILLAR.toFixed(2)}/mil`, base: calc.tarifa, col: "#1A5F5A" },
     { key: "pre", lbl: "Diseño difícil +30%", base: calc.tarifaAlta, col: "#9B59B6" },
   ] : [];
 
