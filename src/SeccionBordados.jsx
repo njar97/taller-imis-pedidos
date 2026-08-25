@@ -76,17 +76,24 @@ const BORD_DEF = {
 };
 
 const redond25 = v => Math.round(v * 4) / 4;
+// El bordado se cobra por MILLAR de puntadas ($0.75, tarifa de Javier del
+// 24-ago-2026), que es como lo cobra el mercado. Antes se sugería 1.5x, 2x y
+// 3x sobre el tiempo de máquina a $3/hora: 10,000 puntadas salían a $1.25 el
+// "premium", muy por debajo de lo que vale el trabajo.
+// `costoProd` se conserva solo como referencia de tiempo de máquina.
+const PRECIO_MILLAR = 0.75;
 const calcPrecioSugerido = puntStr => {
   const punt = parseInt(String(puntStr || "").replace(/[^0-9]/g, "")) || 0;
   if (!punt) return null;
   const minutos = punt / 600;
   const costoProd = minutos * (3.0 / 60);
+  const tarifa = (punt / 1000) * PRECIO_MILLAR;
   return {
     minutos: +minutos.toFixed(1),
     costoProd: +costoProd.toFixed(2),
-    p1_5x: redond25(costoProd * 1.5),
-    p2x: redond25(costoProd * 2.0),
-    p3x: redond25(costoProd * 3.0),
+    millares: +(punt / 1000).toFixed(1),
+    tarifa: redond25(tarifa),
+    tarifaAlta: redond25(tarifa * 1.3),
   };
 };
 
@@ -301,9 +308,8 @@ function BordadoModal({ initial, esAdmin, onSave, onCancel, pedidosConf, cliente
 
   const calc = calcPrecioSugerido(f.puntadas);
   const calcCards = calc ? [
-    { key: "min", lbl: "Mínimo ×1.5", base: calc.p1_5x, col: "#27AE60" },
-    { key: "rec", lbl: "Recomendado ×2", base: calc.p2x, col: "#1A5F5A" },
-    { key: "pre", lbl: "Premium ×3", base: calc.p3x, col: "#9B59B6" },
+    { key: "rec", lbl: `Tarifa $${PRECIO_MILLAR.toFixed(2)}/mil`, base: calc.tarifa, col: "#1A5F5A" },
+    { key: "pre", lbl: "Diseño difícil +30%", base: calc.tarifaAlta, col: "#9B59B6" },
   ] : [];
 
   return (
