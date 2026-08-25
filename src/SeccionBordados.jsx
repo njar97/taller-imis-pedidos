@@ -76,12 +76,12 @@ const BORD_DEF = {
 };
 
 const redond25 = v => Math.round(v * 4) / 4;
-// El bordado se cobra por MILLAR de puntadas ($0.75, tarifa de Javier del
-// 24-ago-2026), que es como lo cobra el mercado. Antes se sugería 1.5x, 2x y
+// El bordado se cobra por MILLAR de puntadas ($0.20, o sea $2.00 las 10,000 puntadas;
+// tarifa de Javier del 24-ago-2026), que es como lo cobra el mercado. Antes se sugería 1.5x, 2x y
 // 3x sobre el tiempo de máquina a $3/hora: 10,000 puntadas salían a $1.25 el
 // "premium", muy por debajo de lo que vale el trabajo.
 // `costoProd` se conserva solo como referencia de tiempo de máquina.
-const PRECIO_MILLAR = 0.75;
+const PRECIO_MILLAR = 0.20;
 const calcPrecioSugerido = puntStr => {
   const punt = parseInt(String(puntStr || "").replace(/[^0-9]/g, "")) || 0;
   if (!punt) return null;
