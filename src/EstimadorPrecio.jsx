@@ -62,12 +62,20 @@ const MARGENES = [80, 120, 150, 200];
 
 // ── Helpers de cálculo ──────────────────────────────────────
 
+// El bordado se COBRA por millar de puntadas, que es como lo cobra el
+// mercado y como lo cobra Javier ($0.75/mil, 24-ago-2026). Antes esto
+// calculaba solo tiempo de máquina a $3/hora — 10,000 puntadas salían a
+// $0.83 y con eso el estimador subvaluaba todos los bordados.
+// Ojo: esto es PRECIO al cliente, no costo, así que NO lleva margen encima.
+export const PRECIO_MILLAR_BORDADO = 0.75;
+
+function puntadasNum(puntStr) {
+  return parseInt(String(puntStr || "").replace(/[^0-9]/g, "")) || 0;
+}
+
 // Mismo cálculo de bordado que SeccionBordados (calcPrecioSugerido).
-function calcCostoBordado(puntStr) {
-  const punt = parseInt(String(puntStr || "").replace(/[^0-9]/g, "")) || 0;
-  if (!punt) return 0;
-  const minutos = punt / 600;
-  return minutos * (3.0 / 60);
+function calcPrecioBordado(puntStr) {
+  return (puntadasNum(puntStr) / 1000) * PRECIO_MILLAR_BORDADO;
 }
 
 const num = v => parseFloat(v) || 0;
@@ -103,9 +111,11 @@ function costoItem(it) {
   const bordados = Array.isArray(it.bordados) && it.bordados.length
     ? it.bordados
     : (it.bordActivo && it.bordPunt) ? [{ id: 0, puntadas: it.bordPunt }] : [];
-  const bord = bordados.reduce((s, b) => s + calcCostoBordado(b.puntadas), 0) * num(it.qty);
+  // El bordado va aparte: es precio cerrado por millar, no un costo al que
+  // haya que sumarle el margen de la prenda.
+  const bord = bordados.reduce((s, b) => s + calcPrecioBordado(b.puntadas), 0) * num(it.qty);
   const otros = (it.otros || []).reduce((s, o) => s + num(o.qty) * num(o.costo), 0);
-  return { tela, mo, bord, otros, total: tela + mo + bord + otros };
+  return { tela, mo, bord, otros, total: tela + mo + otros };
 }
 
 // ── Modo Confección: lista de items multi-prenda ────────────
@@ -520,8 +530,9 @@ function ModoConfeccion({ costos, items, setItems, margen, setMargen, onRefresca
   ]);
 
   const costoTotal = items.reduce((s, it) => s + costoItem(it).total, 0);
+  const bordadoTotal = items.reduce((s, it) => s + costoItem(it).bord, 0);
   const totalQty = items.reduce((s, it) => s + num(it.qty), 0);
-  const precioSugerido = costoTotal * (1 + margen / 100);
+  const precioSugerido = costoTotal * (1 + margen / 100) + bordadoTotal;
 
   return (
     <>
@@ -559,9 +570,9 @@ function ModoConfeccion({ costos, items, setItems, margen, setMargen, onRefresca
 
 function ModoBordado({ datos, setDatos, margen, setMargen }) {
   const qty = num(datos.qty);
-  const costoUnit = calcCostoBordado(datos.puntadas);
+  const costoUnit = calcPrecioBordado(datos.puntadas);
   const costoTotal = costoUnit * qty;
-  const precioSugerido = costoTotal * (1 + margen / 100);
+  const precioSugerido = costoTotal;   // ya es precio: $0.75 por millar
 
   return (
     <>
@@ -837,10 +848,11 @@ export default function EstimadorPrecio({
   const precioSugerido = useMemo(() => {
     if (modo === "confeccion") {
       const ct = items.reduce((s, it) => s + costoItem(it).total, 0);
-      return ct * (1 + margen / 100);
+      const bd = items.reduce((s, it) => s + costoItem(it).bord, 0);
+      return ct * (1 + margen / 100) + bd;
     }
     if (modo === "bordado") {
-      return calcCostoBordado(bordDatos.puntadas) * num(bordDatos.qty) * (1 + margen / 100);
+      return calcPrecioBordado(bordDatos.puntadas) * num(bordDatos.qty);
     }
     return num(cuelloDatos.costoUnit) * num(cuelloDatos.qty) * (1 + margen / 100);
   }, [modo, items, bordDatos, cuelloDatos, margen]);
