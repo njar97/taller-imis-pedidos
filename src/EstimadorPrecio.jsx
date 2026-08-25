@@ -63,11 +63,12 @@ const MARGENES = [80, 120, 150, 200];
 // ── Helpers de cálculo ──────────────────────────────────────
 
 // El bordado se COBRA por millar de puntadas, que es como lo cobra el
-// mercado y como lo cobra Javier ($0.75/mil, 24-ago-2026). Antes esto
+// mercado y como lo cobra Javier ($0.20/mil = $2.00 las 10,000, tarifa de Javier del 24-ago-2026,
+// puesta para no perder al cliente frente al bordado barato). Antes esto
 // calculaba solo tiempo de máquina a $3/hora — 10,000 puntadas salían a
 // $0.83 y con eso el estimador subvaluaba todos los bordados.
 // Ojo: esto es PRECIO al cliente, no costo, así que NO lleva margen encima.
-export const PRECIO_MILLAR_BORDADO = 0.75;
+export const PRECIO_MILLAR_BORDADO = 0.20;
 
 function puntadasNum(puntStr) {
   return parseInt(String(puntStr || "").replace(/[^0-9]/g, "")) || 0;
