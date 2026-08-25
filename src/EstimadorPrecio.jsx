@@ -69,6 +69,10 @@ const MARGENES = [80, 120, 150, 200];
 // $0.83 y con eso el estimador subvaluaba todos los bordados.
 // Ojo: esto es PRECIO al cliente, no costo, así que NO lleva margen encima.
 export const PRECIO_MILLAR_BORDADO = 0.20;
+// Cobro mínimo por pieza bordada (Javier, 24-ago-2026): abajo de ~3,750
+// puntadas el montaje del bastidor y los cambios de hilo cuestan más que el
+// bordado en sí.
+export const MINIMO_BORDADO = 0.75;
 
 function puntadasNum(puntStr) {
   return parseInt(String(puntStr || "").replace(/[^0-9]/g, "")) || 0;
@@ -76,7 +80,9 @@ function puntadasNum(puntStr) {
 
 // Mismo cálculo de bordado que SeccionBordados (calcPrecioSugerido).
 function calcPrecioBordado(puntStr) {
-  return (puntadasNum(puntStr) / 1000) * PRECIO_MILLAR_BORDADO;
+  const punt = puntadasNum(puntStr);
+  if (!punt) return 0;
+  return Math.max((punt / 1000) * PRECIO_MILLAR_BORDADO, MINIMO_BORDADO);
 }
 
 const num = v => parseFloat(v) || 0;
