@@ -173,12 +173,12 @@ export function olvidarTokenPuente() {
 export const tipoSugerido = (pedido) =>
   (pedido?.tipoDocumento || "").startsWith("Crédito Fiscal") ? "03" : "01";
 
-// Cuánto lleva facturado el pedido (sin contar lo anulado) y cuánto falta.
+// Cuánto lleva facturado el pedido (sin contar lo anulado, invalidado ni rechazado) y cuánto falta.
 // Sirve para no facturar dos veces lo mismo al dividir por partes o cobrar
 // anticipos: sin este número, cada factura se arma "a ciegas".
 export function totalFacturado(facturas, totalPedido) {
   const facturado = +(facturas || [])
-    .filter(f => !(f.estado || "").toUpperCase().startsWith("ANULAD"))
+    .filter(f => !/^(ANULAD|INVALID|RECHAZ)/.test((f.estado || "").toUpperCase()))
     .reduce((s, f) => s + (parseFloat(f.total) || 0), 0)
     .toFixed(2);
   const saldo = totalPedido != null ? +(totalPedido - facturado).toFixed(2) : null;
