@@ -2744,3 +2744,12 @@ export async function imprimirProduccionCuellos(c, pedidosConf = []) {
   </body></html>`);
   w.document.close();
 }
+
+
+// Para la hoja de corte ARMABLE (hojaCorteArmable.js): las piezas de molde por
+// talla, usando los mismos helpers internos que la hoja de corte con piezas.
+export function recetaParaCorte(moldes, tipoPrenda, talla) {
+  const ms = (moldes || []).filter(m => !m.deleted_at);
+  const prenda = prendaConMolde(tipoPrenda, ms);
+  return prenda ? (recetaTalla(ms, prenda, talla) || []) : [];
+}

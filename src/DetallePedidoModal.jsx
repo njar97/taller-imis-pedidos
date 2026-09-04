@@ -15,6 +15,7 @@ import { costoEsperado, prendaDePedido } from "./lib/recetas.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { imprimirCorte, imprimirCantidades, opcionesAgrupacion } from "./lib/imprimir.js";
+import { imprimirCorteArmable } from "./lib/hojaCorteArmable.js";
 import { imprimirHojaTaller } from "./lib/documentosProducto.js";
 import { exportarExcelMedidas } from "./lib/exportarExcelMedidas.js";
 import { imgSrc } from "./lib/imagenes.js";
@@ -2443,6 +2444,7 @@ export default function DetallePedidoModal({
           onHojaTaller={() => imprimirHojaTaller(pedido)}
           onCantidades={() => imprimirCantidades(pedido)}
           onCorte={() => imprimirCorte(pedido)}
+          onCorteArmable={opts => imprimirCorteArmable(pedido, opts)}
           onAgrupada={id => onImprimirProduccion({ agruparPor: id })}
           onIrMarcando={onImprimirProduccion ? () => {
             // Misma hoja, sin diálogo de impresión: se llena tocando.
