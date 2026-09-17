@@ -6,6 +6,7 @@ import { hoy } from "./lib/dominio.js";
 import { pushToast } from "./lib/feedback.js";
 import {
   dbClientesGuardar as gsClientesGuardar,
+  dbClientesCrear   as gsClientesCrear,
   dbClientesBorrar  as gsClientesBorrar,
 } from "./lib/db.js";
 import DetalleClienteModal from "./DetalleClienteModal.jsx";
@@ -250,9 +251,22 @@ export default function SeccionClientes({ clientes, setClientes, pedidos, bordad
       ? (clientes.length ? Math.max(...clientes.map(c => c.id || 0)) + 1 : 1)
       : modal.id;
     const cli = { ...form, id, fecha: isNuevo ? hoy() : (modal.fecha || hoy()) };
-    if (isNuevo) setClientes(prev => [...prev, cli]);
-    else setClientes(prev => prev.map(c => c.id === id ? cli : c));
-    gsClientesGuardar(cli);
+    if (isNuevo) {
+      setClientes(prev => [...prev, cli]);
+      // Alta: el id lo confirma el servidor. Guardar con upsert pisaría al
+      // cliente que ya tuviera ese id (los ids se calculan en el aparato).
+      gsClientesCrear(cli)
+        .then(idReal => {
+          if (idReal !== id) setClientes(prev => prev.map(c => c.id === id ? { ...c, id: idReal } : c));
+        })
+        .catch(e => {
+          console.error("SeccionClientes.guardar:", e);
+          pushToast("No pude guardar el cliente", "error");
+        });
+    } else {
+      setClientes(prev => prev.map(c => c.id === id ? cli : c));
+      gsClientesGuardar(cli);
+    }
     setModal(null);
   }
 

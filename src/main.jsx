@@ -185,6 +185,7 @@ import {
   dbCuelBorrar      as gsCuelBorrar,
   dbClientesLeer    as gsClientesLeer,
   dbClientesGuardar as gsClientesGuardar,
+  dbClientesCrear   as gsClientesCrear,
   dbClientesBorrar  as gsClientesBorrar,
   dbCatalogoLeer,
   dbCatalogoGuardar,
@@ -673,13 +674,24 @@ function App() {
         nuevos[idx] = ex;
         return nuevos;
       } else {
+        // El id definitivo lo decide el servidor: gsClientesCrear reintenta si
+        // el que calculamos acá ya lo tomó otro aparato. Con el upsert de
+        // antes, ese choque pisaba al cliente que ya tenía ese id.
         const nuevo = {
           id: prev.length ? Math.max(...prev.map(c => c.id || 0)) + 1 : 1,
           nombre: nombre.trim(),
           fecha: hoy(),
           ...extra
         };
-        gsClientesGuardar(nuevo);
+        gsClientesCrear(nuevo)
+          .then(idReal => {
+            if (idReal !== nuevo.id)
+              setClientes(cs => cs.map(c => c.id === nuevo.id && c.nombre === nuevo.nombre ? { ...c, id: idReal } : c));
+          })
+          .catch(e => {
+            console.error("upsertClienteLocal:", e);
+            pushToast(`No pude guardar el cliente "${nuevo.nombre}"`, "error");
+          });
         return [...prev, nuevo];
       }
     });

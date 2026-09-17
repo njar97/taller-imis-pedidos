@@ -291,6 +291,10 @@ export const dbCuelPurgar    = id => purgarPorId("taller_cuellos", id);
 
 export const dbClientesLeer      = () => leerTabla("taller_clientes");
 export const dbClientesGuardar   = cli => upsertTabla("taller_clientes", cli);
+// Para clientes NUEVOS. Devuelve el id real con el que quedó (ver crearFila).
+// Con upsertTabla, un id ya tomado por otro aparato se PISABA en silencio:
+// así se perdieron SEDAS, REFLEX y Silvia Díaz del CRM.
+export const dbClientesCrear     = cli => crearFila("taller_clientes", cli);
 export const dbClientesBorrar    = id  => borrarPorId("taller_clientes", id);
 export const dbClientesPapelera  = () => leerPapelera("taller_clientes");
 export const dbClientesRestaurar = id  => restaurarPorId("taller_clientes", id);
