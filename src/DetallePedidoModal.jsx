@@ -14,6 +14,7 @@ import { costeoPedido } from "./lib/costeo.js";
 import { costoEsperado, prendaDePedido } from "./lib/recetas.js";
 import { descargarICSPedido } from "./lib/calendarioICS.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
+import { enviarDteEmail } from "./lib/email.js";
 import { imprimirCorte, imprimirCantidades, opcionesAgrupacion } from "./lib/imprimir.js";
 import { imprimirCorteArmable } from "./lib/hojaCorteArmable.js";
 import { imprimirHojaTaller } from "./lib/documentosProducto.js";
@@ -434,8 +435,10 @@ function DetalleFactura({ pedido }) {
 // reclamar: si está anulada, cuándo se emitió, y los dos códigos que pide
 // Hacienda — el de generación (el que sirve para verificar) y el sello, ambos
 // copiables de un toque, porque a mano son imposibles de dictar.
-function FichaFactura({ f }) {
+function FichaFactura({ f, correoCliente }) {
   const anulada = (f.estado || "").toUpperCase().startsWith("ANULAD");
+  const [enviando, setEnviando] = useState(false);
+  const [enviadoA, setEnviadoA] = useState(f.enviado_a || null);
   const ident = f.dte_json?.identificacion || {};
   // El DTE manda: la consulta pública de Hacienda valida contra SU fecEmi, que
   // no siempre cae el mismo día que el registro local.
@@ -515,6 +518,38 @@ function FichaFactura({ f }) {
           }}>
           📄 Ver factura · PDF · enviar al cliente
         </a>
+      )}
+
+      {/* Reenvío: el cliente pierde el correo, cambia de contador, o la
+          factura se emitió antes de tener su dirección. Manda PDF + JSON. */}
+      {f.dte_json && (correoCliente || enviadoA) && (
+        <button
+          disabled={enviando}
+          onClick={async () => {
+            setEnviando(true);
+            const r = await enviarDteEmail({
+              facturaId: f.id,
+              codigoGeneracion: f.codigo_generacion,
+              destinatarios: correoCliente ? [correoCliente] : undefined,
+            });
+            setEnviando(false);
+            if (r.ok) {
+              setEnviadoA(r.destinatarios);
+              pushToast(`✉ Enviada a ${(r.destinatarios || []).join(", ")}`, "success", 5000);
+            } else {
+              pushToast(r.error || "No se pudo enviar", "error", 8000);
+            }
+          }}
+          style={{
+            width: "100%", marginTop: 6, padding: "8px 10px", borderRadius: 8,
+            border: `1.5px solid ${col}`, background: "#fff", color: col,
+            fontWeight: 700, fontSize: 12, cursor: enviando ? "wait" : "pointer",
+          }}>
+          {enviando ? "Enviando…" : enviadoA ? "✉ Reenviar por correo" : "✉ Enviar al cliente (PDF + JSON)"}
+        </button>
+      )}
+      {enviadoA && (
+        <div style={{ marginTop: 3, fontSize: 10 }}>Enviada a {[].concat(enviadoA).join(", ")}</div>
       )}
 
       <div style={{ display: "flex", gap: 10, marginTop: 5, flexWrap: "wrap" }}>
@@ -737,6 +772,12 @@ function FacturaElectronica({ pedido }) {
       pushToast(`✅ DTE sellado por MH — ${reg.numero_control}`, "success", 6000);
       if (reg._sinRegistro)
         pushToast("⚠ La factura se selló pero NO se pudo registrar en la app — anotá el sello", "error", 10000);
+      if (reg._correoEnviadoA)
+        pushToast(`✉ Factura enviada a ${reg._correoEnviadoA} (PDF + JSON)`, "success", 6000);
+      else if (reg._correoError)
+        pushToast(`No se pudo mandar por correo: ${reg._correoError} — reenviala desde la ficha`, "error", 9000);
+      else if (!pedido.correo)
+        pushToast("Sin correo del cliente: la factura NO se envió. Agregale el correo y reenviala desde la ficha.", "info", 8000);
       if (modo === "anticipo") { setMontoAnticipo(""); setNotaAnticipo(""); }
     } catch (e) {
       pushToast(e.message, "error", 8000);
@@ -764,7 +805,7 @@ function FacturaElectronica({ pedido }) {
 
   return (
     <div style={{ marginTop: 10, borderTop: "1px dashed #e0e0e0", paddingTop: 10 }}>
-      {facturas.map((f, i) => <FichaFactura key={i} f={f} />)}
+      {facturas.map((f, i) => <FichaFactura key={i} f={f} correoCliente={pedido.correo} />)}
       {(facturas.length > 0 || d.total > 0) && (
         <div style={{
           fontSize: 11, marginBottom: 8, padding: "5px 8px", borderRadius: 6,

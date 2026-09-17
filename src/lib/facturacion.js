@@ -13,6 +13,7 @@
 
 import { withRetry } from "./retry.js";
 import { detalleFactura, fmt$ } from "./dominio.js";
+import { enviarDteEmail } from "./email.js";
 
 const PUENTE = "https://emisor-imis.duckdns.org";
 const TOKEN_KEY = "taller_puente_token";
@@ -223,6 +224,12 @@ export function prepararFacturaPedido(pedido, opciones = {}) {
 
   const receptor = { nit: nit || "", nrc: nrc || "", nombre: nombreFiscal };
   if (dirFiscal) receptor.direccion = { complemento: dirFiscal };
+  // El correo va DENTRO del DTE (el MH lo pide) y además es a donde se manda
+  // la factura. Sin esto el puente rellena "cliente@ejemplo.com".
+  const correo = (base.correo || pedido.correo || "").trim();
+  if (correo) receptor.correo = correo;
+  const telReceptor = (base.telefono || pedido.telefono || "").trim();
+  if (telReceptor) receptor.telefono = telReceptor;
 
   const avisos = [];
   if (!esCcf && !nit) avisos.push("Sin NIT del cliente → va como consumidor final (sin receptor).");
@@ -371,6 +378,19 @@ export async function emitirFacturaPedido(pedido, opciones = {}) {
         // avisar fuerte para anotarlo a mano (sello en el objeto devuelto).
         console.error("Factura SELLADA pero no se pudo registrar en taller_facturas:", e, registro);
         registro._sinRegistro = true;
+      }
+
+      // Envío automático al cliente (PDF + JSON). No se aborta la emisión si
+      // falla el correo: el DTE ya está sellado y se puede reenviar a mano
+      // desde la ficha de la factura.
+      const correoCliente = (prep.receptor.correo || pedido.correo || "").trim();
+      if (correoCliente && registro.codigo_generacion && !registro._sinRegistro) {
+        const env = await enviarDteEmail({
+          codigoGeneracion: registro.codigo_generacion,
+          destinatarios: [correoCliente],
+        });
+        registro._correoEnviadoA = env.ok ? correoCliente : null;
+        registro._correoError = env.ok ? null : env.error;
       }
       return registro;
     }
