@@ -134,6 +134,14 @@ const CORR_INICIAL = {
   "03151010111012": 1000, // UDP Confecciones IMIS
 };
 
+// Piso por NIT+tipo, aunque la app ya tenga facturas con números menores.
+// JAV emitió CCF desde Tlacuilo hasta el 11 (los dos de SEDAS del 14-jul) y
+// esos DTE no están en `taller_facturas`, así que el máximo de la tabla (6)
+// llevaba a pedir números ya gastados y el MH los rechazaba uno por uno.
+const CORR_MIN = {
+  "03151202971040|03": 12, // Nelson Javier — CCF, Tlacuilo llegó al 11
+};
+
 // La serie de correlativos es POR CONTRIBUYENTE: cada NIT lleva su propia
 // numeración de DTE ante Hacienda, así que nunca se mezcla con otro emisor.
 async function siguienteCorrelativo(tipo, ambiente) {
@@ -142,9 +150,10 @@ async function siguienteCorrelativo(tipo, ambiente) {
     `/taller_facturas?nit_emisor=eq.${nit}&tipo_dte=eq.${tipo}&ambiente=eq.${ambiente}` +
     `&select=correlativo&order=correlativo.desc&limit=1`
   );
-  if (rows && rows.length) return Number(rows[0].correlativo) + 1;
+  const piso = ambiente === "01" ? (CORR_MIN[`${nit}|${tipo}`] || 0) : 0;
+  if (rows && rows.length) return Math.max(Number(rows[0].correlativo) + 1, piso);
   // En pruebas (00) no hay serie que respetar: ahí sí se empieza en 1.
-  return ambiente === "01" ? (CORR_INICIAL[nit] || 1) : 1;
+  return ambiente === "01" ? Math.max(CORR_INICIAL[nit] || 1, piso) : 1;
 }
 
 // ── Token del puente ──
@@ -324,10 +333,17 @@ export async function emitirFacturaPedido(pedido, opciones = {}) {
   let corr = await siguienteCorrelativo(prep.tipo, ambiente);
   let ultimoError = null;
 
-  // Hasta 3 intentos SOLO si el rechazo es por número de control repetido
+  // Reintenta SOLO si el rechazo es por número de control repetido
   // (correlativo ya usado por otra vía, p.ej. Tlacuilo). Otros errores no
   // reintentan: un rechazo de MH no se resuelve reenviando lo mismo.
-  for (let intento = 0; intento < 3; intento++) {
+  //
+  // El tope era 3 y se quedaba corto: el correlativo sale del máximo que
+  // conoce la app, y los DTE emitidos desde Tlacuilo no están en esa tabla.
+  // En JAV la app iba por el 7 mientras Tlacuilo ya había usado hasta el 11,
+  // así que hacían falta 5 saltos. Un rechazo por repetido no cuesta nada
+  // (MH no consume el número), así que 20 da margen sin arriesgar.
+  const MAX_SALTOS = 20;
+  for (let intento = 0; intento < MAX_SALTOS; intento++) {
     const r = await fetch(PUENTE + "/emitir-pedido", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
@@ -405,5 +421,5 @@ export async function emitirFacturaPedido(pedido, opciones = {}) {
     throw new Error((data.error || `Error HTTP ${r.status}`) + (obs ? ` — ${obs}` : ""));
   }
 
-  throw new Error(`MH rechazó 3 correlativos seguidos por número de control repetido (último: ${ultimoError}). Revisar correlativos usados en Tlacuilo.`);
+  throw new Error(`MH rechazó ${MAX_SALTOS} correlativos seguidos por número de control repetido (último: ${ultimoError}). Revisar correlativos usados en Tlacuilo.`);
 }
