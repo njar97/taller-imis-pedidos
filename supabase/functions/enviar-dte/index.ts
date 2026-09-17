@@ -23,7 +23,16 @@ import qrcode from "https://esm.sh/qrcode-generator@1.4.4";
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
 const SUPA_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY");
-const FROM = Deno.env.get("RESEND_FROM") || "Taller IMIS <onboarding@resend.dev>";
+// Dirección verificada en Resend (dominio imeltex.com.sv). El NOMBRE que se
+// muestra sale del emisor del propio DTE, así la factura de IMIS llega como
+// "CONFECCIONES IMIS" y la de Javier como "Carymel": el cliente ve el mismo
+// nombre que trae el documento.
+const FROM_ADDR = Deno.env.get("RESEND_FROM") || "onboarding@resend.dev";
+const remitente = (em) => {
+  const addr = FROM_ADDR.includes("<") ? FROM_ADDR : `<${FROM_ADDR}>`;
+  const nombre = (em?.nombreComercial || em?.nombre || "").replace(/["<>]/g, "").trim();
+  return nombre && !FROM_ADDR.includes("<") ? `${nombre} ${addr}` : FROM_ADDR;
+};
 
 const supabase = createClient(SUPA_URL, SUPA_SERVICE, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -324,7 +333,8 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: FROM,
+        from: remitente(dte.emisor),
+        reply_to: dte.emisor?.correo || undefined,
         to: para,
         subject: `${TIPOS[dte.identificacion?.tipoDte] || "DTE"} ${nombre} — ` +
                  `${dte.emisor?.nombreComercial || dte.emisor?.nombre || ""}`,
