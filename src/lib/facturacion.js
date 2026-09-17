@@ -195,6 +195,39 @@ export function totalFacturado(facturas, totalPedido) {
   return { facturado, saldo };
 }
 
+// Descripción del ítem para el DTE. La línea del carrito dice solo "Camisa";
+// el cliente y Hacienda necesitan saber QUÉ camisa. El 17-sep-2026 un CCF a
+// SEDAS salió con "Camisa" a secas y hubo que invalidarlo, así que la línea se
+// completa con el tipo de prenda del pedido cuando aporta algo.
+export function descripcionItem(linea, pedido) {
+  const tipo = (linea?.tipo || "").trim();
+  const prenda = (pedido?.tipoPrenda || "").trim();
+  if (!prenda) return tipo || "Producto";
+  if (!tipo) return prenda;
+  return prenda.toLowerCase().includes(tipo.toLowerCase()) ? prenda : `${tipo} — ${prenda}`;
+}
+
+// Dirección fiscal completa del cliente, tomada del último DTE que se le
+// emitió. El pedido solo guarda la dirección como texto, y el puente rellena
+// departamento y municipio con San Salvador si no se los mandan: a SEDAS, que
+// es de Sonsonate, le salió así en el CCF del 17-sep-2026.
+async function receptorConocido(nit) {
+  if (!nit) return null;
+  try {
+    const rows = await supa(
+      `/taller_facturas?receptor->>nit=eq.${encodeURIComponent(nit)}` +
+      `&dte_json=not.is.null&select=dte_json&order=id.desc&limit=5`
+    );
+    for (const r of rows || []) {
+      const rec = r?.dte_json?.receptor;
+      if (rec?.direccion?.departamento) return rec;
+    }
+  } catch (e) {
+    console.warn("receptorConocido:", e);
+  }
+  return null;
+}
+
 // Decide tipo de DTE y valida que el pedido tenga lo necesario.
 //
 // `opciones`:
@@ -325,10 +358,30 @@ export async function emitirFacturaPedido(pedido, opciones = {}) {
 
   const ambiente = ambienteDte();
   const items = prep.lineas.map(l => ({
-    descripcion: l.tipo,
+    descripcion: prep.esAnticipo ? l.tipo : descripcionItem(l, pedido),
     cantidad: l.qty,
     precioUniConIva: l.precio,
   }));
+
+  // Completa la dirección fiscal (y la actividad) con lo que ya se le facturó
+  // antes a ese NIT, para no mandar solo el complemento y que el puente
+  // invente el departamento.
+  const receptor = { ...prep.receptor };
+  if (!receptor.direccion?.departamento) {
+    const prev = await receptorConocido(receptor.nit);
+    if (prev) {
+      receptor.direccion = {
+        ...prev.direccion,
+        ...(receptor.direccion?.complemento ? { complemento: receptor.direccion.complemento } : {}),
+      };
+      if (!receptor.codActividad && prev.codActividad) {
+        receptor.codActividad = prev.codActividad;
+        receptor.descActividad = prev.descActividad;
+      }
+      if (!receptor.telefono && prev.telefono) receptor.telefono = prev.telefono;
+      if (!receptor.correo && prev.correo) receptor.correo = prev.correo;
+    }
+  }
 
   let corr = await siguienteCorrelativo(prep.tipo, ambiente);
   let ultimoError = null;
@@ -353,7 +406,7 @@ export async function emitirFacturaPedido(pedido, opciones = {}) {
         tipoDte: prep.tipo,
         correlativo: corr,
         emisor: emisorDatos(),
-        receptor: prep.receptor,
+        receptor,
         items,
       }),
     });
@@ -375,7 +428,7 @@ export async function emitirFacturaPedido(pedido, opciones = {}) {
         codigo_generacion: data.codigoGeneracion || null,
         sello: data.selloRecibido || null,
         estado: data.estado || null,
-        receptor: prep.receptor,
+        receptor,
         items,
         total: prep.total,
         // El DTE oficial tal cual lo selló Hacienda: de acá sale el PDF que ve
