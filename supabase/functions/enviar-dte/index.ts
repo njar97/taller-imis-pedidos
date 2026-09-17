@@ -371,6 +371,10 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: remitente(dte.emisor),
         reply_to: dte.emisor?.correo || undefined,
+        // Copia oculta al buzón del emisor: es de donde dte_web (contabilidad)
+        // levanta los DTE por el JSON adjunto. Sin esto, todo lo emitido desde
+        // la app quedaba fuera de la contabilidad y de las declaraciones.
+        bcc: dte.emisor?.correo && !para.includes(dte.emisor.correo) ? [dte.emisor.correo] : undefined,
         to: para,
         subject: (anulada ? "INVALIDADO — " : "") +
                  `${TIPOS[dte.identificacion?.tipoDte] || "DTE"} ${nombre} — ` +
