@@ -69,7 +69,26 @@ const AZUL = rgb(0.14, 0.44, 0.64);
 const LINEA = rgb(0.79, 0.81, 0.84);
 const FONDO = rgb(0.95, 0.956, 0.964);
 
-async function armarPdf(dte, sello) {
+// Un DTE invalidado sigue existiendo y el cliente tiene que poder distinguirlo
+// de un vistazo: por eso la marca de agua cruzada, como la que ponen los otros
+// emisores. El contenido no se toca — es el mismo documento que selló el MH.
+const ROJO = rgb(0.72, 0.11, 0.15);
+function marcaInvalidado(pg, helv, hebo, estado) {
+  const texto = "INVALIDADO";
+  const size = 76;
+  const w = hebo.widthOfTextAtSize(texto, size);
+  pg.drawText(texto, {
+    x: (ANCHO - w * 0.71) / 2, y: ALTO / 2 - 120,
+    size, font: hebo, color: ROJO, opacity: 0.18, rotate: { type: "degrees", angle: 45 },
+  });
+  const detalle = (estado || "").replace(/^(INVALIDAD|ANULAD)O\s*/i, "").trim();
+  const pie = detalle ? `Documento invalidado ante el Ministerio de Hacienda el ${detalle}` : "Documento invalidado ante el Ministerio de Hacienda";
+  const pw = helv.widthOfTextAtSize(pie, 8);
+  // Justo encima del pie de página (coordenadas de pdf-lib: desde abajo).
+  pg.drawText(pie, { x: (ANCHO - pw) / 2, y: 64, size: 8, font: helv, color: ROJO });
+}
+
+async function armarPdf(dte, sello, estado) {
   const ident = dte.identificacion || {};
   const em = dte.emisor || {};
   const rec = dte.receptor || dte.sujetoExcluido || {};
@@ -224,6 +243,8 @@ async function armarPdf(dte, sello) {
   y += 26;
   txt(M, y + 8, res.totalLetras || "", 7.5, helv, GRIS);
 
+  if (/^(INVALIDAD|ANULAD)/i.test(estado || "")) marcaInvalidado(pg, helv, hebo, estado);
+
   // Pie
   txtC(306, ALTO - M - 14,
     "Este documento es una representación gráfica del DTE. Verificalo en la consulta pública del Ministerio de Hacienda.",
@@ -240,12 +261,26 @@ const b64 = (bytes) => {
   return btoa(s);
 };
 
-function armarHTML(dte, factura, mensajeExtra) {
+function armarHTML(dte, factura, mensajeExtra, anulada) {
   const ident = dte.identificacion || {};
   const em = dte.emisor || {};
   const rec = dte.receptor || {};
   const res = dte.resumen || {};
   const tipo = TIPOS[ident.tipoDte] || "DTE";
+  if (anulada)
+    return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;max-width:560px">
+  <p>Estimados <b>${rec.nombre || ""}</b>:</p>
+  <p style="background:#fdecee;border-left:4px solid #b81c26;padding:10px 12px">
+  El <b>${tipo} ${ident.numeroControl || ""}</b> por <b>${$(res.totalPagar ?? res.montoTotalOperacion)}</b>,
+  emitido el ${ident.fecEmi || ""}, fue <b>INVALIDADO</b> ante el Ministerio de Hacienda.
+  Le pedimos no tomarlo en cuenta para su declaración.</p>
+  ${mensajeExtra ? `<p>${String(mensajeExtra).replace(/</g, "&lt;")}</p>` : ""}
+  <p>Se adjunta el documento con la marca de invalidación y su JSON, para su archivo.</p>
+  <p><a href="https://admin.factura.gob.sv/consultaPublica?ambiente=${ident.ambiente}&codGen=${ident.codigoGeneracion}&fechaEmi=${ident.fecEmi}"
+   style="color:#b81c26">Verificar el estado en la consulta pública del Ministerio de Hacienda</a></p>
+  <p style="color:#666;font-size:12px">${em.nombre || ""} · NIT ${em.nit || ""}${em.telefono ? " · Tel. " + em.telefono : ""}</p>
+</div>`;
+
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222;max-width:560px">
   <p>Estimados <b>${rec.nombre || ""}</b>:</p>
   <p>Adjunto encontrará su <b>${tipo}</b> por <b>${$(res.totalPagar ?? res.montoTotalOperacion)}</b>,
@@ -289,7 +324,8 @@ Deno.serve(async (req) => {
         error: "Esa factura no guardó el JSON del DTE — no se puede armar el PDF ni adjuntar el oficial.",
       }), { status: 422 });
 
-    const pdf = await armarPdf(dte, factura.sello);
+    const anulada = /^(INVALIDAD|ANULAD)/i.test(factura.estado || "");
+    const pdf = await armarPdf(dte, factura.sello, factura.estado);
     const nombre = dte.identificacion?.numeroControl || factura.codigo_generacion || "dte";
 
     if (solo_pdf)
@@ -336,9 +372,10 @@ Deno.serve(async (req) => {
         from: remitente(dte.emisor),
         reply_to: dte.emisor?.correo || undefined,
         to: para,
-        subject: `${TIPOS[dte.identificacion?.tipoDte] || "DTE"} ${nombre} — ` +
+        subject: (anulada ? "INVALIDADO — " : "") +
+                 `${TIPOS[dte.identificacion?.tipoDte] || "DTE"} ${nombre} — ` +
                  `${dte.emisor?.nombreComercial || dte.emisor?.nombre || ""}`,
-        html: armarHTML(dte, factura, mensaje_extra),
+        html: armarHTML(dte, factura, mensaje_extra, anulada),
         attachments: [
           { filename: `${nombre}.pdf`, content: b64(pdf) },
           { filename: `${nombre}.json`, content: btoa(unescape(encodeURIComponent(JSON.stringify(dte, null, 2)))) },
