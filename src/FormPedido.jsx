@@ -11,8 +11,8 @@ const TODAS_TALLAS_COMP = [
   "XS", "S", "M", "L", "XL", "2XL", "3XL",
   "2", "4", "6", "8", "10", "12", "14", "16",
 ];
-import { PEDIDO_BASE, fmt$, itemsResumen, medInit, resolverConjunto } from "./lib/dominio.js";
-import { pushToast, pushConfirm } from "./lib/feedback.js";
+import { PEDIDO_BASE, fmt$, itemsResumen, medInit, resolverConjunto, cantidadComponente } from "./lib/dominio.js";
+import { pushToast, pushConfirm, pushUndo } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { buscarClienteFiscal, buscarClientesFiscalesPorNombre, nitLimpio } from "./lib/clientesFiscales.js";
 import { EMISORES } from "./lib/facturacion.js";
@@ -138,6 +138,7 @@ const MODOS_REGISTRO = [
 ];
 
 export default function FormPedido({
+  cancelarRef,
   initial,
   onSave,
   onCancel,
@@ -149,7 +150,7 @@ export default function FormPedido({
   const DRAFT_KEY = initial ? null : "TALLER_IMIS_BORRADOR";
   const esAdmin = rol === "admin";
 
-  const initForm = () => {
+  const initForm = (usarBorrador = true) => {
     // Si el precio guardado no coincide con la suma de ítems, fue puesto a
     // mano (descuento, redondeo): no hay que pisarlo al recalcular.
     let manual = false;
@@ -182,12 +183,13 @@ export default function FormPedido({
       // debe viajar al guardar (undefined desaparece en el JSON).
       importado: undefined,
     };
-    if (!initial && DRAFT_KEY) {
+    if (!initial && DRAFT_KEY && usarBorrador) {
       try {
         const saved = localStorage.getItem(DRAFT_KEY);
         if (saved) {
           const d = JSON.parse(saved);
-          return { ...base, ...d, imagenes: [], tallasItems: d.tallasItems || [] };
+          // _deBorrador avisa (abajo) que esto se recuperó y permite descartarlo.
+          return { ...base, ...d, imagenes: [], tallasItems: d.tallasItems || [], _deBorrador: true };
         }
       } catch (e) {}
     }
@@ -233,8 +235,13 @@ export default function FormPedido({
   const totalAbonos = (f.abonos || []).reduce((s, a) => s + parseFloat(a.monto || 0), 0);
   const anticopoEfectivo = totalAbonos > 0 ? totalAbonos : parseFloat(f.anticipo || 0);
   const saldo = parseFloat(f.precio || 0) - anticopoEfectivo;
+  // Pedidos viejos (cantidades en tallasQty) o solo con componentes del
+  // kit no podían ni corregir el teléfono: "agregá al menos una talla".
   const tieneCantidad =
-    (f.tallasItems || []).some(it => Number(it.qty) > 0) || (f.personas || []).length > 0;
+    (f.tallasItems || []).some(it => Number(it.qty) > 0) ||
+    (f.personas || []).length > 0 ||
+    Object.values(f.tallasQty || {}).some(v => Number(v) > 0) ||
+    (f.componentes || []).some(c => cantidadComponente(c) > 0);
 
   // Coercion defensiva: si el draft del localStorage o un pedido legacy
   // tienen cliente/tipoPrenda como null/undefined, .trim() reventaría al
@@ -485,6 +492,25 @@ export default function FormPedido({
       );
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // El borrador se recuperaba en silencio: ahora se avisa y se puede descartar.
+  useEffect(() => {
+    if (!f._deBorrador) return;
+    pushUndo("Se recuperó un borrador sin guardar (Deshacer = empezar en limpio)", () => {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+      setF(initForm(false));
+    });
+    setF(p => ({ ...p, _deBorrador: false }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // La ✕ del modal cerraba sin pasar por acá (ni pregunta ni limpia el
+  // borrador): el padre nos da un ref y lo llama en su onClose.
+  useEffect(() => {
+    if (!cancelarRef) return;
+    cancelarRef.current = handleCancelar;
+    return () => { cancelarRef.current = null; };
+  });
 
   const handleCancelar = async () => {
     const actual = JSON.stringify(

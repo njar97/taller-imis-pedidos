@@ -257,6 +257,7 @@ import {
 
 // Cache local de imágenes en IndexedDB
 import { idbGuardar, idbLeerTodas, idbBorrar } from "./lib/idb.js";
+import { guardarSeguro, vaciarCola } from "./lib/colaGuardado.js";
 import { createRoot } from "react-dom/client";
 import { installGlobalErrorHandlers } from "./lib/reportError.js";
 import { aplicarTema, getTema } from "./lib/tema.js";
@@ -363,6 +364,18 @@ function App() {
   // para el banner de "sin sincronizar" y para reintentar el push SIN pisar
   // el cambio local con un refresh desde el servidor.
   const [pendienteSync, setPendienteSync] = useState(null);
+  // La ✕ del modal del formulario llama a su "cancelar" (pregunta si hay
+  // cambios y limpia el borrador) en vez de cerrar a secas.
+  const cancelarFormRef = useRef(null);
+  // Lo que no llegó al servidor (cola en localStorage) se reintenta al
+  // arrancar y cada vez que vuelve la red. Confección usa la misma cola que
+  // bordados y cuellos desde el 18-sep-2026.
+  useEffect(() => {
+    const reintentar = () => vaciarCola({ taller_pedidos: gsGuardar, taller_bordados: gsBordGuardar, taller_cuellos: gsCuelGuardar });
+    reintentar();
+    window.addEventListener("online", reintentar);
+    return () => window.removeEventListener("online", reintentar);
+  }, []);
   const [progreso, setProgreso] = useState(null);
   const [errorFotos, setErrorFotos] = useState([]);
   const [visor, setVisor] = useState(null); // {imgs:[], idx:0}
@@ -642,7 +655,12 @@ function App() {
         setNextId(n => Math.max(n, idReal + 1));
         await idbGuardar(p.id, p.imagenes);
       } else {
-        await Promise.all([gsGuardar(p), idbGuardar(p.id, p.imagenes)]);
+        // guardarSeguro encola si no hay red y avisa; se reintenta solo.
+        const [okRemoto] = await Promise.all([
+          guardarSeguro({ tabla: "taller_pedidos", obj: p, guardar: gsGuardar, que: "el pedido" }),
+          idbGuardar(p.id, p.imagenes),
+        ]);
+        if (!okRemoto) { setSync("error"); setPendienteSync(p); return; }
       }
       if (erroresSubida.length > 0) {
         setSync("error_fotos");
@@ -1308,7 +1326,7 @@ function App() {
                   : "🧮 Nueva Cotización")
               : "✏️ Editar N°" + String(modal.id).padStart(4, "0")
           }
-          onClose={() => setModal(null)}
+          onClose={() => (cancelarFormRef.current ? cancelarFormRef.current() : setModal(null))}
         >
           {modal === "nuevo" && (
             <button
@@ -1388,6 +1406,7 @@ function App() {
             initial={modal !== "nuevo" ? modal : seedDuplicar}
             onSave={f => { setSeedDuplicar(null); guardarPedido(f); }}
             onCancel={() => { setSeedDuplicar(null); setModal(null); }}
+            cancelarRef={cancelarFormRef}
             rol={rol}
             pedidosExistentes={pedidos}
             clientes={clientes}

@@ -131,3 +131,8 @@ export const CATEGORIAS_INV = [
   { id: "herramienta", label: "Herramienta", icon: "✂️", color: "#E67E22", desc: "Tijeras, agujas, reglas..." },
   { id: "equipo",      label: "Equipo",      icon: "🔧", color: "#2980B9", desc: "Máquinas, planchas..." },
 ];
+
+// Tasa de IVA y porcentaje de anticipo que imprimen los papeles. Estaban
+// escritos a mano en cinco sitios de imprimir.js.
+export const IVA_RATE = 0.13;
+export const ANTICIPO_PCT = 0.5;

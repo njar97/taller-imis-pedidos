@@ -8,7 +8,7 @@ import { agujasTejido, componentesResumen, conjuntosResueltos, itemsResumen, med
 import { dbMoldesLeer, dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
-import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
+import { MEDIDAS_DEF, TALLER, EC, IVA_RATE, ANTICIPO_PCT } from "./constants.js";
 import { techColor } from "./diagrama.js";
 import QRCode from "qrcode";
 
@@ -98,7 +98,7 @@ export function tablaPorPersonaHTML(p, color = "#1A5276", mostrarPrecios = false
     return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f9f9fa"};border-bottom:1px solid #eee;">
       <td style="padding:8px 10px;color:#aaa;font-size:11px;width:24px;vertical-align:top;">${i + 1}</td>
       <td style="padding:8px 10px;vertical-align:top;width:35%;">
-        <div style="font-weight:800;color:#2C1654;">${esc(per.nombre || "Sin nombre")}${tallaTaller}</div>
+        <div style="font-weight:800;color:#2C1654;">${esc(per.nombre || "Sin nombre")}${tallaTaller}${per.noFactura ? ` <span style="font-size:9px;font-weight:800;color:#B9770E;background:#FFF4DC;border:1px solid #F0D9A8;border-radius:10px;padding:1px 6px;vertical-align:middle;">PAGO APARTE</span>` : ""}</div>
         ${cargo}
       </td>
       <td style="padding:8px 10px;vertical-align:top;font-size:12px;">${lineas}</td>
@@ -415,7 +415,7 @@ export async function imprimirCotizacion(p) {
   // ¿El precio escrito ya trae el IVA? Lo decide cada cotización (casilla en
   // el formulario). Antes se asumía SIEMPRE que sí, y eso no era una regla
   // del taller: era un supuesto del código.
-  const ivaRate = 0.13;
+  const ivaRate = IVA_RATE;
   const ivaIncluido = p.ivaIncluido !== false;   // null/undefined = cotizaciones viejas, que sí lo incluían
   const subtotal = ivaIncluido ? precioFinal / (1 + ivaRate) : precioFinal;
   const iva = subtotal * ivaRate;
@@ -606,12 +606,12 @@ ${p.cotizacionAbierta ? (() => {
   <div style="flex:1;border:1.5px solid #bbb;border-radius:6px;padding:12px 16px;font-size:11.5px;">
     <div class="sec-title" style="margin-bottom:6px;">Condiciones de pago</div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ccc;">
-      <span>Anticipo al confirmar <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(unitCobrar * 0.5).toFixed(2)} c/u · $${(totalCobrar * 0.5).toFixed(2)} total</span>
+      <span>Anticipo al confirmar <strong>(${Math.round(ANTICIPO_PCT * 100)}%)</strong></span>
+      <span style="font-weight:900;">$${(unitCobrar * ANTICIPO_PCT).toFixed(2)} c/u · $${(totalCobrar * ANTICIPO_PCT).toFixed(2)} total</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;">
-      <span>Saldo contra entrega <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(unitCobrar * 0.5).toFixed(2)} c/u · $${(totalCobrar * 0.5).toFixed(2)} total</span>
+      <span>Saldo contra entrega <strong>(${Math.round(ANTICIPO_PCT * 100)}%)</strong></span>
+      <span style="font-weight:900;">$${(unitCobrar * ANTICIPO_PCT).toFixed(2)} c/u · $${(totalCobrar * ANTICIPO_PCT).toFixed(2)} total</span>
     </div>
     <div style="margin-top:8px;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:6px;">
       Total estimado (${totPzas} uds.): <strong>~$${totalCobrar.toFixed(2)}</strong><br>
@@ -657,12 +657,12 @@ ${componentesHTML(p, { precios: true, color: "#111" })}
   <div style="flex:1;border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;">
     <div class="sec-title">Condiciones de pago</div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #ccc;">
-      <span>Anticipo al confirmar <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(totalCobrar * 0.5).toFixed(2)}</span>
+      <span>Anticipo al confirmar <strong>(${Math.round(ANTICIPO_PCT * 100)}%)</strong></span>
+      <span style="font-weight:900;">$${(totalCobrar * ANTICIPO_PCT).toFixed(2)}</span>
     </div>
     <div style="display:flex;justify-content:space-between;padding:3px 0;">
-      <span>Saldo contra entrega <strong>(50%)</strong></span>
-      <span style="font-weight:900;">$${(totalCobrar * 0.5).toFixed(2)}</span>
+      <span>Saldo contra entrega <strong>(${Math.round(ANTICIPO_PCT * 100)}%)</strong></span>
+      <span style="font-weight:900;">$${(totalCobrar * ANTICIPO_PCT).toFixed(2)}</span>
     </div>
   </div>
   ${p.descripcion ? `
@@ -1006,7 +1006,7 @@ export function imprimirRecibo(p) {
     // recibo sin total, sin anticipo y sin saldo.
     const total = montoNum(p.precio) || itemsTotal;
     const saldoR = total > 0 ? total - abonado : null;
-    const sub = esCF && total > 0 ? total / 1.13 : null;
+    const sub = esCF && total > 0 ? total / (1 + IVA_RATE) : null;
     const iva = sub != null ? total - sub : null;
     const line = (lbl, val, o = {}) => `
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:24px;padding:${o.pad || "4px 0"};${o.borderTop ? "border-top:" + o.borderTop + ";" : ""}">
