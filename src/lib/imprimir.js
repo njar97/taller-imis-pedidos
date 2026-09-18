@@ -594,6 +594,15 @@ ${p.descripcion ? `
 })() : `
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
   <table style="width:auto;min-width:240px;font-size:12px;border-collapse:collapse;border:1.5px solid #333;">
+    ${(tot > 0 && Math.abs(tot - precioFinal) > 0.01) ? `
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:5px 14px;text-align:right;color:#888;">Suma de renglones:</td>
+      <td style="padding:5px 14px;text-align:right;color:#888;width:100px;">$${tot.toFixed(2)}</td>
+    </tr>
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:5px 14px;text-align:right;color:#888;">${tot > precioFinal ? "Descuento acordado:" : "Ajuste acordado:"}</td>
+      <td style="padding:5px 14px;text-align:right;font-weight:700;color:${tot > precioFinal ? "#1E8449" : "#B9770E"};">${tot > precioFinal ? "−" : "+"}$${Math.abs(tot - precioFinal).toFixed(2)}</td>
+    </tr>` : ""}
     <tr style="border-bottom:1px solid #ddd;">
       <td style="padding:5px 14px;text-align:right;color:#555;">Subtotal:</td>
       <td style="padding:5px 14px;text-align:right;font-weight:700;width:100px;">$${subtotal.toFixed(2)}</td>
@@ -972,6 +981,9 @@ export function imprimirRecibo(p) {
   <div class="sec">💰 Totales y pago</div>
   <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
     <div style="width:340px;max-width:100%;border:1.5px solid #e6e1ef;border-radius:12px;padding:14px 18px;background:#fbfafd;">
+      ${(itemsTotal > 0 && total > 0 && Math.abs(itemsTotal - total) > 0.01) ? `
+      ${line("Suma de las prendas", money(itemsTotal), { lblColor: "#888" })}
+      ${line(itemsTotal > total ? "Descuento acordado" : "Ajuste acordado", (itemsTotal > total ? "−" : "+") + money(Math.abs(itemsTotal - total)), { lblColor: "#888", valColor: itemsTotal > total ? "#27AE60" : "#B9770E" })}` : ""}
       ${sub != null ? line("Subtotal", money(sub)) : ""}
       ${sub != null ? line("IVA (13%)", money(iva)) : ""}
       ${line("Total", total > 0 ? money(total) : "Por confirmar", { borderTop: sub != null ? "1px solid #e6e1ef" : "", pad: sub != null ? "8px 0 4px" : "4px 0", lblW: 800, lblColor: "#2C1654", lblSize: "13px", valW: 800, valSize: "15px" })}
