@@ -292,6 +292,7 @@ function FilaPedido({
   setVisor,
   cambiarEstatus,
   onImprimir,
+  onDuplicar,
 }) {
   // Se usa montoNum(p.precio) y sumarAbonos(p) para que pedidos con abonos pero sin anticipo reflejen el saldo real y coincidan con la vista móvil
   const saldo = montoNum(p.precio) - sumarAbonos(p);
@@ -525,6 +526,20 @@ function FilaPedido({
           >
             ✏️
           </button>
+          <button
+            onClick={() => onDuplicar(p)}
+            title="Duplicar pedido"
+            style={{
+              padding: "4px 8px",
+              borderRadius: 6,
+              border: "1.5px solid #C8E6C9",
+              background: "#F1FFF4",
+              cursor: "pointer",
+              fontSize: 11,
+            }}
+          >
+            📑
+          </button>
           {esAdmin && (
             <button
               onClick={() => setConf(p.id)}
@@ -608,6 +623,7 @@ function TablaYCards({
               setModal={setModal}
               setConf={setConf}
               setVisor={setVisor}
+              onDuplicar={duplicar}
               cambiarEstatus={cambiarEstatus}
               onImprimir={onImprimir}
             />
@@ -627,29 +643,7 @@ function TablaYCards({
             onEditar={setModal}
             onCambiarEstatus={cambiarEstatus}
             onEliminar={setConf}
-            onDuplicar={p => {
-              // El pedido nuevo arranca limpio en todo lo que no aplica:
-              // sin fotos del original (apuntaban a Drive del viejo), sin
-              // costurera heredada, sin días calculados que correspondan
-              // a las fechas antiguas. Sin id — FormPedido lo asigna como
-              // nuevo y nextId avanza correctamente. Tampoco hereda el
-              // capturaToken: dos pedidos compartían el mismo link público de
-              // captura de medidas y el guardado escribía en los dos.
-              const { id: _x, dias: _y, capturaToken: _z, ...resto } = p;
-              const copia = {
-                ...resto,
-                fecha: new Date().toISOString().split("T")[0],
-                fechaInicio: "",
-                fechaEntrega: "",
-                estatus: "Corte",
-                anticipo: "",
-                abonos: [],
-                imagenes: [],
-                costurera: "(Sin asignar)",
-              };
-              setSeedDuplicar(copia);
-              setModal("nuevo");
-            }}
+            onDuplicar={duplicar}
             onImprimir={p => onImprimir(p)}
             onVerFoto={v => setVisor(v)}
           />
@@ -691,6 +685,30 @@ export default function SeccionPedidos({
   onEditarCotizacion,
   onImprimirCotizacion,
 }) {
+  // Duplicar: existe en la tarjeta (móvil) y en la fila (escritorio).
+  const duplicar = p => {
+    // El pedido nuevo arranca limpio en todo lo que no aplica:
+    // sin fotos del original (apuntaban a Drive del viejo), sin
+    // costurera heredada, sin días calculados que correspondan
+    // a las fechas antiguas. Sin id — FormPedido lo asigna como
+    // nuevo y nextId avanza correctamente. Tampoco hereda el
+    // capturaToken: dos pedidos compartían el mismo link público de
+    // captura de medidas y el guardado escribía en los dos.
+    const { id: _x, dias: _y, capturaToken: _z, ...resto } = p;
+    const copia = {
+      ...resto,
+      fecha: new Date().toISOString().split("T")[0],
+      fechaInicio: "",
+      fechaEntrega: "",
+      estatus: "Corte",
+      anticipo: "",
+      abonos: [],
+      imagenes: [],
+      costurera: "(Sin asignar)",
+    };
+    setSeedDuplicar(copia);
+    setModal("nuevo");
+  };
   return (
     <>
       <Toolbar

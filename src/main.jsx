@@ -1232,12 +1232,10 @@ function App() {
           pedido={modalArchivar}
           onConfirmarArchivar={(f) => archivarPedido(modalArchivar, f)}
           onCambiarAListo={() => {
-            const actualizado = { ...modalArchivar, estatus: "Listo" };
-            setPedidos((prev) =>
-              prev.map((x) => (x.id === modalArchivar.id ? actualizado : x))
-            );
-            gsGuardar(actualizado);
+            // Por el mismo camino que cualquier cambio de estatus: parche
+            // parcial, aviso y Deshacer (antes iba directo y sin nada).
             setModalArchivar(null);
+            cambiarEstatus(modalArchivar.id, "Listo");
           }}
           onCerrar={() => setModalArchivar(null)}
         />
@@ -1444,7 +1442,15 @@ function App() {
             setSec("cuellos");
             setDet(null);
           }}
-          onCrearBordadoVinc={() => {
+          onCrearBordadoVinc={async () => {
+            // Crea y guarda un registro nuevo: un toque accidental dejaba un
+            // bordado huérfano que había que borrar a mano.
+            const ok = await pushConfirm({
+              titulo: "Crear bordado vinculado",
+              msg: `Se crea un bordado nuevo para ${detalle.cliente || "este pedido"} y se abre en Bordados.`,
+              okLabel: "Sí, crear",
+            });
+            if (!ok) return;
             const nb = {
               id: nextBordId,
               cliente: detalle.cliente,
@@ -1473,7 +1479,13 @@ function App() {
             setSec("bordados");
             setDet(null);
           }}
-          onCrearCuelloVinc={() => {
+          onCrearCuelloVinc={async () => {
+            const ok = await pushConfirm({
+              titulo: "Crear cuello vinculado",
+              msg: `Se crea un pedido de cuellos nuevo para ${detalle.cliente || "este pedido"} y se abre en Cuellos.`,
+              okLabel: "Sí, crear",
+            });
+            if (!ok) return;
             const nc = {
               id: nextCuelId,
               cliente: detalle.cliente,

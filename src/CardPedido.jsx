@@ -28,6 +28,7 @@ export default function CardPedido({
     dias !== null && dias <= 2 && !["Entregado", "Cancelado", "Cotización"].includes(p.estatus);
 
   const [copiado, setCopiado] = useState(false);
+  const [menu, setMenu] = useState(false);
   const handleWA = () => {
     copiarWA(p, esAdmin);
     setCopiado(true);
@@ -282,23 +283,6 @@ export default function CardPedido({
         </button>
         <button
           className="btn-action"
-          onClick={() => onImprimir(p)}
-          style={{
-            padding: "9px 12px",
-            borderRadius: 10,
-            border: "1.5px solid #9B59B6",
-            background: "#fff",
-            cursor: "pointer",
-            fontSize: 13,
-            fontFamily: "inherit",
-            color: "#9B59B6",
-            fontWeight: 700,
-          }}
-        >
-          🖨️
-        </button>
-        <button
-          className="btn-action"
           onClick={() => onEditar(p)}
           style={{
             padding: "9px 14px",
@@ -312,43 +296,61 @@ export default function CardPedido({
             fontWeight: 700,
           }}
         >
-          ✏️
+          ✏️ Editar
         </button>
-        <button
-          className="btn-action"
-          title="Duplicar pedido"
-          onClick={() => onDuplicar(p)}
-          style={{
-            padding: "9px 12px",
-            borderRadius: 10,
-            border: "1.5px solid #C8E6C9",
-            background: "#F1FFF4",
-            cursor: "pointer",
-            fontSize: 13,
-            fontFamily: "inherit",
-            color: "#27AE60",
-          }}
-        >
-          📄
-        </button>
-        {esAdmin && (
+        {/* Lo demás va en un menú: cinco botones pegados en 360 px hacían que
+            "eliminar" quedara a milímetros de "editar" y se tocara sin querer. */}
+        <div style={{ position: "relative" }}>
           <button
             className="btn-action"
-            onClick={() => onEliminar(p.id)}
+            aria-label="Más acciones"
+            onClick={() => setMenu(m => !m)}
             style={{
               padding: "9px 12px",
               borderRadius: 10,
-              border: "1.5px solid #fdd",
-              background: "#fff8f8",
+              border: "1.5px solid #e8e0f0",
+              background: menu ? "#f3eefa" : "#fff",
               cursor: "pointer",
-              fontSize: 13,
+              fontSize: 15,
               fontFamily: "inherit",
-              color: "#DC3545",
+              color: "#555",
+              fontWeight: 900,
+              lineHeight: 1,
             }}
           >
-            🗑️
+            ⋯
           </button>
-        )}
+          {menu && (
+            <div
+              role="menu"
+              style={{
+                position: "absolute", right: 0, bottom: "calc(100% + 6px)", zIndex: 20,
+                background: "#fff", border: "1.5px solid #e8e0f0", borderRadius: 12,
+                boxShadow: "0 8px 24px rgba(44,22,84,.16)", minWidth: 190, padding: 6,
+                display: "flex", flexDirection: "column", gap: 2,
+              }}
+            >
+              {[
+                ["🖨️", esAdmin ? "Imprimir recibo" : "Imprimir hoja de taller", () => onImprimir(p), "#333"],
+                ["📑", "Duplicar pedido", () => onDuplicar(p), "#27AE60"],
+                ...(esAdmin ? [["🗑️", "Eliminar (va a papelera)", () => onEliminar(p.id), "#DC3545"]] : []),
+              ].map(([ic, lbl, fn, color]) => (
+                <button
+                  key={lbl}
+                  role="menuitem"
+                  onClick={() => { setMenu(false); fn(); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left",
+                    padding: "10px 12px", borderRadius: 8, border: "none", background: "transparent",
+                    cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "inherit", color,
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>{ic}</span>{lbl}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

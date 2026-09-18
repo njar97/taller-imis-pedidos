@@ -7,7 +7,7 @@
 
 import { NAV_IDS_VISIBLES } from "./lib/navItems.js";
 import { soportaHuella, huellaActivada, activarHuella, desactivarHuella } from "./lib/biometria.js";
-import { pushToast } from "./lib/feedback.js";
+import { pushToast, pushConfirm } from "./lib/feedback.js";
 
 import { useState, useEffect } from "react";
 
@@ -160,7 +160,10 @@ export default function MasOpenSheet({
             </button>
           )}
           <button
-            onClick={() => {
+            onClick={async () => {
+              // Cerrar sesión sin querer obligaba a volver a entrar con código.
+              const ok = await pushConfirm({ titulo: "Cerrar sesión", msg: "¿Salir de la app?", okLabel: "Sí, salir" });
+              if (!ok) return;
               setRol(null);
               setMasOpen(false);
             }}

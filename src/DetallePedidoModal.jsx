@@ -2466,13 +2466,16 @@ export default function DetallePedidoModal({
           >
             💬 WhatsApp
           </button>
-          <button
-            onClick={() => setVerDocs(true)}
-            title="Hojas para el taller, papeles para el cliente y el recordatorio de entrega"
-            style={btnExport("#1A5276")}
-          >
-            📄 Documentos…
-          </button>
+          {/* Para operario el panel quedaba vacío (todo es solo admin). */}
+          {esAdmin && (
+            <button
+              onClick={() => setVerDocs(true)}
+              title="Hojas para el taller, papeles para el cliente y el recordatorio de entrega"
+              style={btnExport("#1A5276")}
+            >
+              📄 Documentos…
+            </button>
+          )}
         </div>
         {/* Acción principal */}
         <button
