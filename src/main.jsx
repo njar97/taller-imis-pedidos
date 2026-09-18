@@ -1391,13 +1391,27 @@ function App() {
             setDet(actualizado);
             cambiarEstatus(detalle.id, nuevo);
           }}
-          onCambiarCosturera={(nuevo) => {
+          onCambiarCosturera={async (nuevo) => {
+            // Mismo trato que el estatus: aviso, error visible y Deshacer de 6 s
+            // (antes se guardaba sin esperar y sin avisar si fallaba).
+            const anterior = detalle.costurera;
+            if (anterior === nuevo) return;
             const actualizado = { ...detalle, costurera: nuevo };
             setDet(actualizado);
             setPedidos((prev) =>
               prev.map((p) => (p.id === detalle.id ? actualizado : p))
             );
-            gsGuardar(actualizado);
+            const ok = await gsGuardar(actualizado);
+            if (!ok) {
+              pushToast("No se pudo guardar la costurera — revisá la conexión", "error", 5000);
+              return;
+            }
+            pushUndo(`Costurera → ${nuevo}`, async () => {
+              const revertido = { ...actualizado, costurera: anterior };
+              setDet((d) => (d && d.id === detalle.id ? revertido : d));
+              setPedidos((prev) => prev.map((p) => (p.id === detalle.id ? revertido : p)));
+              await gsGuardar(revertido);
+            });
           }}
           onVerFoto={(imgs, idx) => setVisor({ imgs, idx })}
           onIrABordados={() => {

@@ -53,7 +53,22 @@ function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
         <div style={labelStyle}>Estatus</div>
         <select
           value={pedido.estatus}
-          onChange={e => onCambiarEstatus(e.target.value)}
+          onChange={async e => {
+            const nuevo = e.target.value;
+            // Confirmación antes de pasar a estados finales
+            if (nuevo === "Entregado" || nuevo === "Cancelado") {
+              const ok = await pushConfirm({
+                titulo: `Cambiar estatus a ${nuevo}`,
+                msg: `¿Confirmás marcar este pedido como "${nuevo}"?`,
+                okLabel: `Sí, marcar como ${nuevo}`,
+              });
+              if (!ok) {
+                e.target.value = pedido.estatus;
+                return;
+              }
+            }
+            onCambiarEstatus(nuevo);
+          }}
           style={{
             width: "100%",
             padding: "9px 10px",
@@ -532,6 +547,14 @@ function FichaFactura({ f, correoCliente }) {
         <button
           disabled={enviando}
           onClick={async () => {
+            const dest = correoCliente || (Array.isArray(enviadoA) ? enviadoA.join(", ") : enviadoA);
+            // Confirmación previa indicando el correo destino
+            const ok = await pushConfirm({
+              titulo: enviadoA ? "Reenviar factura" : "Enviar factura",
+              msg: `¿Enviar factura electrónica (PDF + JSON) a ${dest}?`,
+              okLabel: "Sí, enviar",
+            });
+            if (!ok) return;
             setEnviando(true);
             const r = await enviarDteEmail({
               facturaId: f.id,
@@ -876,7 +899,22 @@ function FacturaElectronica({ pedido }) {
             </label>
             <label style={{ flex: "1 1 130px", ...etiqueta }}>
               Ambiente
-              <select value={ambiente} onChange={e => cambiarAmbiente(e.target.value)}
+              <select value={ambiente} onChange={async e => {
+                const val = e.target.value;
+                // Confirmación para evitar emisiones accidentales en producción con validez legal
+                if (val === "01") {
+                  const ok = await pushConfirm({
+                    titulo: "Cambiar a PRODUCCIÓN",
+                    msg: "¿Estás seguro de pasar al ambiente PRODUCCIÓN? Las facturas emitidas tendrán validez legal ante Hacienda.",
+                    okLabel: "Sí, cambiar a Producción",
+                  });
+                  if (!ok) {
+                    e.target.value = ambiente;
+                    return;
+                  }
+                }
+                cambiarAmbiente(val);
+              }}
                 style={{
                   ...inp, marginTop: 2, fontWeight: 700,
                   color: ambiente === "01" ? "#c0392b" : "#1a7f37",
@@ -2239,21 +2277,14 @@ export default function DetallePedidoModal({
     let tok = capturaTok;
     if (!tok) {
       setGenerandoLink(true);
-      tok = generarTokenCaptura();
+      const nuevoToken = generarTokenCaptura();
+      tok = nuevoToken;
       try {
-        const SUPA = "https://kszdievqesveluzcnzsh.supabase.co/rest/v1";
-        const KEY = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
-        const r = await fetch(`${SUPA}/taller_pedidos?id=eq.${pedido.id}`, {
-          method: "PATCH",
-          headers: {
-            apikey: KEY, Authorization: "Bearer " + KEY,
-            "Content-Type": "application/json", Prefer: "return=minimal",
-          },
-          body: JSON.stringify({ captura_token: tok }),
-        });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        setCapturaTok(tok);
-        pedido.capturaToken = tok; // que sobreviva reaperturas del modal
+        // Se guarda en Supabase usando dbGuardar (convierte capturaToken a captura_token)
+        const okGuardar = await dbGuardar({ ...pedido, capturaToken: nuevoToken });
+        if (!okGuardar) throw new Error("No se pudo guardar el token en la base de datos");
+        setCapturaTok(nuevoToken);
+        pedido.capturaToken = nuevoToken; // que sobreviva reaperturas del modal
       } catch (e) {
         setGenerandoLink(false);
         pushToast("No pude generar el link: " + (e?.message || e), "error", 5000);
@@ -2283,23 +2314,10 @@ export default function DetallePedidoModal({
     const idGuardado = pedido.id;
     delete snap.deleted_at;
     snap.id = idGuardado;
-    // Hacemos PATCH directo via REST con keys camelCase → snake_case
-    // ya las maneja keysToSnake en db.js. Usamos el callback de save
-    // del componente padre vía la prop onAbrirEdicion no aplica acá.
-    // Hacemos fetch directo:
     try {
-      const SUPA = "https://kszdievqesveluzcnzsh.supabase.co/rest/v1";
-      const KEY = "sb_publishable_XCwHC4aEI6g4_AFXLXbzIg_QpUL_FpX";
-      // Pre-snake-case del snapshot (los campos en BD están en snake)
-      const r = await fetch(`${SUPA}/taller_pedidos?id=eq.${idGuardado}`, {
-        method: "PATCH",
-        headers: {
-          apikey: KEY, Authorization: "Bearer " + KEY,
-          "Content-Type": "application/json", Prefer: "return=minimal",
-        },
-        body: JSON.stringify(snap),
-      });
-      if (r.ok) {
+      // dbGuardar convierte camelCase a snake_case y maneja el upsert de forma segura
+      const okGuardar = await dbGuardar(snap);
+      if (okGuardar) {
         limpiarSnapshot(idGuardado);
         setEdRec(null);
         pushToast("Edición deshecha. Recargá para ver los datos restaurados.", "success", 5000);
