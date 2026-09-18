@@ -79,6 +79,17 @@ describe("agruparColorTalla", () => {
     expect(bloques.get("verde").has("M")).toBe(false);
   });
 
+  it("cuenta por tallasItems (con qty) cuando el pedido no tiene personas", () => {
+    // Pedido cargado "por totales": antes salía vacío en esta hoja mientras
+    // la hoja armable sí lo contaba.
+    const { bloques } = agruparColorTalla({
+      id: 61, cliente: "EPAL", tipoPrenda: "Camiseta", color: "azul", personas: [],
+      tallasItems: [{ tipo: "Camiseta", talla: "6", qty: 12 }, { tipo: "Camiseta", talla: "8", qty: 3 }],
+    });
+    expect(bloques.get("azul").get("6")).toBe(12);
+    expect(bloques.get("azul").get("8")).toBe(3);
+  });
+
   it("nombra a quien no tiene color, para poder preguntarle", () => {
     const { nombresSinColor } = agruparColorTalla(pedido([
       per("Lean", "6", ""), per("B", "6", "verde"),

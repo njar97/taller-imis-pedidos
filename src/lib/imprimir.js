@@ -1353,6 +1353,21 @@ export function agruparColorTalla(p) {
       t.set(linea.talla, (t.get(linea.talla) || 0) + 1);
     }
   }
+  // Pedido cargado "por totales": no hay personas y las cantidades viven en
+  // los ítems por talla (con qty). Antes estas hojas salían vacías para esos
+  // pedidos mientras la hoja armable sí los contaba — dos totales distintos.
+  if (!personas.length) {
+    for (const it of itemsResumen(p)) {
+      const talla = (it.talla || "").trim();
+      const qty = parseInt(it.qty) || 0;
+      if (!talla || !qty) continue;
+      if (/medida/i.test(talla)) { aMedida.push({ nombre: `${qty} × ${it.tipo || p.tipoPrenda || "prenda"}` }); continue; }
+      const c = colorDeItem(it) || (p.color || "");
+      if (!bloques.has(c)) bloques.set(c, new Map());
+      const t = bloques.get(c);
+      t.set(talla, (t.get(talla) || 0) + qty);
+    }
+  }
   return { bloques, nombresSinColor, aMedida };
 }
 

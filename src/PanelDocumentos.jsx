@@ -177,8 +177,6 @@ export default function PanelDocumentos({
   capturaTok,
   onClose,
   onHojaTaller,
-  onCantidades,
-  onCorte,
   onCorteArmable,          // (opts) => void — la hoja de corte armable
   onAgrupada,              // (id) => void
   onIrMarcando,
@@ -210,22 +208,6 @@ export default function PanelDocumentos({
           {esAdmin && onCorteArmable && (
             <ArmadorCorte key="corte-armable" pedido={pedido} color={COLOR.taller}
               onImprimir={opts => cerrarY(() => onCorteArmable(opts))()} />
-          )}
-          {esAdmin && !onCorteArmable && (
-            <Doc
-              key="cant" icono="🔢" color={COLOR.taller}
-              nombre="Cuántas cortar"
-              desc="Cuadro de talla y color con las cantidades, sin nombres. Es la hoja para la mesa de corte."
-              onClick={cerrarY(onCantidades)}
-            />
-          )}
-          {esAdmin && !onCorteArmable && (
-            <Doc
-              key="corte" icono="✂️" color={COLOR.taller}
-              nombre="Hoja de corte con piezas"
-              desc="Lo anterior más cuántas piezas de cada molde salen por talla."
-              onClick={cerrarY(onCorte)}
-            />
           )}
           {esAdmin && opcionesExtra.map(o => (
             <Doc

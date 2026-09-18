@@ -9,7 +9,7 @@
 
 import { nuevaVentanaImpresion } from "./imprimir.js";
 import { MEDIDAS_DEF } from "./constants.js";
-import { rankTalla, cantidadComponente } from "./dominio.js";
+import { rankTalla, cantidadComponente, itemsResumen } from "./dominio.js";
 // imgSrc y no la URL cruda: driveUrl es un link /view, no una imagen — la
 // foto legacy de Drive salía rota en la ficha técnica.
 import { imgSrc } from "./imagenes.js";
@@ -373,6 +373,20 @@ export function imprimirHojaTaller(p) {
     for (const l of lineas) {
       if (!porTalla.has(l.talla)) porTalla.set(l.talla, []);
       porTalla.get(l.talla).push({ per, prenda: l.prenda });
+    }
+  }
+  // Pedido cargado "por totales" (sin personas): una fila por prenda desde
+  // los ítems por talla, para poder ir tachando igual. Antes la hoja salía
+  // con "Total 0" y en blanco para esos pedidos.
+  if (!personas.length) {
+    for (const it of itemsResumen(p)) {
+      const t = (it.talla || "").trim();
+      const qty = parseInt(it.qty) || 0;
+      if (!t || !qty) continue;
+      if (!porTalla.has(t)) porTalla.set(t, []);
+      for (let i = 0; i < qty; i++) {
+        porTalla.get(t).push({ per: { nombre: it.tipo || p.tipoPrenda || "Prenda" }, prenda: it.spec || "" });
+      }
     }
   }
   const tallasOrd = [...porTalla.keys()].sort((a, b) => rankTalla(a) - rankTalla(b));
