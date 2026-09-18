@@ -287,6 +287,10 @@ export const PEDIDO_BASE = {
   estatusDiseno: "",
   telaComprada: false,
   tipoDocumento: "Consumidor Final",
+  // Con qué empresa se factura: "imis" | "jav". Se elige al capturar el
+  // pedido y al facturar se toma de acá (antes era un selector global que
+  // se quedaba pegado en el último usado).
+  emisor: "imis",
   razonSocial: "",
   nit: "",
   nrc: "",

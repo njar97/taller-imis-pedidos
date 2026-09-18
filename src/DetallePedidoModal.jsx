@@ -483,6 +483,12 @@ function FichaFactura({ f, correoCliente }) {
         <span style={{ fontWeight: 700, textDecoration: anulada ? "line-through" : "none" }}>
           {f.tipo_dte === "03" ? "CCF" : "FC"} {f.numero_control || "(sin nº control)"}
         </span>
+        {/* Quién emitió: con dos empresas facturando, hay que verlo de un vistazo. */}
+        {f.nit_emisor && (
+          <span style={{ ...chip, background: "#e8eef7", color: "#1a3c6e" }}>
+            {Object.values(EMISORES).find(e => e.nit === f.nit_emisor)?.etiqueta || f.nit_emisor}
+          </span>
+        )}
         {f.total != null && <span style={{ fontWeight: 700 }}>{fmt$(f.total)}</span>}
         {anulada && <span style={chip}>ANULADA</span>}
         {f.ambiente === "00" && <span style={chip}>PRUEBAS</span>}
@@ -585,7 +591,13 @@ function FacturaElectronica({ pedido }) {
   // Quién emite, contra qué ambiente y qué documento: se eligen a propósito y
   // se ven siempre. El tipo arranca en lo que pide la ficha del pedido, pero se
   // puede cambiar acá — CCF y consumidor final son los dos casos de todos los días.
-  const [emisor, setEmisor] = useState(emisorActivo);
+  // El emisor viene del pedido (elegido al capturarlo). Si el pedido no lo
+  // trae (pedidos viejos), se usa el último elegido en este aparato.
+  const [emisor, setEmisor] = useState(() => {
+    const k = pedido.emisor || emisorActivo();
+    setEmisorActivo(k);
+    return k;
+  });
   const [ambiente, setAmbiente] = useState(ambienteDte);
   const sugerido = tipoSugerido(pedido);
   const [tipo, setTipo] = useState(sugerido);
@@ -687,7 +699,14 @@ function FacturaElectronica({ pedido }) {
     facturasDePedido(pedido.id).then(setFacturas);
   }, [pedido.id, emisor]);
 
-  const cambiarEmisor = (k) => { setEmisorActivo(k); setEmisor(k); };
+  // Cambiarlo acá también lo deja en el pedido: la próxima vez sale igual.
+  const cambiarEmisor = async (k) => {
+    setEmisorActivo(k); setEmisor(k);
+    if (k !== pedido.emisor) {
+      const ok = await dbGuardar({ ...pedido, emisor: k });
+      if (ok) pedido.emisor = k;
+    }
+  };
   const cambiarAmbiente = (a) => { setAmbienteDte(a); setAmbiente(a); };
 
   const { facturado, saldo } = totalFacturado(facturas, d.total);

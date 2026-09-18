@@ -15,6 +15,7 @@ import { PEDIDO_BASE, fmt$, itemsResumen, medInit, resolverConjunto } from "./li
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
 import { buscarClienteFiscal, buscarClientesFiscalesPorNombre, nitLimpio } from "./lib/clientesFiscales.js";
+import { EMISORES } from "./lib/facturacion.js";
 import { CATALOGO_BASE } from "./lib/catalogoBase.js";
 import {
   BannerMedidas,
@@ -1613,6 +1614,15 @@ export default function FormPedido({
       {/* ── Facturación (admin) ─────────────────────── */}
       {esAdmin && (
         <SeccionOpcional id="sec-factura" titulo="Facturación / Crédito fiscal" icon="🧾" color="#E67E22" defaultOpen={llenoFactura}>
+          <label style={LBL}>Emite (empresa que factura)</label>
+          <select
+            style={{ ...INP, marginBottom: 10, fontWeight: 700 }}
+            value={f.emisor || "imis"}
+            onChange={e => s("emisor", e.target.value)}
+          >
+            {Object.entries(EMISORES).map(([k, v]) => <option key={k} value={k}>{v.etiqueta}</option>)}
+          </select>
+          <label style={LBL}>Documento</label>
           <select
             style={{ ...INP, marginBottom: 10 }}
             value={f.tipoDocumento}
