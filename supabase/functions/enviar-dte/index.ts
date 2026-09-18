@@ -38,6 +38,48 @@ const supabase = createClient(SUPA_URL, SUPA_SERVICE, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// ── Salida por el Gmail de cada empresa ──────────────────────
+//
+// Javier quiere ver las facturas enviadas en "Enviados" de Gmail. Resend no
+// pasa por Gmail, así que el correo sale por el SMTP de la cuenta del emisor
+// (contraseña de aplicación en secrets). Si la empresa no tiene cuenta
+// configurada, o Gmail falla, se cae a Resend para que la factura salga igual.
+//   GMAIL_USER_JAV / GMAIL_PASS_JAV   → NIT 03151202971040 (Nelson Javier)
+//   GMAIL_USER_IMIS / GMAIL_PASS_IMIS → NIT 03151010111012 (UDP Confecciones IMIS)
+const CUENTAS_GMAIL = {
+  "03151202971040": { user: Deno.env.get("GMAIL_USER_JAV"), pass: Deno.env.get("GMAIL_PASS_JAV") },
+  "03151010111012": { user: Deno.env.get("GMAIL_USER_IMIS"), pass: Deno.env.get("GMAIL_PASS_IMIS") },
+};
+const cuentaGmailDe = (nit) => {
+  const c = CUENTAS_GMAIL[String(nit || "").replace(/-/g, "")];
+  return c && c.user && c.pass ? c : null;
+};
+
+async function enviarPorGmail(cuenta, { nombre, to, bcc, replyTo, subject, html, adjuntos }) {
+  const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+  const client = new SMTPClient({
+    connection: { hostname: "smtp.gmail.com", port: 465, tls: true, auth: { username: cuenta.user, password: cuenta.pass } },
+  });
+  try {
+    // El remitente visible sigue siendo el del dominio (facturacion@imeltex…):
+    // Gmail lo respeta si esa dirección está configurada como «Enviar como»
+    // en la cuenta; si no lo está, Gmail pone la cuenta y avisa en el correo.
+    const desde = FROM_ADDR.includes("@") && !FROM_ADDR.includes("resend.dev") ? FROM_ADDR : cuenta.user;
+    await client.send({
+      from: `"${nombre.replace(/"/g, "")}" <${desde}>`,
+      to,
+      bcc: bcc && bcc.length ? bcc : undefined,
+      replyTo,
+      subject,
+      content: "auto",
+      html,
+      attachments: adjuntos.map(a => ({ filename: a.filename, content: a.content, encoding: "base64", contentType: a.contentType })),
+    });
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+
 const TIPOS = {
   "01": "FACTURA",
   "03": "COMPROBANTE DE CRÉDITO FISCAL",
@@ -365,36 +407,56 @@ Deno.serve(async (req) => {
         error: "No hay a quién mandarlo: el DTE no trae correo del receptor y no me pasaste destinatarios.",
       }), { status: 400 });
 
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: remitente(dte.emisor),
-        reply_to: dte.emisor?.correo || undefined,
-        // Copia oculta al buzón del emisor: es de donde dte_web (contabilidad)
-        // levanta los DTE por el JSON adjunto. Sin esto, todo lo emitido desde
-        // la app quedaba fuera de la contabilidad y de las declaraciones.
-        bcc: dte.emisor?.correo && !para.includes(dte.emisor.correo) ? [dte.emisor.correo] : undefined,
-        to: para,
-        subject: (anulada ? "INVALIDADO — " : "") +
-                 `${TIPOS[dte.identificacion?.tipoDte] || "DTE"} ${nombre} — ` +
-                 `${dte.emisor?.nombreComercial || dte.emisor?.nombre || ""}`,
-        html: armarHTML(dte, factura, mensaje_extra, anulada),
-        attachments: [
-          { filename: `${nombre}.pdf`, content: b64(pdf) },
-          { filename: `${nombre}.json`, content: btoa(unescape(encodeURIComponent(JSON.stringify(dte, null, 2)))) },
-        ],
-      }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok)
-      return new Response(JSON.stringify({ error: "Resend rechazó el envío", detail: data }), { status: 502 });
+    const subject = (anulada ? "INVALIDADO — " : "") +
+                    `${TIPOS[dte.identificacion?.tipoDte] || "DTE"} ${nombre} — ` +
+                    `${dte.emisor?.nombreComercial || dte.emisor?.nombre || ""}`;
+    const html = armarHTML(dte, factura, mensaje_extra, anulada);
+    const adjuntos = [
+      { filename: `${nombre}.pdf`, content: b64(pdf), contentType: "application/pdf" },
+      { filename: `${nombre}.json`, content: btoa(unescape(encodeURIComponent(JSON.stringify(dte, null, 2)))), contentType: "application/json" },
+    ];
+    // Copia oculta al buzón del emisor: de ahí levanta dte_web (contabilidad)
+    // el DTE por el JSON adjunto, además del registro central.
+    const bcc = dte.emisor?.correo && !para.includes(dte.emisor.correo) ? [dte.emisor.correo] : [];
+    const nombreEmisor = dte.emisor?.nombreComercial || dte.emisor?.nombre || "";
+
+    let via = "resend", idEnvio = null;
+    const cuenta = cuentaGmailDe(dte.emisor?.nit);
+    if (cuenta) {
+      try {
+        // Sale por el Gmail del emisor: queda en su carpeta de Enviados. La
+        // copia oculta ya no hace falta (el propio Gmail guarda el enviado).
+        await enviarPorGmail(cuenta, { nombre: nombreEmisor, to: para, bcc: bcc.filter(b => b !== cuenta.user), replyTo: dte.emisor?.correo, subject, html, adjuntos });
+        via = "gmail:" + cuenta.user;
+      } catch (e) {
+        console.error("Gmail falló, se manda por Resend:", e?.message || e);
+      }
+    }
+    if (via === "resend") {
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: remitente(dte.emisor),
+          reply_to: dte.emisor?.correo || undefined,
+          bcc: bcc.length ? bcc : undefined,
+          to: para,
+          subject,
+          html,
+          attachments: adjuntos.map(a => ({ filename: a.filename, content: a.content })),
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok)
+        return new Response(JSON.stringify({ error: "Resend rechazó el envío", detail: data }), { status: 502 });
+      idEnvio = data.id;
+    }
 
     await supabase.from("taller_facturas")
       .update({ enviado_a: para, enviado_en: new Date().toISOString() })
       .eq("id", factura.id);
 
-    return new Response(JSON.stringify({ ok: true, id: data.id, destinatarios: para }), {
+    return new Response(JSON.stringify({ ok: true, id: idEnvio, via, destinatarios: para }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
