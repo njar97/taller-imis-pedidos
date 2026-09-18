@@ -72,6 +72,37 @@ Deno.serve(async (req) => {
       };
       const { error } = await supabase.from("dte_emitidos").upsert(fila, { onConflict: "codigo_generacion" });
       if (error) return json({ error: error.message }, 500);
+
+      // Base única de clientes fiscales: cada receptor sellado la alimenta.
+      // Lo que trae el DTE es dato validado por Hacienda, así que pisa lo
+      // anterior salvo los campos que el DTE no trae o trae de relleno.
+      const nitRec = fila.receptor_nit;
+      if (nitRec && nitRec.length >= 9 && rec.nombre && fila.ambiente === "01") {
+        const dir = rec.direccion || {};
+        const limpio = (v, relleno) => (v && v !== relleno ? v : null);
+        const { data: prev } = await supabase.from("clientes_fiscales").select("n_dte, ultimo_dte")
+          .eq("nit", nitRec).maybeSingle();
+        const cliente = {
+          nit: nitRec,
+          tipo_documento: nitRec.length === 9 ? "13" : "36",
+          nrc: (rec.nrc || "").replace(/[^0-9]/g, "") || undefined,
+          nombre: String(rec.nombre).trim(),
+          nombre_comercial: rec.nombreComercial || undefined,
+          cod_actividad: rec.codActividad || undefined,
+          desc_actividad: rec.descActividad || undefined,
+          departamento: dir.departamento || undefined,
+          municipio: dir.municipio || undefined,
+          complemento: dir.complemento || undefined,
+          telefono: limpio(rec.telefono, "0000-0000") || undefined,
+          correo: limpio(rec.correo, "cliente@ejemplo.com") || undefined,
+          origen: "dte",
+          ultimo_dte: fila.fec_emi || undefined,
+          n_dte: (prev?.n_dte || 0) + 1,
+          actualizado_en: new Date().toISOString(),
+        };
+        const { error: e2 } = await supabase.from("clientes_fiscales").upsert(cliente, { onConflict: "nit" });
+        if (e2) console.error("clientes_fiscales:", e2.message);
+      }
       return json({ ok: true, codigo_generacion: fila.codigo_generacion });
     }
 

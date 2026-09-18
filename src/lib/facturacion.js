@@ -14,6 +14,7 @@
 import { withRetry } from "./retry.js";
 import { detalleFactura, fmt$ } from "./dominio.js";
 import { enviarDteEmail } from "./email.js";
+import { buscarClienteFiscal } from "./clientesFiscales.js";
 
 const PUENTE = "https://emisor-imis.duckdns.org";
 const TOKEN_KEY = "taller_puente_token";
@@ -179,6 +180,16 @@ export function descripcionItem(linea, pedido) {
 // es de Sonsonate, le salió así en el CCF del 17-sep-2026.
 async function receptorConocido(nit) {
   if (!nit) return null;
+  // Primero la base única de clientes fiscales (la alimenta el puente con
+  // cada DTE sellado, desde cualquier app). Si tiene departamento, alcanza.
+  const cf = await buscarClienteFiscal(nit);
+  if (cf && cf.departamento) {
+    return {
+      direccion: { departamento: cf.departamento, municipio: cf.municipio, complemento: cf.complemento || "" },
+      codActividad: cf.cod_actividad || undefined, descActividad: cf.desc_actividad || undefined,
+      telefono: cf.telefono || undefined, correo: cf.correo || undefined,
+    };
+  }
   try {
     const rows = await supa(
       `/taller_facturas?receptor->>nit=eq.${encodeURIComponent(nit)}` +

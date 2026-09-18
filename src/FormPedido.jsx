@@ -14,6 +14,7 @@ const TODAS_TALLAS_COMP = [
 import { PEDIDO_BASE, fmt$, itemsResumen, medInit, resolverConjunto } from "./lib/dominio.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import { useDebouncedCallback } from "./lib/hooks.js";
+import { buscarClienteFiscal, buscarClientesFiscalesPorNombre, nitLimpio } from "./lib/clientesFiscales.js";
 import { CATALOGO_BASE } from "./lib/catalogoBase.js";
 import {
   BannerMedidas,
@@ -295,8 +296,40 @@ export default function FormPedido({
       })
       .slice(0, 5);
     setSugs(res);
+    // También lo que hay en la base única de clientes fiscales (otras apps).
+    buscarClientesFiscalesPorNombre(q).then(cfs => {
+      if (!cfs.length) return;
+      const nombresYa = new Set(res.map(c => (c.nombre || "").toLowerCase()));
+      const extra = cfs
+        .filter(c => !nombresYa.has((c.nombre_comercial || c.nombre || "").toLowerCase()))
+        .map(c => ({
+          nombre: c.nombre_comercial || c.nombre, telefono: c.telefono || "", tipo: "empresa",
+          nit: c.nit, nrc: c.nrc || "", razonSocial: c.nombre, dirFiscal: c.complemento || "",
+          correo: c.correo || "", _fiscal: true,
+        }));
+      if (extra.length) setSugs(prev => [...prev, ...extra].slice(0, 6));
+    });
   }
   const buscarClientesDebounced = useDebouncedCallback(buscarClientes, 200);
+
+  // Al terminar de escribir el NIT, se completan los datos fiscales desde la
+  // base única (lo que ya se le facturó a ese NIT desde cualquier app).
+  // Solo llena lo que está vacío: si el usuario ya escribió algo, se respeta.
+  const completarDesdeBaseFiscal = async (nit) => {
+    if (nitLimpio(nit).length < 9) return;
+    const cf = await buscarClienteFiscal(nit);
+    if (!cf) return;
+    setF(p => ({
+      ...p,
+      razonSocial: p.razonSocial || cf.nombre || "",
+      nrc: p.nrc || cf.nrc || "",
+      dirFiscal: p.dirFiscal || cf.complemento || "",
+      correo: p.correo || cf.correo || "",
+      telefono: p.telefono || cf.telefono || "",
+      tipoDocumento: (cf.nrc || p.nrc) ? "Crédito Fiscal (completo)" : p.tipoDocumento,
+    }));
+    pushToast(`Datos fiscales de ${cf.nombre} cargados desde la base única`, "success", 3500);
+  };
 
   const elegirSugerencia = sg => {
     s("cliente", sg.nombre);
@@ -307,6 +340,7 @@ export default function FormPedido({
     if (sg.nrc) s("nrc", sg.nrc);
     if (sg.razonSocial) s("razonSocial", sg.razonSocial);
     if (sg.dirFiscal) s("dirFiscal", sg.dirFiscal);
+    if (sg.correo) s("correo", sg.correo);
     if (sg.nit && sg.nrc) s("tipoDocumento", "Crédito Fiscal (completo)");
     if (sg.medidas && Object.values(sg.medidas).some(v => v)) {
       setF(p => ({
@@ -1614,7 +1648,8 @@ export default function FormPedido({
               </div>
               <div>
                 <label style={LBL}>NIT</label>
-                <input style={INP} value={f.nit} onChange={e => s("nit", e.target.value)} />
+                <input style={INP} value={f.nit} onChange={e => s("nit", e.target.value)}
+                  onBlur={e => completarDesdeBaseFiscal(e.target.value)} />
               </div>
               <div>
                 <label style={LBL}>NRC</label>

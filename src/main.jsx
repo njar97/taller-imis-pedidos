@@ -21,6 +21,7 @@ import PantallaLogin from "./PantallaLogin.jsx";
 import PantallaHuella from "./PantallaHuella.jsx";
 import PantallaCaptura from "./PantallaCaptura.jsx";
 import { necesitaDesbloqueo } from "./lib/biometria.js";
+import { guardarClienteFiscal } from "./lib/clientesFiscales.js";
 
 // Modo captura pública (?captura=TOKEN): la página corre sin login y solo
 // muestra la tabla de personas del pedido del token. Se resuelve una vez
@@ -589,6 +590,13 @@ function App() {
       razonSocial: p.razonSocial,
       dirFiscal: p.dirFiscal
     });
+    // Base única de clientes fiscales (compartida con Tlacuilo y contabilidad).
+    if (p.nit) {
+      guardarClienteFiscal({
+        nit: p.nit, nrc: p.nrc, razonSocial: p.razonSocial, nombreComercial: p.cliente,
+        dirFiscal: p.dirFiscal, telefono: p.telefono, correo: p.correo,
+      }).catch(() => {});
+    }
     const tieneMedsNuevas = p.medidas && Object.values(p.medidas).some(v => v);
     if (tieneMedsNuevas) {
       const cliIdx = clientes.findIndex(cl => cl.nombre.toLowerCase() === p.cliente.toLowerCase());
