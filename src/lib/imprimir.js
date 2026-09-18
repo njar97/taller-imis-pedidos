@@ -4,7 +4,7 @@
 import { agruparPrendas } from "../ListaPrendas.jsx";
 import { EMPRESA, setEmpresaActiva } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
-import { agujasTejido, conjuntosResueltos, itemsResumen, medidaCuelloParaTalla, montoNum, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
+import { agujasTejido, componentesResumen, conjuntosResueltos, itemsResumen, medidaCuelloParaTalla, montoNum, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { dbMoldesLeer, dbTejidosLeer } from "./db.js";
 import { mensajeWA, mensajeCotizacionWA } from "./whatsapp.js";
 import { imgSrc } from "./imagenes.js";
@@ -16,6 +16,40 @@ import QRCode from "qrcode";
 const esc = s => String(s ?? "")
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;");
+
+// Bloque "Otras prendas del pedido" (componentes del kit: gabacha, gorro…).
+// Mismo bloque en cotización, recibo, entrega y producción: se facturan y se
+// cosen, así que tienen que verse en todos. `precios` los muestra solo en los
+// papeles del cliente.
+function componentesHTML(p, { precios = false, color = "#2C1654" } = {}) {
+  const comps = componentesResumen(p);
+  if (!comps.length) return "";
+  const money = n => "$" + (Number(n) || 0).toFixed(2);
+  const filas = comps.map((c, i) => {
+    const tallas = c.porTalla.length
+      ? c.porTalla.map(([t, n]) => `<b>${esc(t)}</b>&nbsp;${n}`).join(" &nbsp;·&nbsp; ")
+      : "única";
+    const sub = c.precio != null ? c.precio * c.qty : null;
+    return `<tr style="background:${i % 2 === 0 ? "#fff" : "#f7f7f7"};border-bottom:1px solid #e3e3e3;">
+      <td style="padding:6px 9px;font-weight:700;color:#222;">${esc(c.nombre)}${c.nota ? `<div style="font-size:10px;color:#777;font-weight:400;">${esc(c.nota)}</div>` : ""}</td>
+      <td style="padding:6px 9px;color:#555;font-size:11px;">${tallas}</td>
+      <td style="padding:6px 9px;text-align:center;font-weight:800;">${c.qty}</td>
+      ${precios ? `<td style="padding:6px 9px;text-align:right;">${c.precio != null ? money(c.precio) : "—"}</td>
+      <td style="padding:6px 9px;text-align:right;font-weight:800;">${sub != null ? money(sub) : "—"}</td>` : ""}
+    </tr>`;
+  }).join("");
+  return `
+  <div style="font-size:11px;font-weight:800;color:${color};text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;">➕ Otras prendas del pedido</div>
+  <table style="border-collapse:collapse;width:100%;font-size:11.5px;margin-bottom:10px;border:1px solid #ddd;">
+    <thead><tr style="background:#f0edf5;color:#333;">
+      <th style="padding:6px 9px;text-align:left;">Prenda</th>
+      <th style="padding:6px 9px;text-align:left;">Tallas</th>
+      <th style="padding:6px 9px;text-align:center;width:60px;">Cant.</th>
+      ${precios ? `<th style="padding:6px 9px;text-align:right;width:80px;">Precio</th><th style="padding:6px 9px;text-align:right;width:90px;">Subtotal</th>` : ""}
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table>`;
+}
 
 // Genera el HTML de "Detalle por persona" — tabla donde cada fila es una
 // persona con sus prendas agrupadas (3× Pantalón 32 — $69, etc.) y un
@@ -592,6 +626,7 @@ ${p.descripcion ? `
   <div style="color:#222;line-height:1.5;">${esc(p.descripcion)}</div>
 </div>` : ""}`;
 })() : `
+${componentesHTML(p, { precios: true, color: "#111" })}
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
   <table style="width:auto;min-width:240px;font-size:12px;border-collapse:collapse;border:1.5px solid #333;">
     ${(tot > 0 && Math.abs(tot - precioFinal) > 0.01) ? `
@@ -960,6 +995,7 @@ export function imprimirRecibo(p) {
     ${p.tela || p.color ? `<div style="font-size:13px;color:#555;margin-bottom:4px;">🧵 ${esc([p.tela, p.color].filter(Boolean).join(" — "))}</div>` : ""}
     ${p.descripcion ? `<div style="font-size:12px;color:#666;margin-top:6px;padding:8px 10px;background:#fff;border-radius:6px;border-left:3px solid #9B59B6;">${esc(p.descripcion)}</div>` : ""}
     ${tablaPorPersonaHTML(p, "#2C1654", true, false) || itemsHTML}
+    ${componentesHTML(p, { precios: true, color: "#2C1654" })}
   </div>
 
   <!-- TOTALES Y PAGO (estilo factura: bloque apilado, decimales alineados) -->
@@ -1231,6 +1267,7 @@ export function imprimirEntrega(p) {
     <!-- Escapado de tipoPrenda y descripción en hoja de entrega -->
     <strong>Producto:</strong> ${esc(p.tipoPrenda || "(sin especificar)")}${p.tela || p.color ? ` — ${[p.tela, p.color].filter(Boolean).join(", ")}` : ""}${p.descripcion ? `. ${esc(p.descripcion)}` : ""}
   </div>
+  ${componentesHTML(p, { precios: false, color: "#2C1654" })}
 
   <!-- TABLA DE ENTREGA -->
   ${tablaHTML}
@@ -2154,6 +2191,7 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
     📋 Prendas a confeccionar${p.tipoPrenda ? ` — ${esc(p.tipoPrenda)}` : ""}
   </div>
   ${tablaPrendasHTML}
+  ${componentesHTML(p, { precios: false, color: "#1A5276" })}
 
   <!-- DETALLE POR PERSONA (solo modo lista con personas) -->
   ${p.personas && p.personas.length ? `

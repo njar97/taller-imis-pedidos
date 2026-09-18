@@ -426,6 +426,26 @@ export function cantidadComponente(c) {
   return parseInt(c.cantidad, 10) || 0;
 }
 
+// Componentes del kit (gabacha, gorro, bolso…) en una forma que los PDF
+// puedan listar: nombre, cantidad total, desglose por talla y precio. Se
+// facturan (detalleFactura los suma) pero hasta el 18-sep-2026 solo la hoja
+// por talla los mostraba: cotización, recibo, entrega, producción y corte
+// los omitían y el taller no sabía que había que coserlos.
+export function componentesResumen(p) {
+  return (Array.isArray(p?.componentes) ? p.componentes : [])
+    .map(c => {
+      const nombre = (c?.nombre || "").trim();
+      const qty = cantidadComponente(c);
+      if (!nombre || qty <= 0) return null;
+      const porTalla = c.tallasQty && typeof c.tallasQty === "object"
+        ? Object.entries(c.tallasQty).map(([t, n]) => [t, parseInt(n, 10) || 0]).filter(([, n]) => n > 0)
+        : (c.talla ? [[String(c.talla), qty]] : []);
+      const precio = c.precio != null && c.precio !== "" ? parseFloat(c.precio) : null;
+      return { nombre, qty, porTalla, precio, nota: (c.nota || "").trim() };
+    })
+    .filter(Boolean);
+}
+
 // Devuelve:
 //   factura   : { lineas, gravado, iva, total, ... }  → lo que va a UN DTE
 //   aparte    : { lineas:[{tipo,talla,precio,qty,subtotal}], total }  → personas

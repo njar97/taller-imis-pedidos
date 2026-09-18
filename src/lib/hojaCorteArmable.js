@@ -10,7 +10,7 @@
 // franja gris, tabla #2C1654, casilla ☐, pie «Cortó / Tela usada»): lo único
 // que cambia entre combinaciones es qué se cuenta y cómo se reparte.
 
-import { itemsResumen, rankTalla, medidaCuelloParaTalla } from "./dominio.js";
+import { itemsResumen, rankTalla, medidaCuelloParaTalla, componentesResumen } from "./dominio.js";
 import { nuevaVentanaImpresion, recetaParaCorte } from "./imprimir.js";
 import { dbMoldesLeer } from "./db.js";
 
@@ -79,7 +79,11 @@ function prendasDelConjunto(p, items) {
 // poder probarlo con números y no a ojo.
 export function armarCorte(p, opts = {}, moldes = []) {
   const o = { ...OPCIONES_DEFAULT, ...opts };
-  const items = (itemsResumen(p) || []).filter(it => it.talla);
+  // Los componentes del kit con desglose por talla entran a la mesa de corte
+  // como una prenda más (los de talla única no tienen fila que ocupar).
+  const compItems = componentesResumen(p).flatMap(c =>
+    c.porTalla.map(([talla, qty]) => ({ tipo: c.nombre, talla, qty, spec: c.nota || "" })));
+  const items = [...(itemsResumen(p) || []), ...compItems].filter(it => it.talla);
   const conj = items.filter(it => !esSuelta(it));
   const sueltas = items.filter(esSuelta);
   const tallas = [...new Set(items.map(it => it.talla))].sort((a, b) => rankTalla(a) - rankTalla(b));
