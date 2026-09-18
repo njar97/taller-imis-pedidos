@@ -24,20 +24,40 @@ const supabase = createClient(SUPA_URL, SUPA_SERVICE, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const EMPRESA = {
-  razonSocial: "UDP CONFECCIONES IMIS",
-  nit: "0315-101011-101-2",
-  nrc: "211590-0",
-  actividad: "Fabricación de productos textiles",
-  direccion: "Sonsonate, Col. Santa Marta, Av. Centroamericana, Casa N.° 5-A",
-  telefonos: ["2451-1620", "7866-9963", "7957-0695"],
-  email: "confecciones_imis@hotmail.com",
-  rl: {
-    nombre: "Imelda Del Carmen Mancía De Ramírez",
-    dui: "0158-3577-9",
-    cargo: "Representante Legal",
+// Dos emisores: cada cotización sale a nombre del que tenga guardado el
+// pedido (`emisor`: "imis" | "jav"). Antes todo salía como IMIS.
+const EMPRESAS = {
+  imis: {
+    razonSocial: "UDP CONFECCIONES IMIS",
+    nit: "0315-101011-101-2",
+    nrc: "211590-0",
+    actividad: "Fabricación de productos textiles",
+    direccion: "Sonsonate, Col. Santa Marta, Av. Centroamericana, Casa N.° 5-A",
+    telefonos: ["2451-1620", "7866-9963", "7957-0695"],
+    email: "confecciones_imis@hotmail.com",
+    rl: {
+      nombre: "Imelda Del Carmen Mancía De Ramírez",
+      dui: "0158-3577-9",
+      cargo: "Representante Legal",
+    },
+  },
+  jav: {
+    razonSocial: "NELSON JAVIER RAMÍREZ MANCÍA",
+    nombreComercial: "Carymel Bazar y Confección",
+    nit: "0315-120297-104-0",
+    nrc: "315522-0",
+    actividad: "Fabricación de prendas de vestir para ambos sexos",
+    direccion: "Sonsonate, Col. Santa Marta, Av. Centroamericana, Casa N.° 9-A",
+    telefonos: ["7866-9963"],
+    email: "njrmancia@gmail.com",
+    rl: {
+      nombre: "Nelson Javier Ramírez Mancía",
+      dui: "05490264-4",
+      cargo: "Propietario",
+    },
   },
 };
+const empresaDe = (p) => EMPRESAS[p?.emisor === "jav" ? "jav" : "imis"];
 
 // Reconstrucción de itemsResumen (lite — sin merge de personas porque
 // las cotizaciones usan modoRegistro='tallas' con tallasItems planos)
@@ -50,6 +70,7 @@ function fmtFecha(d) {
 }
 
 function armarHTML(p, cfg, mensajeExtra) {
+  const EMPRESA = empresaDe(p);
   const num = String(p.id).padStart(4, "0");
   const hoy = new Date();
   const validez = p.validez_dias || 15;
@@ -219,7 +240,8 @@ Deno.serve(async (req) => {
 
     // 4) Asunto por defecto
     const num = String(pedido.id).padStart(4, "0");
-    const subject = asunto || `Cotización N° ${num} — ${EMPRESA.razonSocial}`;
+    const EMPRESA = empresaDe(pedido);
+    const subject = asunto || `Cotización N° ${num} — ${EMPRESA.nombreComercial || EMPRESA.razonSocial}`;
 
     // 5) Mandar via Resend
     const r = await fetch("https://api.resend.com/emails", {
@@ -229,7 +251,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: FROM,
+        from: FROM.includes("<") ? FROM : `${EMPRESA.nombreComercial || EMPRESA.razonSocial} <${FROM}>`,
         to: destinatarios,
         subject,
         html,

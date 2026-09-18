@@ -1706,6 +1706,15 @@ export default function FormPedido({
         color="#9B59B6"
         defaultOpen={!!(f.procesoRef || f.plazoEntrega || f.lugarEntrega || f.formaPago)}
       >
+        {/* A nombre de quién sale la cotización (encabezado, firma, NIT del PDF y del correo). */}
+        <label style={LBL}>Cotiza (empresa que emite)</label>
+        <select
+          style={{ ...INP, marginBottom: 10, fontWeight: 700 }}
+          value={f.emisor || "imis"}
+          onChange={e => s("emisor", e.target.value)}
+        >
+          {Object.entries(EMISORES).map(([k, v]) => <option key={k} value={k}>{v.etiqueta}</option>)}
+        </select>
         <PlantillasCotizacionPicker
           aplicar={pl => setF(prev => ({
             ...prev,

@@ -2,7 +2,7 @@
 // Usados por App (via imprimirPedido) y por los modales de detalle.
 
 import { agruparPrendas } from "../ListaPrendas.jsx";
-import { EMPRESA } from "./empresa.js";
+import { EMPRESA, setEmpresaActiva } from "./empresa.js";
 import { nombrePDF } from "./pdfNombre.js";
 import { agujasTejido, conjuntosResueltos, itemsResumen, medidaCuelloParaTalla, montoNum, PLANTILLA_TEJIDO, rankTalla, resumenTallas, sumarAbonos } from "./dominio.js";
 import { dbMoldesLeer, dbTejidosLeer } from "./db.js";
@@ -348,6 +348,8 @@ export function nuevaVentanaImpresion(titulo = null, { autoPrint = true } = {}) 
 // firma del representante legal). Sin desglose interno de costos —
 // solo lo que el cliente debe ver.
 export async function imprimirCotizacion(p) {
+  // La cotización sale a nombre del emisor elegido en el pedido (IMIS o Javier).
+  setEmpresaActiva(p.emisor);
   // Si el pedido pide anexo de capacidad, leemos los equipos antes
   // de armar el HTML.
   let equiposCapacidad = null;

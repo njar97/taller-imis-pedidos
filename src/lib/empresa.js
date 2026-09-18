@@ -1,15 +1,17 @@
-// Datos fiscales formales del taller — usados en PDFs de cotización
-// y facturación.
+// Datos fiscales formales de las empresas del taller — usados en PDFs de
+// cotización y facturación.
 //
-// FUENTE DE VERDAD: taller_config (key='empresa'). La app carga el
-// valor al iniciar y lo deja en window.__TALLER_CONFIG__.empresa.
-// Si NO hay valor guardado (primera vez), se usa este default que
-// vino del DTE oficial.
+// Hay DOS emisores (18-sep-2026): UDP Confecciones IMIS y Nelson Javier
+// (Carymel). Cada pedido/cotización guarda con cuál sale (`pedido.emisor`,
+// "imis" | "jav"); antes todo salía a nombre de IMIS.
 //
-// `EMPRESA` (named export) es una getter dinámica — devuelve siempre
-// los datos actuales (config si hay, default si no). NO acceder a
-// propiedades de EMPRESA en módulos top-level; siempre dentro de
-// funciones / handlers para que se evalúe en tiempo de uso.
+// FUENTE DE VERDAD del perfil IMIS: taller_config (key='empresa'). La app
+// carga el valor al iniciar y lo deja en window.__TALLER_CONFIG__.empresa.
+// Si NO hay valor guardado, se usa el default que vino del DTE oficial.
+//
+// `EMPRESA` (named export) es una getter dinámica — devuelve siempre los
+// datos del emisor ACTIVO (ver setEmpresaActiva). NO acceder a propiedades
+// de EMPRESA en módulos top-level; siempre dentro de funciones / handlers.
 
 const DEFAULT = {
   razonSocial: "UDP CONFECCIONES IMIS",
@@ -26,14 +28,32 @@ const DEFAULT = {
   },
 };
 
-export const EMPRESA_DEFAULT = DEFAULT;
+// Perfil de Javier (persona natural, nombre comercial Carymel). Sale del
+// mismo DTE que emite el puente: NIT 0315-120297-104-0, NRC 315522-0.
+const JAV = {
+  razonSocial: "NELSON JAVIER RAMÍREZ MANCÍA",
+  nombreComercial: "Carymel Bazar y Confección",
+  nit: "0315-120297-104-0",
+  nrc: "315522-0",
+  actividadEconomica: "Fabricación de prendas de vestir para ambos sexos",
+  direccion: "Sonsonate, Col. Santa Marta, Av. Centroamericana, Casa N.° 9-A",
+  telefonos: ["7866-9963"],
+  email: "njrmancia@gmail.com",
+  representanteLegal: {
+    nombre: "Nelson Javier Ramírez Mancía",
+    dui: "05490264-4",
+    cargo: "Propietario",
+  },
+};
 
-// Devuelve la config de empresa actual (de BD si está, sino default).
-export function getEmpresa() {
+export const EMPRESA_DEFAULT = DEFAULT;
+export const EMISOR_KEYS = ["imis", "jav"];
+
+// Perfil IMIS: config de BD si está, sino default (campos vacíos caen al default).
+function perfilImis() {
   if (typeof window === "undefined") return DEFAULT;
   const cfg = window.__TALLER_CONFIG__?.empresa;
   if (!cfg || typeof cfg !== "object") return DEFAULT;
-  // Merge profundo simple: campos vacíos caen al default.
   return {
     razonSocial: cfg.razonSocial || DEFAULT.razonSocial,
     nit: cfg.nit || DEFAULT.nit,
@@ -51,6 +71,21 @@ export function getEmpresa() {
     },
   };
 }
+
+// Devuelve el perfil del emisor pedido ("imis" | "jav"); sin argumento, el activo.
+export function getEmpresa(emisor) {
+  const k = emisor || _activo;
+  return k === "jav" ? JAV : perfilImis();
+}
+
+// Emisor activo para los PDFs que usan `EMPRESA`. Se fija al empezar a
+// imprimir un pedido/cotización con el emisor guardado en ese pedido.
+let _activo = "imis";
+export function setEmpresaActiva(emisor) {
+  _activo = emisor === "jav" ? "jav" : "imis";
+  return _activo;
+}
+export const empresaActiva = () => _activo;
 
 // Proxy: cualquier acceso a EMPRESA.* devuelve el valor actual de
 // getEmpresa(). Esto permite seguir escribiendo `EMPRESA.nit` en los
