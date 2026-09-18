@@ -116,7 +116,28 @@ async function supa(path, opts = {}) {
 // vista y parecía que se habían perdido.
 export async function facturasDePedido(pedidoId) {
   try {
-    return await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&order=id.desc`);
+    const filas = await supa(`/taller_facturas?pedido_id=eq.${pedidoId}&order=id.desc`);
+    // El registro central (dte_emitidos, lo escribe el puente) es quien sabe
+    // si un DTE fue invalidado, se haya hecho desde esta app o desde
+    // Tlacuilo. Se cruza acá para que la ficha no muestre como vigente una
+    // factura que Hacienda ya dio de baja.
+    const cgs = (filas || []).map(f => f.codigo_generacion).filter(Boolean);
+    if (!cgs.length) return filas || [];
+    try {
+      const central = await supa(
+        `/dte_emitidos?codigo_generacion=in.(${cgs.map(encodeURIComponent).join(",")})` +
+        `&select=codigo_generacion,estado,invalidado_en,cod_gen_reemplazo`
+      );
+      const porCg = new Map((central || []).map(c => [c.codigo_generacion, c]));
+      return filas.map(f => {
+        const c = porCg.get(f.codigo_generacion);
+        if (!c || !/^INVALID/i.test(c.estado || "") || /^(ANULAD|INVALID)/i.test(f.estado || "")) return f;
+        const fecha = (c.invalidado_en || "").slice(0, 10);
+        return { ...f, estado: `INVALIDADO ${fecha}`.trim(), _reemplazo: c.cod_gen_reemplazo || null };
+      });
+    } catch {
+      return filas || [];
+    }
   } catch (e) {
     console.error("facturasDePedido:", e);
     return [];

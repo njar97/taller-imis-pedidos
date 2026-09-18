@@ -436,7 +436,11 @@ function DetalleFactura({ pedido }) {
 // Hacienda — el de generación (el que sirve para verificar) y el sello, ambos
 // copiables de un toque, porque a mano son imposibles de dictar.
 function FichaFactura({ f, correoCliente }) {
-  const anulada = (f.estado || "").toUpperCase().startsWith("ANULAD");
+  // Una invalidación queda como "INVALIDADO <fecha>" (así la escriben el puente
+  // y el registro central); solo se miraba "ANULAD…" y la factura invalidada
+  // seguía saliendo como vigente en la ficha.
+  const anulada = /^(ANULAD|INVALID)/.test((f.estado || "").toUpperCase());
+  const fechaAnulacion = ((f.estado || "").match(/\d{4}-\d{2}-\d{2}/) || [])[0];
   const [enviando, setEnviando] = useState(false);
   const [enviadoA, setEnviadoA] = useState(f.enviado_a || null);
   const ident = f.dte_json?.identificacion || {};
@@ -495,8 +499,8 @@ function FichaFactura({ f, correoCliente }) {
       </div>
 
       {emitido && <div style={{ marginTop: 2 }}>Emitida el {emitido}</div>}
-      {anulada && f.estado.length > 8 && (
-        <div style={{ fontWeight: 700 }}>Invalidada ante Hacienda el {f.estado.slice(8)}</div>
+      {anulada && (
+        <div style={{ fontWeight: 700 }}>Invalidada ante Hacienda{fechaAnulacion ? ` el ${fechaAnulacion}` : ""}</div>
       )}
 
       {f.codigo_generacion && (
