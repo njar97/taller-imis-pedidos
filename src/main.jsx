@@ -786,6 +786,9 @@ function App() {
       ...a,
       [e]: reales.filter(p => p.estatus === e).length,
     }), {});
+    // La pestaña "Cotización" sí lista los pedidos con ese estatus, así que
+    // el contador tiene que contarlos (antes quedaba en 0 siempre).
+    base["Cotización"] = pedidos.filter(p => p.estatus === "Cotización").length;
     base.Vencidos = reales.filter(p =>
       !["Entregado", "Cancelado"].includes(p.estatus) &&
       p.fechaEntrega &&

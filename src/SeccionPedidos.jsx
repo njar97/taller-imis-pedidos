@@ -7,7 +7,8 @@
 // Toda la composición es presentacional — los handlers vienen como props.
 
 import { ESTATUS, EC } from "./lib/constants.js";
-import { fmt$, resumenTallas, itemsResumen } from "./lib/dominio.js";
+// Se importan montoNum y sumarAbonos para calcular el saldo de manera consistente con CardPedido
+import { fmt$, resumenTallas, itemsResumen, montoNum, sumarAbonos } from "./lib/dominio.js";
 import { costeoPedido, colorMargen } from "./lib/costeo.js";
 import { imgSrc } from "./lib/imagenes.js";
 import { TallasChips } from "./SelectorTallas.jsx";
@@ -292,7 +293,8 @@ function FilaPedido({
   cambiarEstatus,
   onImprimir,
 }) {
-  const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
+  // Se usa montoNum(p.precio) y sumarAbonos(p) para que pedidos con abonos pero sin anticipo reflejen el saldo real y coincidan con la vista móvil
+  const saldo = montoNum(p.precio) - sumarAbonos(p);
   const dias = diasPara(p.fechaEntrega);
   const urgent =
     dias !== null && dias <= 2 && !["Entregado", "Cancelado", "Cotización"].includes(p.estatus);

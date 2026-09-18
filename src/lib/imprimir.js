@@ -12,6 +12,11 @@ import { MEDIDAS_DEF, TALLER, EC } from "./constants.js";
 import { techColor } from "./diagrama.js";
 import QRCode from "qrcode";
 
+// Escapa caracteres HTML para interpolación segura en templates de todo el módulo
+const esc = s => String(s ?? "")
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;");
+
 // Genera el HTML de "Detalle por persona" — tabla donde cada fila es una
 // persona con sus prendas agrupadas (3× Pantalón 32 — $69, etc.) y un
 // subtotal por persona. Devuelve "" si el pedido no tiene personas con
@@ -431,9 +436,10 @@ export async function imprimirCotizacion(p) {
 <!-- DIRIGIDA A -->
 <div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;margin-bottom:10px;">
   <div class="lbl" style="margin-bottom:3px;">Cotización dirigida a</div>
-  <div style="font-size:15px;font-weight:800;color:#111;">${p.cliente || "Cliente"}</div>
-  ${p.nombreContacto ? `<div style="font-size:11px;color:#444;margin-top:2px;">Atención: <strong>${p.nombreContacto}</strong></div>` : ""}
-  ${p.telefono ? `<div style="font-size:11px;color:#444;">Tel: ${p.telefono}</div>` : ""}
+  <!-- Escapado de cliente, contacto y teléfono en cotización para evitar romper HTML -->
+  <div style="font-size:15px;font-weight:800;color:#111;">${esc(p.cliente || "Cliente")}</div>
+  ${p.nombreContacto ? `<div style="font-size:11px;color:#444;margin-top:2px;">Atención: <strong>${esc(p.nombreContacto)}</strong></div>` : ""}
+  ${p.telefono ? `<div style="font-size:11px;color:#444;">Tel: ${esc(p.telefono)}</div>` : ""}
   ${p.procesoRef ? `<div style="font-size:11px;color:#333;margin-top:3px;font-weight:700;">Ref. proceso: ${p.procesoRef}</div>` : ""}
 </div>
 
@@ -452,14 +458,16 @@ ${items.length ? (() => {
   // Si el nombre ya trae la tela (cotizaciones etiquetadas "Producto — Tela"
   // para el comparativo), no repetirla en el subtítulo.
   const telaRepetida = telaCorta && String(p.tipoPrenda || "").toLowerCase().includes(telaCorta.toLowerCase());
-  const prodDesc = [p.tipoPrenda, telaRepetida ? "" : telaCorta, p.color].filter(Boolean).join(" · ");
+  // Se escapa tipoPrenda al armar prodDesc para que no rompa el subtítulo
+  const prodDesc = [esc(p.tipoPrenda), telaRepetida ? "" : telaCorta, p.color].filter(Boolean).join(" · ");
 
   const filas = items.map((it, i) => {
     const pr = parseFloat(it.precio) || 0;
     const sub = pr * it.qty;
     const medida = it.talla || (it.spec && /[\dxm,.]/i.test(it.spec) ? it.spec : "") || "—";
     if (multiTipo) {
-      const descripcion = it.tipo || p.tipoPrenda || "—";
+      // Se escapa tipoPrenda cuando se usa como descripción en renglones
+      const descripcion = it.tipo || esc(p.tipoPrenda) || "—";
       return `<tr style="background:${i%2===0?"#fff":"#f5f5f5"};border-bottom:1px solid #ddd;">
         <td style="padding:7px 7px;text-align:center;font-weight:800;color:#555;white-space:nowrap;">${codigoDe(i)}</td>
         <td style="padding:7px 9px;color:#111;">${descripcion}</td>
@@ -580,7 +588,8 @@ ${p.cotizacionAbierta ? (() => {
 ${p.descripcion ? `
 <div style="border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;margin-bottom:10px;">
   <div class="sec-title">Observaciones</div>
-  <div style="color:#222;line-height:1.5;">${p.descripcion}</div>
+  <!-- Escapar descripción en cotización abierta -->
+  <div style="color:#222;line-height:1.5;">${esc(p.descripcion)}</div>
 </div>` : ""}`;
 })() : `
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
@@ -615,7 +624,8 @@ ${p.descripcion ? `
   ${p.descripcion ? `
   <div style="flex:1;border:1.5px solid #bbb;border-radius:5px;padding:8px 12px;font-size:11.5px;">
     <div class="sec-title">Observaciones</div>
-    <div style="color:#222;line-height:1.5;">${p.descripcion}</div>
+    <!-- Escapar descripción en cotización cerrada -->
+    <div style="color:#222;line-height:1.5;">${esc(p.descripcion)}</div>
   </div>` : ""}
 </div>`}
 
@@ -923,9 +933,10 @@ export function imprimirRecibo(p) {
       <div style="font-size:10px;font-weight:800;color:#9B59B6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">
         ${p.tipoCliente === "escuela" ? "🏫 Institución" : p.tipoCliente === "empresa" ? "🏢 Empresa" : "👤 Cliente"}
       </div>
-      <div style="font-size:17px;font-weight:800;color:#2C1654;">${p.cliente}</div>
-      ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:3px;">Contacto: <strong>${p.nombreContacto}</strong></div>` : ""}
-      ${p.telefono ? `<div style="font-size:12px;color:#555;margin-top:2px;">📱 ${p.telefono}</div>` : ""}
+      <!-- Escapado de cliente, contacto y teléfono en el recibo -->
+      <div style="font-size:17px;font-weight:800;color:#2C1654;">${esc(p.cliente)}</div>
+      ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:3px;">Contacto: <strong>${esc(p.nombreContacto)}</strong></div>` : ""}
+      ${p.telefono ? `<div style="font-size:12px;color:#555;margin-top:2px;">📱 ${esc(p.telefono)}</div>` : ""}
     </div>
     <div style="background:#f0fff4;border-radius:10px;padding:14px;border-left:4px solid #27AE60;">
       <div style="font-size:10px;font-weight:800;color:#27AE60;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">📌 Fechas</div>
@@ -1042,7 +1053,8 @@ export function imprimirEntrega(p) {
     month: "long",
     year: "numeric",
   });
-  const saldo = parseFloat(p.precio || 0) - sumarAbonos(p);
+  // Se usa montoNum en lugar de parseFloat para sanear precios con formato (ej. "$1,113.50") y evitar NaN en el saldo
+  const saldo = montoNum(p.precio) - sumarAbonos(p);
 
   // Filas con nombre: TODAS las personas del pedido. La que trae prendas[]
   // las lista agrupadas; la que solo trae talla (pedidos cargados así) sale
@@ -1191,11 +1203,12 @@ export function imprimirEntrega(p) {
   <div style="display:flex;gap:24px;margin-bottom:10px;">
     <div style="flex:1;">
       <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:1px;">Cliente</div>
-      <div style="font-size:14px;font-weight:800;color:#2C1654;">${p.cliente || ""}</div>
-      ${p.nombreContacto ? `<div style="font-size:12px;color:#555;">Contacto: ${p.nombreContacto}</div>` : ""}
+      <!-- Escapado de cliente, contacto y teléfono en hoja de entrega -->
+      <div style="font-size:14px;font-weight:800;color:#2C1654;">${esc(p.cliente || "")}</div>
+      ${p.nombreContacto ? `<div style="font-size:12px;color:#555;">Contacto: ${esc(p.nombreContacto)}</div>` : ""}
     </div>
     <div style="max-width:200px;">
-      ${p.telefono ? `<div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:1px;">Teléfono</div><div style="font-size:12px;">${p.telefono}</div>` : ""}
+      ${p.telefono ? `<div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:1px;">Teléfono</div><div style="font-size:12px;">${esc(p.telefono)}</div>` : ""}
       <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Cantidad entregada</div>
       <div style="font-size:13px;font-weight:800;">${totalPiezas} prenda(s)</div>
     </div>
@@ -1203,7 +1216,8 @@ export function imprimirEntrega(p) {
 
   <!-- PRODUCTO -->
   <div style="background:#f5f2f8;border:1px solid #ded5ea;border-radius:6px;padding:8px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;">
-    <strong>Producto:</strong> ${p.tipoPrenda || "(sin especificar)"}${p.tela || p.color ? ` — ${[p.tela, p.color].filter(Boolean).join(", ")}` : ""}${p.descripcion ? `. ${p.descripcion}` : ""}
+    <!-- Escapado de tipoPrenda y descripción en hoja de entrega -->
+    <strong>Producto:</strong> ${esc(p.tipoPrenda || "(sin especificar)")}${p.tela || p.color ? ` — ${[p.tela, p.color].filter(Boolean).join(", ")}` : ""}${p.descripcion ? `. ${esc(p.descripcion)}` : ""}
   </div>
 
   <!-- TABLA DE ENTREGA -->
@@ -1230,7 +1244,8 @@ export function imprimirEntrega(p) {
     <div style="flex:1;text-align:center;">
       <div style="height:28px;"></div>
       <div style="border-top:1.5px solid #111;padding-top:5px;font-size:11px;line-height:1.8;">
-        <strong>RECIBIÓ</strong> — ${p.cliente || "Cliente"}<br>Nombre: ______________________________<br>DUI: ____________________ &nbsp; Hora: ________
+        <!-- Escapado del nombre de cliente en la firma de entrega -->
+        <strong>RECIBIÓ</strong> — ${esc(p.cliente || "Cliente")}<br>Nombre: ______________________________<br>DUI: ____________________ &nbsp; Hora: ________
       </div>
     </div>
   </div>
@@ -1495,12 +1510,7 @@ export async function imprimirCorte(p) {
   w.document.close();
 }
 
-// Nombres de cliente y de persona entran a la hoja como HTML. El resto de
-// este archivo interpola sin escapar; acá no, porque un apellido con "&" o
-// unas comillas bastan para romper el documento.
-const esc = s => String(s ?? "")
-  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-  .replace(/"/g, "&quot;");
+// (La función esc fue movida al inicio del módulo para estar disponible globalmente)
 
 // ── Cuántas cortar ───────────────────────────────────────────────────────
 // La hoja de corte responde "qué piezas saco de cada talla". Esta responde
@@ -2069,11 +2079,12 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
 
   <!-- CLIENTE (una sola tarjeta amplia) -->
   <div style="background:#f8f4ff;border-radius:10px;padding:12px 14px;border-left:4px solid #9B59B6;margin-bottom:12px;">
+    <!-- Escapado de cliente, teléfono y contacto en hoja de producción -->
     <div style="display:flex;justify-content:space-between;align-items:baseline;">
-      <div style="font-size:17px;font-weight:800;color:#2C1654;">👤 ${p.cliente}</div>
-      ${p.telefono ? `<div style="font-size:12px;color:#555;">📱 ${p.telefono}</div>` : ""}
+      <div style="font-size:17px;font-weight:800;color:#2C1654;">👤 ${esc(p.cliente)}</div>
+      ${p.telefono ? `<div style="font-size:12px;color:#555;">📱 ${esc(p.telefono)}</div>` : ""}
     </div>
-    ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:2px;">Contacto: <strong>${p.nombreContacto}</strong></div>` : ""}
+    ${p.nombreContacto ? `<div style="font-size:12px;color:#555;margin-top:2px;">Contacto: <strong>${esc(p.nombreContacto)}</strong></div>` : ""}
   </div>
 
   <!-- FICHA DE PRODUCCIÓN compacta (todo en línea horizontal de chips) -->
@@ -2112,7 +2123,8 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
 
   <!-- PRENDAS A CONFECCIONAR — el bloque más prominente -->
   <div style="font-size:11px;font-weight:800;color:#1A5276;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">
-    📋 Prendas a confeccionar${p.tipoPrenda ? ` — ${p.tipoPrenda}` : ""}
+    <!-- Escapado de tipoPrenda en el título de confección -->
+    📋 Prendas a confeccionar${p.tipoPrenda ? ` — ${esc(p.tipoPrenda)}` : ""}
   </div>
   ${tablaPrendasHTML}
 
@@ -2131,9 +2143,10 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   ${p.descripcion || p.notas ? `
   <div class="sec" style="color:#6C3483;">📝 Descripción e instrucciones</div>
   <div style="background:#F9F0FF;border:1.5px solid #D7BDE2;border-radius:9px;padding:13px;margin-bottom:14px;font-size:13px;color:#4A235A;line-height:1.6;">
-    ${p.descripcion ? `<div>${p.descripcion}</div>` : ""}
+    <!-- Escapado de descripción y notas en hoja de producción -->
+    ${p.descripcion ? `<div>${esc(p.descripcion)}</div>` : ""}
     ${p.descripcion && p.notas ? `<div style="border-top:1px dashed #D7BDE2;margin:8px 0;"></div>` : ""}
-    ${p.notas ? `<div>${p.notas}</div>` : ""}
+    ${p.notas ? `<div>${esc(p.notas)}</div>` : ""}
   </div>` : ""}
 
   <!-- Especificaciones de diseño: removidas de la hoja de producción (van en el módulo de bordado) -->
@@ -2148,7 +2161,8 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   ${historial.length ? `
     <div style="margin-top:14px;padding:10px 12px;background:#FAFAFA;border:1px dashed #ccc;border-radius:8px;">
       <div style="font-size:9px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
-        📜 Pedidos anteriores de ${p.cliente}
+        <!-- Escapado de cliente en sección de historial -->
+        📜 Pedidos anteriores de ${esc(p.cliente)}
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
         ${historial.map(h => `<tr>

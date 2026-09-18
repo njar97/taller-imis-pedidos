@@ -31,7 +31,7 @@ export default function ModalConfirmarBorrar({ onCancelar, onConfirmar }) {
           ¿Eliminar pedido?
         </h3>
         <p style={{ color: "#888", fontSize: 14, margin: "0 0 20px" }}>
-          Esta acción no se puede deshacer.
+          Se moverá a la papelera; podés deshacerlo en los siguientes segundos o recuperarlo después desde Papelera.
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button onClick={onCancelar} style={btnStyle("#aaa")}>
