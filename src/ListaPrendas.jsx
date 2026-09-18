@@ -810,6 +810,36 @@ export function ListaPrendas({ items, onChange, tipoPrendaDefault = "" }) {
                         />
                       </div>
                     </div>
+
+                    {/* Dinero y facturación por persona. Antes solo se podían
+                        tocar desde el link público de captura (sin login);
+                        acá es donde el admin los espera. */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                      <div>
+                        <label style={MLAB}>Abono de esta persona ($)</label>
+                        <input
+                          inputMode="decimal"
+                          value={(p.medidas || {}).abono ?? ""}
+                          onChange={e => {
+                            const meds = { ...(p.medidas || {}) };
+                            if (e.target.value === "") delete meds.abono;
+                            else meds.abono = e.target.value;
+                            editar(p.id, "medidas", meds);
+                          }}
+                          placeholder="0.00"
+                          style={{ ...INP_LP, textAlign: "right" }}
+                        />
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 700, color: "#B9770E", cursor: "pointer", paddingTop: 18 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!p.noFactura}
+                          onChange={e => editar(p.id, "noFactura", e.target.checked)}
+                          style={{ width: 18, height: 18, accentColor: "#E67E22", cursor: "pointer" }}
+                        />
+                        Pago aparte (no entra en factura)
+                      </label>
+                    </div>
                   </div>
                 )}
               </div>

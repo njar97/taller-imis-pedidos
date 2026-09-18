@@ -169,21 +169,9 @@ export default function FichasMedidas({ personas, onChange }) {
           </>
         )}
 
-        {/* Abono */}
-        <div style={{ background: "#fff", borderRadius: 12, padding: 14, marginBottom: 10, border: "1.5px solid #eee9f6" }}>
-          <label style={LBL}>Abono ($)</label>
-          <input
-            style={INP}
-            inputMode="decimal"
-            value={(p.medidas || {}).abono ?? ""}
-            onChange={e => {
-              const meds = { ...(p.medidas || {}) };
-              if (e.target.value === "") delete meds.abono;
-              else meds.abono = e.target.value;
-              upd(i, { medidas: meds });
-            }}
-          />
-        </div>
+        {/* Sin abono ni "pago aparte" acá: esta página es pública (sin login)
+            y no debe tocar dinero ni facturación. Esos dos campos viven en la
+            lista de personas del formulario del admin. */}
 
         {/* Notas: la del taller SÍ sale en la hoja de producción; la admin NO.
             Separadas para que datos de facturación/pago no lleguen a la costurera. */}
@@ -202,18 +190,6 @@ export default function FichasMedidas({ personas, onChange }) {
             value={p.notaAdmin || ""}
             onChange={e => upd(i, { notaAdmin: e.target.value })}
           />
-          <label style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 12, fontSize: 13.5, fontWeight: 700, color: "#B9770E", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={!!p.noFactura}
-              onChange={e => upd(i, { noFactura: e.target.checked })}
-              style={{ width: 20, height: 20, accentColor: "#E67E22", cursor: "pointer" }}
-            />
-            No entra en factura (pago aparte)
-          </label>
-          <div style={{ fontSize: 11, color: "#999", marginTop: 4, lineHeight: 1.4, paddingLeft: 29 }}>
-            Sigue en la hoja de producción, pero el DTE la salta.
-          </div>
         </div>
 
         {/* Anterior / Siguiente */}
