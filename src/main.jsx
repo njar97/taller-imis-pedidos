@@ -175,6 +175,7 @@ import {
 import {
   dbLeer            as gsLeer,
   dbGuardar         as gsGuardar,
+  dbParche,
   dbCrear           as gsCrear,
   dbBorrar          as gsBorrar,
   dbRestaurar       as gsRestaurar,
@@ -523,6 +524,19 @@ function App() {
     if (!esNuevo && modal && typeof modal === "object" && modal.id) {
       try { guardarSnapshotEdicion(modal); } catch {}
     }
+    // Campos que se cambian desde OTRAS vistas mientras el formulario está
+    // abierto (estatus desde la tarjeta, costurera y emisor desde el
+    // detalle, personas desde el link de captura). Si el formulario no los
+    // tocó, se toma el valor vivo en vez del que cargó al abrir: antes
+    // guardar el formulario revertía esos cambios en silencio.
+    const vivo = !esNuevo ? pedidos.find(p => p.id === idPedido) : null;
+    const respetarVivos = {};
+    if (vivo && modal && typeof modal === "object") {
+      for (const k of ["estatus", "costurera", "emisor", "capturaToken", "personas", "abonos"]) {
+        const sinTocar = JSON.stringify(form[k] ?? null) === JSON.stringify(modal[k] ?? null);
+        if (sinTocar && k in vivo) respetarVivos[k] = vivo[k];
+      }
+    }
     const baseP = esNuevo ? {
       ...form,
       id: idPedido,
@@ -530,6 +544,7 @@ function App() {
     } : {
       ...(modal || {}),
       ...form,
+      ...respetarVivos,
       id: idPedido
     };
     setModal(null);
@@ -707,17 +722,28 @@ function App() {
   async function cambiarEstatus(id, est) {
     const anterior = pedidos.find(p => p.id === id);
     if (!anterior || anterior.estatus === est) return;
+    // Entregado y Cancelado sacan el pedido de la lista: un roce en el
+    // select del celular no debe hacerlo sin preguntar. Vale para la
+    // tarjeta, la fila y el detalle, que pasan todos por acá.
+    if (est === "Entregado" || est === "Cancelado") {
+      const ok = await pushConfirm({
+        titulo: `Marcar como ${est}`,
+        msg: `¿Marcar el pedido de ${anterior.cliente || "este cliente"} como "${est}"?`,
+        okLabel: `Sí, ${est.toLowerCase()}`,
+      });
+      if (!ok) { setPedidos(prev => [...prev]); return; }
+    }
     const estatusPrevio = anterior.estatus;
-    const lista = pedidos.map(p => p.id === id ? { ...p, estatus: est } : p);
-    setPedidos(lista);
-    try {
-      await gsGuardar(lista.find(p => p.id === id));
-    } catch {}
+    setPedidos(prev => prev.map(p => p.id === id ? { ...p, estatus: est } : p));
+    // Solo la columna estatus: no pisa lo que otro haya cambiado en la fila.
+    const ok = await dbParche(id, { estatus: est });
+    if (!ok) {
+      setPedidos(prev => prev.map(p => p.id === id ? { ...p, estatus: estatusPrevio } : p));
+      return;
+    }
     pushUndo(`Estatus → ${est}`, async () => {
       setPedidos(prev => prev.map(p => p.id === id ? { ...p, estatus: estatusPrevio } : p));
-      try {
-        await gsGuardar({ ...anterior, estatus: estatusPrevio });
-      } catch {}
+      await dbParche(id, { estatus: estatusPrevio });
     });
   }
   async function eliminar(id) {
@@ -738,31 +764,30 @@ function App() {
     });
   }
   const diasPara = f => f ? Math.ceil((new Date(f + "T12:00:00") - new Date()) / 86400000) : null;
-  const vencidosSinArchivar = useMemo(() => pedidos.filter(p => {
-    if (p.esCotizacion) return false;
-    if (["Entregado", "Cancelado", "Listo", "Archivado", "Cotización"].includes(p.estatus)) return false;
-    const saldo = parseFloat(p.precio || 0) - parseFloat(p.anticipo || 0);
-    if (saldo > 0) return false;
-    const d = diasPara(p.fechaEntrega);
-    return d !== null && d < 0;
-  }), [pedidos]);
-  function archivarPedido(p, fechaEntregaReal) {
-    const actualizado = {
-      ...p,
-      estatus: "Entregado",
-      fechaEntrega: fechaEntregaReal || p.fechaEntrega
-    };
+  // Una sola definición de "vencido" para la pestaña y el banner: pasó la
+  // fecha prometida y el pedido no está cerrado.
+  const esVencidoActivo = p =>
+    !["Entregado", "Cancelado"].includes(p.estatus) &&
+    p.fechaEntrega &&
+    p.fechaEntrega < new Date().toISOString().split("T")[0];
+  // (antes el banner usaba otra regla: exigía saldo cero por `anticipo` y
+  // excluía "Listo", y los números no cuadraban con la pestaña).
+  const vencidosSinArchivar = useMemo(
+    () => pedidos.filter(p => !p.esCotizacion && p.estatus !== "Cotización" && esVencidoActivo(p)),
+    [pedidos]
+  );
+  async function archivarPedido(p, fechaEntregaReal) {
+    // La fecha real de entrega va en su propio campo: la prometida se queda
+    // para poder medir cumplimiento (antes se pisaba y se perdía).
+    const cambios = { estatus: "Entregado", fechaEntregaReal: fechaEntregaReal || hoy() };
+    const actualizado = { ...p, ...cambios };
     setPedidos(prev => prev.map(x => x.id === p.id ? actualizado : x));
-    gsGuardar(actualizado);
     setModalArchivar(null);
+    const ok = await dbParche(p.id, cambios);
+    if (ok) pushToast(`Archivado: entregado el ${cambios.fechaEntregaReal} ✓`, "success");
   }
   const filtrados = useMemo(() => {
     const q = busqueda.toLowerCase();
-    const hoyStr = new Date().toISOString().split("T")[0];
-    const esVencidoActivo = p =>
-      !["Entregado", "Cancelado"].includes(p.estatus) &&
-      p.fechaEntrega &&
-      p.fechaEntrega < hoyStr;
     return pedidos.filter(p => {
       // Cotizaciones (borradores) no aparecen en el listado normal de pedidos.
       if (p.esCotizacion) return false;
@@ -1401,16 +1426,13 @@ function App() {
             setPedidos((prev) =>
               prev.map((p) => (p.id === detalle.id ? actualizado : p))
             );
-            const ok = await gsGuardar(actualizado);
-            if (!ok) {
-              pushToast("No se pudo guardar la costurera — revisá la conexión", "error", 5000);
-              return;
-            }
+            const ok = await dbParche(detalle.id, { costurera: nuevo });
+            if (!ok) return;
             pushUndo(`Costurera → ${nuevo}`, async () => {
               const revertido = { ...actualizado, costurera: anterior };
               setDet((d) => (d && d.id === detalle.id ? revertido : d));
               setPedidos((prev) => prev.map((p) => (p.id === detalle.id ? revertido : p)));
-              await gsGuardar(revertido);
+              await dbParche(detalle.id, { costurera: anterior });
             });
           }}
           onVerFoto={(imgs, idx) => setVisor({ imgs, idx })}

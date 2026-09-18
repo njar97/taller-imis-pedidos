@@ -36,7 +36,7 @@ import {
   tieneTokenPuente, loginPuente, ambienteDte, setAmbienteDte,
   EMISORES, emisorActivo, setEmisorActivo,
 } from "./lib/facturacion.js";
-import { dbGuardar } from "./lib/db.js";
+import { dbGuardar, dbParche } from "./lib/db.js";
 
 function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
   const ec = EC[pedido.estatus] || {};
@@ -53,22 +53,7 @@ function StatusYCosturera({ pedido, onCambiarEstatus, onCambiarCosturera }) {
         <div style={labelStyle}>Estatus</div>
         <select
           value={pedido.estatus}
-          onChange={async e => {
-            const nuevo = e.target.value;
-            // Confirmación antes de pasar a estados finales
-            if (nuevo === "Entregado" || nuevo === "Cancelado") {
-              const ok = await pushConfirm({
-                titulo: `Cambiar estatus a ${nuevo}`,
-                msg: `¿Confirmás marcar este pedido como "${nuevo}"?`,
-                okLabel: `Sí, marcar como ${nuevo}`,
-              });
-              if (!ok) {
-                e.target.value = pedido.estatus;
-                return;
-              }
-            }
-            onCambiarEstatus(nuevo);
-          }}
+          onChange={e => onCambiarEstatus(e.target.value)}
           style={{
             width: "100%",
             padding: "9px 10px",
@@ -726,7 +711,7 @@ function FacturaElectronica({ pedido }) {
   const cambiarEmisor = async (k) => {
     setEmisorActivo(k); setEmisor(k);
     if (k !== pedido.emisor) {
-      const ok = await dbGuardar({ ...pedido, emisor: k });
+      const ok = await dbParche(pedido.id, { emisor: k });
       if (ok) pedido.emisor = k;
     }
   };
@@ -761,7 +746,8 @@ function FacturaElectronica({ pedido }) {
 
   const guardarCliente = async () => {
     setGuardandoCliente(true);
-    const ok = await dbGuardar({ ...pedido, razonSocial: cliNombre, nit: cliNit, nrc: cliNrc, dirFiscal: cliDir });
+    // Solo las cuatro columnas: no pisa el resto de la fila.
+    const ok = await dbParche(pedido.id, { razonSocial: cliNombre, nit: cliNit, nrc: cliNrc, dirFiscal: cliDir });
     if (ok) {
       // Mutar el pedido en memoria para que el cambio sobreviva a reaperturas
       // del modal sin esperar a que se recargue toda la lista (mismo patrón
@@ -2281,7 +2267,7 @@ export default function DetallePedidoModal({
       tok = nuevoToken;
       try {
         // Se guarda en Supabase usando dbGuardar (convierte capturaToken a captura_token)
-        const okGuardar = await dbGuardar({ ...pedido, capturaToken: nuevoToken });
+        const okGuardar = await dbParche(pedido.id, { capturaToken: nuevoToken });
         if (!okGuardar) throw new Error("No se pudo guardar el token en la base de datos");
         setCapturaTok(nuevoToken);
         pedido.capturaToken = nuevoToken; // que sobreviva reaperturas del modal

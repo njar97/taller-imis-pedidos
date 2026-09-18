@@ -107,6 +107,25 @@ async function upsertTabla(tabla, obj) {
   }
 }
 
+// Cambio PARCIAL: manda solo las columnas tocadas. Para las ediciones rápidas
+// (estatus, costurera, emisor, datos fiscales, token de captura): con el
+// upsert de la fila entera, dos personas editando el mismo pedido se pisaban
+// todo, y el formulario revertía cambios hechos desde otra vista.
+async function parcheTabla(tabla, id, parche) {
+  try {
+    await rest(`/${tabla}?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(keysToSnake(parche)),
+    });
+    return true;
+  } catch (e) {
+    console.error(`db.parcheTabla(${tabla}, ${id}):`, e);
+    pushToast(`No pude guardar el cambio en ${tabla}`, "error");
+    return false;
+  }
+}
+
 // ── Crear una fila NUEVA sin pisar a nadie ───────────────────
 //
 // upsertTabla sirve para editar, pero es peligroso para crear: los ids se
@@ -202,6 +221,8 @@ async function purgarPorId(tabla, id) {
 
 export const dbLeer        = () => leerTabla("taller_pedidos");
 export const dbGuardar     = p => upsertTabla("taller_pedidos", limpiarPedido(p));
+// Solo las columnas del parche (ver parcheTabla).
+export const dbParche      = (id, parche) => parcheTabla("taller_pedidos", id, parche);
 // Para pedidos NUEVOS. Devuelve el id real con el que quedó (ver crearFila).
 export const dbCrear       = p => crearFila("taller_pedidos", limpiarPedido(p));
 export const dbBorrar      = id => borrarPorId("taller_pedidos", id);
