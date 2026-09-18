@@ -52,8 +52,18 @@ const CUENTAS_GMAIL = {
 };
 const cuentaGmailDe = (nit) => {
   const c = CUENTAS_GMAIL[String(nit || "").replace(/-/g, "")];
-  return c && c.user && c.pass ? c : null;
+  // Google muestra la contraseña de aplicación en 4 grupos; el SMTP la
+  // quiere sin espacios.
+  return c && c.user && c.pass ? { user: c.user.trim(), pass: c.pass.replace(/\s+/g, "") } : null;
 };
+
+// denomailer parte mal las cabeceras largas con acentos (el asunto quedaba
+// cortado y el resto del mensaje aparecía como texto). Para Gmail se manda el
+// asunto y el nombre sin acentos; el cuerpo HTML sí los conserva.
+const soloAscii = (s) => String(s || "").normalize("NFD")
+  .replace(/[̀-ͯ]/g, "")
+  .replace(/[–—]/g, "-")
+  .replace(/[^ -~]/g, "");
 
 async function enviarPorGmail(cuenta, { nombre, to, bcc, replyTo, subject, html, adjuntos }) {
   const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
@@ -66,17 +76,18 @@ async function enviarPorGmail(cuenta, { nombre, to, bcc, replyTo, subject, html,
     // en la cuenta; si no lo está, Gmail pone la cuenta y avisa en el correo.
     const desde = FROM_ADDR.includes("@") && !FROM_ADDR.includes("resend.dev") ? FROM_ADDR : cuenta.user;
     await client.send({
-      from: `"${nombre.replace(/"/g, "")}" <${desde}>`,
+      from: `"${soloAscii(nombre).replace(/"/g, "")}" <${desde}>`,
       to,
       bcc: bcc && bcc.length ? bcc : undefined,
       replyTo,
-      subject,
+      subject: soloAscii(subject),
       content: "auto",
       html,
       attachments: adjuntos.map(a => ({ filename: a.filename, content: a.content, encoding: "base64", contentType: a.contentType })),
     });
   } finally {
-    await client.close().catch(() => {});
+    // close() no devuelve promesa en esta versión: envolver en try, no .catch()
+    try { await client.close(); } catch { /* ya cerrado */ }
   }
 }
 
@@ -420,7 +431,7 @@ Deno.serve(async (req) => {
     const bcc = dte.emisor?.correo && !para.includes(dte.emisor.correo) ? [dte.emisor.correo] : [];
     const nombreEmisor = dte.emisor?.nombreComercial || dte.emisor?.nombre || "";
 
-    let via = "resend", idEnvio = null;
+    let via = "resend", idEnvio = null, gmailError = null;
     const cuenta = cuentaGmailDe(dte.emisor?.nit);
     if (cuenta) {
       try {
@@ -429,7 +440,8 @@ Deno.serve(async (req) => {
         await enviarPorGmail(cuenta, { nombre: nombreEmisor, to: para, bcc: bcc.filter(b => b !== cuenta.user), replyTo: dte.emisor?.correo, subject, html, adjuntos });
         via = "gmail:" + cuenta.user;
       } catch (e) {
-        console.error("Gmail falló, se manda por Resend:", e?.message || e);
+        gmailError = String(e?.message || e).slice(0, 300);
+        console.error("Gmail falló, se manda por Resend:", gmailError);
       }
     }
     if (via === "resend") {
@@ -456,7 +468,7 @@ Deno.serve(async (req) => {
       .update({ enviado_a: para, enviado_en: new Date().toISOString() })
       .eq("id", factura.id);
 
-    return new Response(JSON.stringify({ ok: true, id: idEnvio, via, destinatarios: para }), {
+    return new Response(JSON.stringify({ ok: true, id: idEnvio, via, gmailError, destinatarios: para }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (e) {
