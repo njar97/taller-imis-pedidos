@@ -62,7 +62,8 @@ export function pedidoToICS(p) {
     `DTSTART;VALUE=DATE:${dtStart}`,
     `DTEND;VALUE=DATE:${dtEnd}`,
     `SUMMARY:${escapeICS(summary)}`,
-    `DESCRIPTION:${desc}`,
+    // Escapar descripción igual que summary para cumplir con formato RFC 5545
+    `DESCRIPTION:${escapeICS(desc)}`,
     "STATUS:CONFIRMED",
     "BEGIN:VALARM",
     "ACTION:DISPLAY",

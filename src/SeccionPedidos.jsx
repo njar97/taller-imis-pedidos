@@ -630,8 +630,10 @@ function TablaYCards({
               // sin fotos del original (apuntaban a Drive del viejo), sin
               // costurera heredada, sin días calculados que correspondan
               // a las fechas antiguas. Sin id — FormPedido lo asigna como
-              // nuevo y nextId avanza correctamente.
-              const { id: _x, dias: _y, ...resto } = p;
+              // nuevo y nextId avanza correctamente. Tampoco hereda el
+              // capturaToken: dos pedidos compartían el mismo link público de
+              // captura de medidas y el guardado escribía en los dos.
+              const { id: _x, dias: _y, capturaToken: _z, ...resto } = p;
               const copia = {
                 ...resto,
                 fecha: new Date().toISOString().split("T")[0],

@@ -56,7 +56,7 @@ export default function PantallaCaptura({ token }) {
 
   async function guardar(silencioso = false) {
     setGuardando(true);
-    const ok = await capturaGuardarPersonas(token, personas);
+    const ok = await capturaGuardarPersonas(pedido?.id, token, personas);
     setGuardando(false);
     if (ok) {
       setSucio(false);

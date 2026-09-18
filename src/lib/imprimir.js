@@ -2215,11 +2215,16 @@ export async function imprimirProduccion(p, todosPedidos = [], opts = {}) {
   w.document.close();
 }
 export function exportarExcelMes(pedidos, bordados, cuellos, periodo) {
+  // Validar disponibilidad de SheetJS en ventana global
+  const XLSX = window.XLSX;
+  if (!XLSX) throw new Error("Falta la librería XLSX");
+  // Filtrar registros por periodo (YYYY-MM) usando el campo fecha (YYYY-MM-DD)
+  const enPeriodo = r => (r.fecha || "").startsWith(periodo);
   const pM = v => {
     const n = parseFloat(String(v || "").replace(/[^0-9.]/g, ""));
     return isNaN(n) ? 0 : n;
   };
-  const todos = [...pedidos.filter(p => !p.esCotizacion).map(p => ({
+  const todos = [...pedidos.filter(p => !p.esCotizacion && enPeriodo(p)).map(p => ({
     ID: "CONF-" + String(p.id).padStart(3, "0"),
     Módulo: "Confección",
     Cliente: p.cliente || "",
@@ -2233,7 +2238,7 @@ export function exportarExcelMes(pedidos, bordados, cuellos, periodo) {
     "Fecha entrega": p.fechaEntrega || "",
     Costurera: p.costurera || "",
     Notas: p.notas || ""
-  })), ...bordados.map(b => ({
+  })), ...bordados.filter(enPeriodo).map(b => ({
     ID: "BORD-" + String(b.id).padStart(3, "0"),
     Módulo: "Bordados",
     Cliente: b.cliente || "",
@@ -2247,7 +2252,7 @@ export function exportarExcelMes(pedidos, bordados, cuellos, periodo) {
     "Fecha entrega": b.fechaEntrega || "",
     Costurera: "",
     Notas: b.notas || ""
-  })), ...cuellos.map(cu => ({
+  })), ...cuellos.filter(enPeriodo).map(cu => ({
     ID: "CUEL-" + String(cu.id).padStart(3, "0"),
     Módulo: "Cuellos",
     Cliente: cu.cliente || "",

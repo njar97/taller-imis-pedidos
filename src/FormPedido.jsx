@@ -150,9 +150,24 @@ export default function FormPedido({
   const esAdmin = rol === "admin";
 
   const initForm = () => {
+    // Si el precio guardado no coincide con la suma de ítems, fue puesto a
+    // mano (descuento, redondeo): no hay que pisarlo al recalcular.
+    let manual = false;
+    if (initial) {
+      const sumT = (initial.tallasItems || [])
+        .filter(it => it.precio != null && it.precio !== "")
+        .reduce((sum, it) => sum + parseFloat(it.precio || 0) * (parseInt(it.qty) || 0), 0);
+      let sumP = 0;
+      (initial.personas || []).forEach(p => {
+        (p.prendas || []).forEach(pr => { sumP += parseFloat(pr.precio) || 0; });
+      });
+      const sumaCalc = sumP > 0 ? sumP : sumT;
+      manual = sumaCalc > 0 && Math.abs(parseFloat(initial.precio || 0) - sumaCalc) > 0.009;
+    }
     const base = {
       ...PEDIDO_BASE,
       ...(initial || {}),
+      _precioManual: manual,
       imagenes: [...((initial || {}).imagenes || [])],
       medidas: { ...medInit(), ...((initial || {}).medidas || {}) },
       tallasItems: [...((initial || {}).tallasItems || [])],
@@ -211,8 +226,9 @@ export default function FormPedido({
   )], [itemsPedido]);
 
   useEffect(() => {
-    if (totalTallasAuto > 0) s("precio", totalTallasAuto.toFixed(2));
-  }, [totalTallasAuto]);
+    // Solo si el admin no fijó un precio a mano.
+    if (!f._precioManual && totalTallasAuto > 0) s("precio", totalTallasAuto.toFixed(2));
+  }, [totalTallasAuto, f._precioManual]);
 
   const totalAbonos = (f.abonos || []).reduce((s, a) => s + parseFloat(a.monto || 0), 0);
   const anticopoEfectivo = totalAbonos > 0 ? totalAbonos : parseFloat(f.anticipo || 0);
@@ -540,7 +556,7 @@ export default function FormPedido({
     // agregar/quitar prendas. Si no hay precios (todas en null), no toco
     // f.precio para preservar un total manual que el admin haya puesto.
     // toFixed(2) para evitar artefactos float (16.799999... → 16.80).
-    if (totalPersonas > 0) {
+    if (!f._precioManual && totalPersonas > 0) {
       s("precio", totalPersonas.toFixed(2));
     }
   };
@@ -1460,7 +1476,11 @@ export default function FormPedido({
               inputMode="decimal"
               placeholder="0.00"
               value={f.precio}
-              onChange={e => s("precio", e.target.value)}
+              onChange={e => {
+                // Escribir acá marca el precio como manual: los cálculos
+                // automáticos ya no lo pisan.
+                setF(p => ({ ...p, precio: e.target.value, _precioManual: true }));
+              }}
             />
           </div>
 

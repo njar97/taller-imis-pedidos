@@ -51,10 +51,13 @@ export async function capturaLeerPedido(token) {
 
 // Guarda SOLO el campo personas del pedido del token (la página pública
 // no puede tocar nada más).
-export async function capturaGuardarPersonas(token, personas) {
+export async function capturaGuardarPersonas(id, token, personas) {
+  // Se filtra también por id: con solo el token, un pedido duplicado que
+  // heredara el mismo token recibía las personas del otro.
+  if (!id) return false;
   try {
     const r = await fetch(
-      `${REST}/taller_pedidos?captura_token=eq.${encodeURIComponent(token)}&deleted_at=is.null`,
+      `${REST}/taller_pedidos?captura_token=eq.${encodeURIComponent(token)}&id=eq.${encodeURIComponent(id)}&deleted_at=is.null`,
       {
         method: "PATCH",
         headers: { ...HEADERS, Prefer: "return=minimal" },
