@@ -1033,6 +1033,9 @@ export function imprimirRecibo(p) {
 // En ambos casos: sin precios (solo la nota de saldo pendiente si lo hay)
 // y firmas ENTREGÓ / RECIBIÓ al pie.
 export function imprimirEntrega(p) {
+  // Pie fiscal a nombre del emisor del pedido, no del último que imprimió
+  // una cotización (el activo es global).
+  setEmpresaActiva(p.emisor);
   const num = String(p.id).padStart(4, "0");
   const fecha = new Date().toLocaleDateString("es-SV", {
     day: "2-digit",
