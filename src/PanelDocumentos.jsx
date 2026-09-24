@@ -110,7 +110,11 @@ function ArmadorCorte({ pedido, color, onImprimir }) {
   // Si el pedido no tiene personas y la opcion guardada era «por persona», se
   // cae a «por talla»: no se imprime una hoja vacia por una preferencia vieja.
   const filas = per.persona ? o.filas : "talla";
-  const contar = (per.uniforme || o.contar !== "uniforme") ? o.contar : "prenda";
+  // «Piezas de molde» se quitó (Javier, 24-sep-2026): delantera/espalda/manga/
+  // tira en columnas hacía creer a Paty que los números se suman. Si quedó
+  // guardada en este aparato, se cae a «Prendas».
+  const guardado = o.contar === "pieza" ? "prenda" : o.contar;
+  const contar = (per.uniforme || guardado !== "uniforme") ? guardado : "prenda";
   const resumen = [
     filas === "persona" ? "por persona" : "por talla",
     contar === "uniforme" ? "uniformes" : contar === "prenda" ? "prendas" : "piezas de molde",
@@ -138,10 +142,9 @@ function ArmadorCorte({ pedido, color, onImprimir }) {
             <Fila titulo="Contar">
               {per.uniforme && <Chip on={contar === "uniforme"} onClick={() => set({ contar: "uniforme" })}>Uniformes completos</Chip>}
               <Chip on={contar === "prenda"} onClick={() => set({ contar: "prenda" })}>Prendas</Chip>
-              <Chip on={contar === "pieza"} onClick={() => set({ contar: "pieza" })}>Piezas de molde</Chip>
             </Fila>
           )}
-          {filas === "talla" && contar !== "pieza" && (per.spec || per.color || per.tipo) && (
+          {filas === "talla" && (per.spec || per.color || per.tipo) && (
             <Fila titulo="Separar">
               {per.spec && <Chip on={en("columnas", "spec")} onClick={() => alterna("columnas", "spec")}>Por detalle</Chip>}
               {per.color && <Chip on={en("columnas", "color")} onClick={() => alterna("columnas", "color")}>Por color</Chip>}
