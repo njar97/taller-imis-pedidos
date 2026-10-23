@@ -110,17 +110,27 @@ const $ = (n) => "$" + (Number(n) || 0).toFixed(2);
 
 // ── PDF ──────────────────────────────────────────────────────
 //
+// Diseño "Moderna" para imprimir en blanco y negro (elegido por Javier el
+// 22-oct-2026; es el mismo de static/dte_pdf.js del puente). Sin cajas ni
+// fondos: filetes negros y aire. Ocupa la hoja completa aunque haya un solo
+// ítem: la tabla se estira con renglones vacíos y los totales quedan al pie.
 // Medidas en puntos, origen arriba-izquierda (pdf-lib mide desde abajo: la
-// helper T() invierte). Fuentes base-14, sin embeber: el PDF pesa ~15 KB y
-// entra sin problema como adjunto.
+// helper T() invierte). Fuentes base-14, sin embeber: el PDF pesa ~15 KB.
 
-const ANCHO = 612, ALTO = 792, M = 36, W = ANCHO - 2 * M;
-const GRIS = rgb(0.42, 0.45, 0.49);
-const NEGRO = rgb(0.12, 0.14, 0.16);
-const VERDE = rgb(0.11, 0.42, 0.29);
-const AZUL = rgb(0.14, 0.44, 0.64);
-const LINEA = rgb(0.79, 0.81, 0.84);
-const FONDO = rgb(0.95, 0.956, 0.964);
+const ANCHO = 612, ALTO = 792, M = 40, W = ANCHO - 2 * M;
+const NEGRO = rgb(0, 0, 0);
+const GRIS = rgb(0.3, 0.3, 0.3);
+const GRIS_RENGLON = rgb(0.72, 0.72, 0.72);
+
+const UM = { 59: "Unidad", 99: "Servicio", 58: "Docena", 36: "Yarda", 23: "Metro", 57: "Ciento", 55: "Par", 34: "Kilogramo", 13: "Libra" };
+const PAGOS = { "01": "Billetes y monedas", "02": "Tarjeta débito", "03": "Tarjeta crédito", "04": "Cheque", "05": "Transferencia electrónica", "08": "Tarjeta prepago", "99": "Otros" };
+const CONDICION = { 1: "Contado", 2: "A crédito", 3: "Otro" };
+const TIPO_DOC = { "36": "NIT", "13": "DUI", "37": "Otro", "03": "Pasaporte", "02": "Carné residente" };
+
+// Montos con separador de miles y el signo antes del $ (-$11.83).
+const $m = (n) => { const v = Number(n) || 0; return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+const fechaSV = (f) => { const [y, m, d] = String(f || "").split("-"); return d ? `${d}/${m}/${y}` : (f || ""); };
+const nitFmt = (n) => String(n || "").replace(/^(\d{4})(\d{6})(\d{3})(\d)$/, "$1-$2-$3-$4");
 
 // Un DTE invalidado sigue existiendo y el cliente tiene que poder distinguirlo
 // de un vistazo: por eso la marca de agua cruzada, como la que ponen los otros
@@ -137,7 +147,6 @@ function marcaInvalidado(pg, helv, hebo, estado) {
   const detalle = (estado || "").replace(/^(INVALIDAD|ANULAD)O\s*/i, "").trim();
   const pie = detalle ? `Documento invalidado ante el Ministerio de Hacienda el ${detalle}` : "Documento invalidado ante el Ministerio de Hacienda";
   const pw = helv.widthOfTextAtSize(pie, 8);
-  // Justo encima del pie de página (coordenadas de pdf-lib: desde abajo).
   pg.drawText(pie, { x: (ANCHO - pw) / 2, y: 64, size: 8, font: helv, color: ROJO });
 }
 
@@ -146,162 +155,195 @@ async function armarPdf(dte, sello, estado) {
   const em = dte.emisor || {};
   const rec = dte.receptor || dte.sujetoExcluido || {};
   const res = dte.resumen || {};
-  const items = dte.cuerpoDocumento || [];
+  const items = Array.isArray(dte.cuerpoDocumento) ? dte.cuerpoDocumento : (dte.cuerpoDocumento ? [dte.cuerpoDocumento] : []);
+  const esCCF = ["03", "05", "06"].includes(ident.tipoDte);
 
   const doc = await PDFDocument.create();
-  const pg = doc.addPage([ANCHO, ALTO]);
   const helv = await doc.embedFont(StandardFonts.Helvetica);
   const hebo = await doc.embedFont(StandardFonts.HelveticaBold);
-  const cour = await doc.embedFont(StandardFonts.Courier);
+  let pg = doc.addPage([ANCHO, ALTO]);
+  const paginas = [pg];
 
   const T = (y) => ALTO - y;
-  const ancho = (s, f, t) => f.widthOfTextAtSize(s || "", t);
-  const txt = (x, y, s, t = 8, f = helv, c = NEGRO) =>
+  const ancho = (s, f, t) => f.widthOfTextAtSize(String(s ?? ""), t);
+  const txt = (x, y, s, t = 9, f = helv, c = NEGRO) =>
     pg.drawText(String(s ?? ""), { x, y: T(y), size: t, font: f, color: c });
-  const txtR = (x, y, s, t = 8, f = helv, c = NEGRO) =>
-    txt(x - ancho(String(s ?? ""), f, t), y, s, t, f, c);
-  const txtC = (x, y, s, t = 8, f = helv, c = NEGRO) =>
-    txt(x - ancho(String(s ?? ""), f, t) / 2, y, s, t, f, c);
-  const caja = (x, y, w, h, relleno) =>
-    pg.drawRectangle({
-      x, y: T(y + h), width: w, height: h,
-      borderColor: LINEA, borderWidth: 0.6,
-      ...(relleno ? { color: relleno } : {}),
-    });
-
-  const envolver = (s, max, t = 7.5, f = helv) => {
+  const txtR = (x, y, s, t = 9, f = helv, c = NEGRO) => txt(x - ancho(s, f, t), y, s, t, f, c);
+  const linea = (x1, y, x2, g = 0.6, c = NEGRO) =>
+    pg.drawLine({ start: { x: x1, y: T(y) }, end: { x: x2, y: T(y) }, thickness: g, color: c });
+  const envolver = (s, max, t, f = helv) => {
     const out = [];
-    let linea = "";
-    for (const p of String(s || "").split(/\s+/).filter(Boolean)) {
-      const prueba = (linea + " " + p).trim();
-      if (ancho(prueba, f, t) > max) { if (linea) out.push(linea); linea = p; }
-      else linea = prueba;
+    let l = "";
+    for (let p of String(s || "").split(/\s+/).filter(Boolean)) {
+      const prueba = (l + " " + p).trim();
+      if (ancho(prueba, f, t) <= max) { l = prueba; continue; }
+      if (l) { out.push(l); l = ""; }
+      // Una sola palabra más ancha que la columna (el sello, un código): se
+      // corta por letras para que no se monte sobre el QR.
+      while (ancho(p, f, t) > max) {
+        let k = p.length - 1;
+        while (k > 1 && ancho(p.slice(0, k), f, t) > max) k--;
+        out.push(p.slice(0, k)); p = p.slice(k);
+      }
+      l = p;
     }
-    if (linea) out.push(linea);
+    if (l) out.push(l);
     return out;
   };
-
-  const direc = (x) => {
-    const d = x.direccion || {};
-    return [d.complemento || "", DEPTOS[d.departamento] || ""];
+  const dirTxt = (d) => {
+    if (!d) return "";
+    return [String(d.complemento || "").trim().replace(/,\s*$/, ""), DEPTOS[d.departamento] || ""].filter(Boolean).join(", ");
+  };
+  // Pares etiqueta/valor; devuelve la y siguiente.
+  const pares = (x, y, filas, wEt, t, paso, wMax) => {
+    for (const [et, val] of filas) {
+      if (!val) continue;
+      txt(x, y, et, t, hebo);
+      const ls = envolver(val, wMax - wEt, t);
+      ls.forEach((l, i) => txt(x + wEt, y + i * paso, l, t));
+      y += paso * Math.max(1, ls.length);
+    }
+    return y;
   };
 
-  // Encabezado
-  txtC(306, M + 8, "DOCUMENTO TRIBUTARIO ELECTRÓNICO", 13, hebo);
-  txtC(306, M + 22,
-    `${TIPOS[ident.tipoDte] || "DTE"}  ·  ${ident.ambiente === "01" ? "PRODUCCIÓN" : "PRUEBAS"}` +
-    `  ·  ${ident.fecEmi || ""} ${ident.horEmi || ""}  ·  USD`, 9, helv, GRIS);
+  // ── Encabezado ──
+  let y = M + 16;
+  const emNombre = em.nombreComercial || em.nombre || "";
+  envolver(emNombre, 320, 20, hebo).forEach((l, i) => txt(M, y + i * 22, l, 20, hebo));
+  const lineasEm = [
+    [em.nombreComercial && em.nombre !== em.nombreComercial ? em.nombre : "", em.nit && "NIT " + nitFmt(em.nit), em.nrc && "NRC " + em.nrc].filter(Boolean).join("   |   "),
+    em.descActividad || "",
+    dirTxt(em.direccion),
+    [em.telefono && "Tel. " + em.telefono, em.correo].filter(Boolean).join("   |   "),
+  ].filter(Boolean);
+  let ey = y + 18;
+  for (const l of lineasEm) for (const s of envolver(l, 330, 8.5)) { txt(M, ey, s, 8.5, helv, GRIS); ey += 11.3; }
+  const tt = envolver(TIPOS[ident.tipoDte] || "DOCUMENTO TRIBUTARIO", 210, 14, hebo);
+  tt.forEach((l, i) => txtR(M + W, y + i * 16, l, 14, hebo));
+  const ty0 = y + 16 * (tt.length - 1);
+  txtR(M + W, ty0 + 17, "DOCUMENTO TRIBUTARIO ELECTRÓNICO", 8.5);
+  txtR(M + W, ty0 + 34, `${fechaSV(ident.fecEmi)}   ${ident.horEmi || ""}`, 11, hebo);
+  if (ident.ambiente && ident.ambiente !== "01") txtR(M + W, ty0 + 49, "AMBIENTE DE PRUEBAS — SIN VALIDEZ", 9, hebo);
+  y = Math.max(ey, ty0 + 45) + 4;
+  linea(M, y, M + W, 2);
+  y += 22;
 
-  // Identificación + QR de la consulta pública
-  let y = M + 34;
-  caja(M, y, W * 0.63, 74);
-  caja(M + W * 0.63 + 6, y, W * 0.37 - 6, 74);
-  let iy = y;
-  for (const [et, val] of [
-    ["CÓDIGO DE GENERACIÓN", ident.codigoGeneracion],
-    ["NÚMERO DE CONTROL", ident.numeroControl],
-    ["SELLO DE RECEPCIÓN", sello],
-  ]) {
-    txt(M + 8, iy + 13, et, 6, helv, GRIS);
-    txt(M + 8, iy + 22, val || "—", 7.5, cour);
-    iy += 24;
-  }
-
+  // ── Receptor | datos del documento | QR ──
+  const y0 = y, QR = 80;
+  const docRec = rec.numDocumento
+    ? `${TIPO_DOC[rec.tipoDocumento] || "Doc."} ${rec.tipoDocumento === "36" ? nitFmt(rec.numDocumento) : rec.numDocumento}`
+    : (rec.nit ? "NIT " + nitFmt(rec.nit) : "");
+  txt(M, y, "FACTURADO A", 8, hebo, GRIS);
+  const ln = envolver(rec.nombre || "Consumidor final", 198, 13, hebo);
+  ln.forEach((l, i) => txt(M, y + 18 + i * 16, l, 13, hebo));
+  const ry = pares(M, y + 18 + 16 * ln.length + 2, [
+    ["Documento", docRec], ["NRC", rec.nrc], ["Actividad", rec.descActividad],
+    ["Dirección", dirTxt(rec.direccion)], ["Teléfono", rec.telefono], ["Correo", rec.correo],
+  ], 54, 9, 13, 198);
+  const dx = M + 212;
+  txt(dx, y, "DATOS DEL DOCUMENTO", 8, hebo, GRIS);
+  const pagos = (res.pagos || []).map((p) => PAGOS[p.codigo] || p.codigo).join(", ");
+  const dy = pares(dx, y + 17, [
+    ["Control", ident.numeroControl],
+    ["Generación", ident.codigoGeneracion],
+    ["Sello", sello],
+    ["Condición", `${CONDICION[res.condicionOperacion] || "Contado"}${pagos ? " — " + pagos : ""}`],
+    ["Modelo", `${ident.tipoModelo === 2 ? "Diferido" : "Previo"}, transmisión ${ident.tipoOperacion === 2 ? "contingencia" : "normal"}`],
+  ], 48, 8, 13.6, W - 212 - QR - 14);
   const url = "https://admin.factura.gob.sv/consultaPublica?ambiente=" +
     `${ident.ambiente}&codGen=${ident.codigoGeneracion}&fechaEmi=${ident.fecEmi}`;
   const qr = qrcode(0, "M");
   qr.addData(url);
   qr.make();
-  const n = qr.getModuleCount();
-  const lado = 54, px = lado / n;
-  const qx = M + W * 0.63 + 6 + (W * 0.37 - 6) / 2 - lado / 2;
-  const qy = y + 6;
+  const n = qr.getModuleCount(), px = QR / n, qx = M + W - QR, qy = y0 - 8;
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
       if (qr.isDark(r, c))
-        pg.drawRectangle({
-          x: qx + c * px, y: T(qy + r * px + px),
-          width: px + 0.2, height: px + 0.2, color: NEGRO,
-        });
-  txtC(qx + lado / 2, y + 69, "CONSULTA PÚBLICA MH", 6, helv, GRIS);
+        pg.drawRectangle({ x: qx + c * px, y: T(qy + r * px + px), width: px + 0.2, height: px + 0.2, color: NEGRO });
+  y = Math.max(ry, dy, y0 + QR - 6) + 8;
+  linea(M, y, M + W, 0.7);
+  y += 20;
 
-  // Emisor / receptor
-  y += 82;
-  const alto = 86, hw = (W - 6) / 2;
-  caja(M, y, hw, alto);
-  caja(M + hw + 6, y, hw, alto);
-  const bloque = (x, titulo, color, datos) => {
-    txt(x + 8, y + 13, titulo, 7.5, hebo, color);
-    let yy = y + 25;
-    for (const [s, f, t] of datos)
-      for (const l of envolver(s, hw - 16, t, f)) { txt(x + 8, yy, l, t, f); yy += 9; }
+  // ── Totales: se calculan antes para anclarlos al pie ──
+  const filasTot = [];
+  if (Number(res.totalNoSuj)) filasTot.push(["Ventas no sujetas", res.totalNoSuj]);
+  if (Number(res.totalExenta)) filasTot.push(["Ventas exentas", res.totalExenta]);
+  if (res.totalGravada != null) filasTot.push([esCCF ? "Ventas gravadas" : "Ventas gravadas (IVA incluido)", res.totalGravada]);
+  if (Number(res.totalDescu)) filasTot.push(["Descuentos", -res.totalDescu]);
+  if (esCCF) for (const t of res.tributos || []) filasTot.push([t.descripcion || "IVA 13%", t.valor]);
+  if (Number(res.ivaRete1)) filasTot.push(["(-) IVA retenido", -res.ivaRete1]);
+  if (Number(res.ivaPerci1)) filasTot.push(["(+) IVA percibido", res.ivaPerci1]);
+  if (Number(res.reteRenta)) filasTot.push(["(-) Retención de renta", -res.reteRenta]);
+  const notaIva = !esCCF && Number(res.totalIva) ? `IVA incluido en el total: ${$m(res.totalIva)}` : "";
+  const PIE = ALTO - 28;
+  const altoTot = 17 + filasTot.length * 16 + (notaIva ? 14 : 0) + 51;
+  const yTot = PIE - 23 - Math.max(altoTot, 100);
+
+  // ── Tabla de ítems ──
+  const hayDesc = items.some((i) => Number(i.montoDescu) > 0);
+  const cTot = M + W - 6, cDesc = hayDesc ? cTot - 82 : cTot, cPU = cDesc - (hayDesc ? 62 : 82);
+  const cUni = cPU - 128, cCant = cUni - 8, cDescr = M + 26;
+  const anchoDescr = cCant - 44 - cDescr;
+  const encabezado = () => {
+    linea(M, y, M + W, 1.4);
+    txt(M + 6, y + 14, "#", 8.5, hebo);
+    txt(cDescr, y + 14, "Descripción", 8.5, hebo);
+    txtR(cCant, y + 14, "Cant.", 8.5, hebo);
+    txt(cUni, y + 14, "Unidad", 8.5, hebo);
+    txtR(cPU, y + 14, "P. unitario", 8.5, hebo);
+    if (hayDesc) txtR(cDesc, y + 14, "Descuento", 8.5, hebo);
+    txtR(cTot, y + 14, esCCF ? "Venta gravada" : "Total", 8.5, hebo);
+    linea(M, y + 21, M + W, 1.4);
+    y += 21;
   };
-  const [dEm, dRec] = [direc(em), direc(rec)];
-  bloque(M, "EMISOR", VERDE, [
-    [em.nombreComercial || em.nombre, hebo, 8],
-    [em.nombre, helv, 7.5],
-    [`NIT: ${em.nit || ""}   NRC: ${em.nrc || ""}`, helv, 7.5],
-    [`Act: ${em.codActividad || ""} — ${em.descActividad || ""}`, helv, 7.5],
-    [dEm[0], helv, 7.5], [dEm[1], helv, 7.5],
-    [`Tel: ${em.telefono || ""}  |  ${em.correo || ""}`, helv, 7.5],
-  ]);
-  bloque(M + hw + 6, "RECEPTOR", AZUL, [
-    [rec.nombre, hebo, 8],
-    [`NIT: ${rec.nit || rec.numDocumento || ""}   NRC: ${rec.nrc || ""}`, helv, 7.5],
-    [`Act: ${rec.codActividad || ""} — ${rec.descActividad || ""}`, helv, 7.5],
-    [dRec[0], helv, 7.5], [dRec[1], helv, 7.5],
-    [rec.correo || "", helv, 7.5],
-  ]);
+  encabezado();
+  items.forEach((it, i) => {
+    const ls = envolver(it.descripcion, anchoDescr, 10);
+    const alto = ls.length * 12.5 + 15;
+    if (y + alto > PIE - 30) { pg = doc.addPage([ANCHO, ALTO]); paginas.push(pg); y = M; encabezado(); }
+    const by = y + 15;
+    txt(M + 6, by, String(i + 1), 10);
+    ls.forEach((l, k) => txt(cDescr, by + k * 12.5, l, 10));
+    txtR(cCant, by, Number(it.cantidad || 0).toLocaleString("en-US"), 10);
+    txt(cUni, by, UM[it.uniMedida] || String(it.uniMedida ?? ""), 10);
+    txtR(cPU, by, $m(it.precioUni), 10);
+    if (hayDesc) txtR(cDesc, by, $m(it.montoDescu), 10);
+    txtR(cTot, by, $m((Number(it.ventaGravada) || 0) + (Number(it.ventaExenta) || 0) + (Number(it.ventaNoSuj) || 0) + (Number(it.compra) || 0)), 10, hebo);
+    y += alto;
+    linea(M, y, M + W, 0.3, GRIS_RENGLON);
+  });
+  if (y > yTot - 28) { pg = doc.addPage([ANCHO, ALTO]); paginas.push(pg); y = M; }
+  else for (let r = y + 25.5; r < yTot - 23; r += 25.5) linea(M, r, M + W, 0.3, GRIS_RENGLON);
+  linea(M, yTot - 17, M + W, 1.4);
 
-  // Detalle
-  y += alto + 10;
-  const colCant = M + 8, colDesc = M + 52, colUni = M + W - 150, colTot = M + W - 8;
-  pg.drawRectangle({ x: M, y: T(y + 16), width: W, height: 16, color: FONDO });
-  txt(colCant, y + 11, "CANT.", 7, hebo, GRIS);
-  txt(colDesc, y + 11, "DESCRIPCIÓN", 7, hebo, GRIS);
-  txtR(colUni + 60, y + 11, "P. UNITARIO", 7, hebo, GRIS);
-  txtR(colTot, y + 11, "VENTA GRAVADA", 7, hebo, GRIS);
-  y += 16;
+  // ── Totales (derecha) ──
+  const tx0 = M + 306;
+  let ty = yTot + 3;
+  for (const [et, v] of filasTot) { txt(tx0, ty, et, 10); txtR(M + W, ty, $m(v), 10); ty += 16; }
+  if (notaIva) { txt(tx0, ty, notaIva, 8, helv, GRIS); ty += 14; }
+  ty += 3;
+  linea(tx0, ty, M + W, 1.4);
+  txt(tx0, ty + 21, "TOTAL A PAGAR", 15, hebo);
+  txtR(M + W, ty + 21, $m(res.totalPagar ?? res.montoTotalOperacion ?? res.totalCompra), 15, hebo);
+  linea(tx0, ty + 30, M + W, 0.85);
+  linea(tx0, ty + 34, M + W, 2);
 
-  for (const it of items) {
-    const lineas = envolver(it.descripcion, colUni - colDesc - 12, 7.5);
-    txt(colCant, y + 10, String(it.cantidad ?? ""), 7.5);
-    lineas.forEach((l, i) => txt(colDesc, y + 10 + i * 9, l, 7.5));
-    txtR(colUni + 60, y + 10, $(it.precioUni), 7.5);
-    txtR(colTot, y + 10, $(it.ventaGravada ?? it.ventaExenta ?? 0), 7.5);
-    y += Math.max(1, lineas.length) * 9 + 5;
-    pg.drawLine({
-      start: { x: M, y: T(y) }, end: { x: M + W, y: T(y) },
-      thickness: 0.4, color: LINEA,
-    });
-  }
-
-  // Totales
-  y += 10;
-  const iva = (res.tributos || []).reduce((s, t) => s + (Number(t.valor) || 0), 0);
-  const filas = [
-    ["Suma de operaciones", res.subTotalVentas ?? res.totalGravada],
-    ["IVA 13%", iva],
-    ...(Number(res.ivaRete1) ? [["IVA retenido 1%", -res.ivaRete1]] : []),
-    ...(Number(res.reteRenta) ? [["Retención renta", -res.reteRenta]] : []),
-  ];
-  for (const [et, val] of filas) {
-    txtR(colUni + 60, y + 8, et, 7.5, helv, GRIS);
-    txtR(colTot, y + 8, $(val), 7.5);
-    y += 12;
-  }
-  pg.drawRectangle({ x: colUni - 60, y: T(y + 20), width: M + W - (colUni - 60), height: 20, color: FONDO });
-  txtR(colUni + 60, y + 14, "TOTAL A PAGAR", 9, hebo);
-  txtR(colTot, y + 14, $(res.totalPagar ?? res.montoTotalOperacion), 10, hebo);
-  y += 26;
-  txt(M, y + 8, res.totalLetras || "", 7.5, helv, GRIS);
+  // ── Letras y recibido (izquierda) ──
+  txt(M, yTot + 3, "SON:", 8, hebo, GRIS);
+  const lt = envolver(res.totalLetras || "", 278, 11, hebo);
+  lt.forEach((l, i) => txt(M, yTot + 19 + i * 14, l, 11, hebo));
+  const fy = Math.max(yTot + 19 + 14 * lt.length + 34, ty + 28);
+  pg.drawLine({ start: { x: M, y: T(fy) }, end: { x: M + 255, y: T(fy) }, thickness: 0.7, color: NEGRO, dashArray: [3, 3] });
+  txt(M, fy + 11, "Recibido por: nombre, firma y sello", 8);
 
   if (/^(INVALIDAD|ANULAD)/i.test(estado || "")) marcaInvalidado(pg, helv, hebo, estado);
 
-  // Pie
-  txtC(306, ALTO - M - 14,
-    "Este documento es una representación gráfica del DTE. Verificalo en la consulta pública del Ministerio de Hacienda.",
-    6.5, helv, GRIS);
+  // ── Pie en todas las hojas ──
+  paginas.forEach((p, i) => {
+    pg = p;
+    txt(M, PIE, "Representación gráfica del DTE. Verifíquelo en admin.factura.gob.sv/consultaPublica o con el código QR.", 7.5, helv, GRIS);
+    txtR(M + W, PIE, `Pág. ${i + 1}/${paginas.length}`, 7.5, helv, GRIS);
+  });
 
   return await doc.save();
 }
