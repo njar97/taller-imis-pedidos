@@ -14,6 +14,7 @@ import { subirFotoSupabase } from "./supabaseStorage.js";
 import { comprimirImagen } from "./lib/imagenes.js";
 import { pushToast, pushConfirm } from "./lib/feedback.js";
 import SeccionProveedores from "./SeccionProveedores.jsx";
+import SeccionMaquinas from "./SeccionMaquinas.jsx";
 
 import { useState, useEffect, useRef } from "react";
 
@@ -313,7 +314,7 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
   const [editando, setEditando] = useState(null); // item | "nuevo" | null
   const [pendientes, setPendientes] = useState([]); // facturas empujadas por dte_web
   const [mostrarPendientes, setMostrarPendientes] = useState(false);
-  const [vista, setVista] = useState("inventario"); // "inventario" | "proveedores"
+  const [vista, setVista] = useState("inventario"); // "inventario" | "proveedores" | "maquinas"
 
   // Cargar desde Supabase en mount. Solo si el state local está vacío
   // (evita re-fetch cuando volvés a entrar a la sección).
@@ -463,8 +464,8 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
   // Pestañas: el inventario (ítems del DTE) y el directorio de proveedores
   // comparten apartado porque el proveedor ya es un campo de cada ítem.
   const tabs = (
-    <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-      {[["inventario", "📦 Inventario"], ["proveedores", "🏭 Proveedores"]].map(([k, label]) => {
+    <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+      {[["inventario", "📦 Inventario"], ["proveedores", "🏭 Proveedores"], ["maquinas", "🛠️ Máquinas"]].map(([k, label]) => {
         const on = vista === k;
         return (
           <button key={k} onClick={() => setVista(k)}
@@ -476,6 +477,15 @@ export default function SeccionInventario({ pedidos, inventario, setInventario, 
       })}
     </div>
   );
+
+  if (vista === "maquinas") {
+    return (
+      <div style={{ flex: 1, overflow: "auto", padding: 16 }} className="main-area">
+        {tabs}
+        <SeccionMaquinas />
+      </div>
+    );
+  }
 
   if (vista === "proveedores") {
     return (
