@@ -11,6 +11,7 @@ beforeAll(() => {
     pushState(st) { entradas.splice(pos + 1); entradas.push(st); pos++; },
     back() { setTimeout(() => { if (pos > 0) { pos--; oyentes.forEach(f => f()); } }, 1); },
   };
+  globalThis.window.history = globalThis.history;
 });
 const atras = async () => { history.back(); await tick(); };
 

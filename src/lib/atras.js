@@ -11,7 +11,7 @@ let escuchando = false;
 
 function empujar() {
   if (ignorar > 0) { pendientes++; return; }
-  try { history.pushState({ atras: pila.length }, ""); } catch { /* sin historial */ }
+  try { window.history.pushState({ atras: pila.length }, ""); } catch { /* sin historial */ }
 }
 
 function alVolver() {
@@ -43,7 +43,7 @@ export function abrirNivel(cerrar) {
     pila.splice(i, 1);
     if (pendientes > 0) { pendientes--; return; }
     ignorar++;
-    history.back();
+    window.history.back();
   };
 }
 
