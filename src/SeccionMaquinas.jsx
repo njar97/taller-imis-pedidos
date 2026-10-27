@@ -61,7 +61,7 @@ function CampoFoto({ label, url, codigo, onCambio }) {
   return (
     <div>
       <label style={LBL}>{label}</label>
-      <label style={{ display: "block", border: "1.5px dashed #ccc", borderRadius: 10, height: 120, overflow: "hidden", cursor: "pointer",
+      <label className={url ? "no-invert" : undefined} style={{ display: "block", border: "1.5px dashed #ccc", borderRadius: 10, height: 120, overflow: "hidden", cursor: "pointer",
         background: url ? `#000 url("${url}") center/contain no-repeat` : "#FAFAFA", position: "relative" }}>
         {!url && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#aaa", fontSize: 13 }}>
           {subiendo ? "⏳ Subiendo..." : "📷 Tomar o elegir foto"}</span>}
@@ -243,7 +243,7 @@ function FichaMaquina({ m, onEditar, onCerrar, onCambio }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
           {[m.fotoUrl, m.fotoPlacaUrl].map((u, i) => (
-            <div key={i} onClick={() => u && setVerFoto(u)}
+            <div key={i} className={u ? "no-invert" : undefined} onClick={() => u && setVerFoto(u)}
               style={{ height: 150, borderRadius: 10, background: u ? `#111 url("${u}") center/contain no-repeat` : "#f4f4f4",
                 display: "flex", alignItems: "center", justifyContent: "center", color: "#bbb", fontSize: 12, cursor: u ? "zoom-in" : "default" }}>
               {!u && (i === 0 ? "Sin foto" : "Falta foto de la placa")}
@@ -291,7 +291,7 @@ function FichaMaquina({ m, onEditar, onCerrar, onCambio }) {
       </div>
       {nuevoEv && <FormEvento maquina={m} onGuardar={guardarEv} onCerrar={() => setNuevoEv(false)} />}
       {verFoto && (
-        <div onClick={(e) => { e.stopPropagation(); setVerFoto(null); }}
+        <div className="no-invert" onClick={(e) => { e.stopPropagation(); setVerFoto(null); }}
           style={{ position: "fixed", inset: 0, zIndex: 1200, background: `rgba(0,0,0,.92) url("${verFoto}") center/contain no-repeat`, cursor: "zoom-out" }} />
       )}
     </div>
@@ -328,7 +328,7 @@ function TarjetaMaquina({ m, onAbrir }) {
     <button onClick={() => onAbrir(m)}
       style={{ textAlign: "left", background: "#fff", borderRadius: 12, padding: 0, border: "1px solid #eee", boxShadow: "0 1px 3px rgba(0,0,0,.05)",
         cursor: "pointer", fontFamily: "inherit", overflow: "hidden", display: "flex" }}>
-      <div style={{ width: 92, minHeight: 92, flexShrink: 0, background: m.fotoUrl ? `#111 url("${m.fotoUrl}") center/cover` : "#f2f2f2",
+      <div className={m.fotoUrl ? "no-invert" : undefined} style={{ width: 92, minHeight: 92, flexShrink: 0, background: m.fotoUrl ? `#111 url("${m.fotoUrl}") center/cover` : "#f2f2f2",
         display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{!m.fotoUrl && "🛠️"}</div>
       <div style={{ flex: 1, minWidth: 0, padding: "8px 10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
