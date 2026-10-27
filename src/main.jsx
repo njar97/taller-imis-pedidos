@@ -1,4 +1,5 @@
 ﻿
+import { useAtras } from "./lib/atras.js";
 import {
   lazy,
   Suspense,
@@ -500,6 +501,22 @@ function App() {
   const esAdmin = rolBase === "admin";
   // Carga inicial de todos los datos. Lógica extraída a useCargarDatos.js.
   useCargarDatos(rolBase, rol, { setPedidos, setNextId, setBordados, setNextBordId, setCuellos, setNextCuelId, setClientes, setCatalogo, setSync, setSec });
+
+  // Botón atrás del celular: cierra la ventana de arriba; si no hay ninguna,
+  // vuelve a la pantalla de inicio. Recién ahí sale de la app.
+  const seccionInicio = (rol || "").startsWith("operario_") ? rol.slice(9) : "pedidos";
+  useAtras(!!rol && seccion !== seccionInicio, () => setSec(seccionInicio));
+  useAtras(masOpen, () => setMasOpen(false));
+  useAtras(!!detalle, () => setDet(null));
+  useAtras(!!modal, () => (cancelarFormRef.current ? cancelarFormRef.current() : setModal(null)));
+  useAtras(!!visor, () => setVisor(null));
+  useAtras(modalIA, () => setModalIA(false));
+  useAtras(modalEstimador, () => { setModalEstimador(false); setCotizacionEnEstimador(null); });
+  useAtras(!!pedidoVerVersiones, () => setPedidoVerVersiones(null));
+  useAtras(!!cotEnviarEmail, () => setCotEnviarEmail(null));
+  useAtras(!!modalArchivar, () => setModalArchivar(null));
+  useAtras(!!modalActMedidas, () => setModalActMedidas(null));
+  useAtras(!!confirmar, () => setConf(null));
 
   // Realtime: cuando otro dispositivo cambia algo en Postgres, refrescamos
   // sólo la tabla afectada. Lógica extraída a useRealtime.js.
