@@ -4,6 +4,7 @@
 // arma el mensaje con las que fallan o están paradas.
 
 import { useState, useEffect } from "react";
+import { useAtras } from "./lib/atras.js";
 import {
   ESTADOS_MAQ, estadoInfo, leerMaquinas, guardarMaquina, borrarMaquina,
   leerEventos, guardarEvento, borrarEvento, filtrarMaquinas, siguienteCodigo,
@@ -209,6 +210,8 @@ function FichaMaquina({ m, onEditar, onCerrar, onCambio }) {
   const [eventos, setEventos] = useState(null);
   const [nuevoEv, setNuevoEv] = useState(false);
   const [verFoto, setVerFoto] = useState(null);
+  useAtras(nuevoEv, () => setNuevoEv(false));
+  useAtras(!!verFoto, () => setVerFoto(null));
   useEffect(() => { leerEventos(m.id).then(setEventos); }, [m.id]);
 
   const guardarEv = async (ev) => {
@@ -355,6 +358,9 @@ export default function SeccionMaquinas() {
   const [abierta, setAbierta] = useState(null);
   const [editando, setEditando] = useState(null); // máquina | "nueva" | null
   const [verLista, setVerLista] = useState(false);
+  useAtras(!!abierta, () => setAbierta(null));
+  useAtras(!!editando, () => setEditando(null));
+  useAtras(verLista, () => setVerLista(false));
 
   useEffect(() => {
     let vivo = true;
